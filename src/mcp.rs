@@ -4,7 +4,7 @@ use axum::{
     http::{HeaderMap, Request, StatusCode, Uri},
     middleware::{self, Next},
     response::Response,
-    routing::get,
+    routing::post,
 };
 use serde_json::{Value, json};
 
@@ -47,17 +47,15 @@ async fn rewrite_mcp_path(
 
 pub fn router() -> Router {
     Router::new()
-        .route(
-            "/tools/call/search",
-            get(|| async { "Handled inside /mcp sub-router!" }),
-        )
+        .route("/tools/call/echo", post(echo))
+        .route("/tools/list", post(list_tools))
         .layer(middleware::from_fn(rewrite_mcp_path))
 }
 
-pub async fn list_tools(Json(params): Json<Value>) -> Json<Value> {
+pub async fn list_tools(Json(_params): Json<Value>) -> Json<Value> {
     Json(json!({"result": "ok"}))
 }
 
-pub async fn echo(Json(value): Json<Value>) -> Json<Value> {
+pub async fn echo(Json(_params): Json<Value>) -> Json<Value> {
     Json(json!({"result": "ok"}))
 }

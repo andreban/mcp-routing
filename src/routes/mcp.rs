@@ -7,6 +7,7 @@ use axum::{
     routing::post,
 };
 use serde_json::{Value, json};
+use tracing::{debug, error, info};
 
 use crate::mcp::{JsonRpcRequest, JsonRpcResultResponse, default_jsonrpc};
 
@@ -22,29 +23,31 @@ async fn rewrite_mcp_path(
         let method = headers.get("Mcp-Method").and_then(|v| v.to_str().ok());
         let name = headers.get("Mcp-Name").and_then(|v| v.to_str().ok());
 
-        if let Some(method) = method {
-            let method = method.trim_matches('/');
-            let new_path = match name {
-                Some(name) => {
-                    let name = name.trim_matches('/');
-                    format!("/{method}/{name}")
-                }
-                None => format!("/{method}"),
-            };
-
-            let new_uri_str = match req.uri().query() {
-                Some(query) => format!("{new_path}?{query}"),
-                None => new_path,
-            };
-
-            if let Ok(new_uri) = new_uri_str.parse::<Uri>() {
-                *req.uri_mut() = new_uri;
-            } else {
-                return Err(StatusCode::BAD_REQUEST);
-            }
-        } else {
+        let Some(method) = method else {
+            debug!("Invalid MCP request. Missing 'Mcp-Method' header");
             return Err(StatusCode::BAD_REQUEST);
-        }
+        };
+
+        let method = method.trim_matches('/');
+        let new_path = match name {
+            Some(name) => {
+                let name = name.trim_matches('/');
+                format!("/{method}/{name}")
+            }
+            None => format!("/{method}"),
+        };
+
+        let new_uri_str = match req.uri().query() {
+            Some(query) => format!("{new_path}?{query}"),
+            None => new_path,
+        };
+
+        let Ok(new_uri) = new_uri_str.parse::<Uri>() else {
+            error!(new_uri_str, "Generated invalid Uri");
+            return Err(StatusCode::BAD_REQUEST);
+        };
+        info!(?new_uri, "Forwarding MCP request");
+        *req.uri_mut() = new_uri;
     }
 
     Ok(next.run(req).await)
@@ -60,11 +63,16 @@ pub fn router() -> Router {
         .layer(middleware::from_fn(rewrite_mcp_path))
 }
 
-pub async fn list_tools(Json(request): Json<JsonRpcRequest>) -> Json<JsonRpcResultResponse<()>> {
+pub async fn list_tools(Json(request): Json<JsonRpcRequest>) -> Json<JsonRpcResultResponse<Value>> {
     Json(JsonRpcResultResponse {
         id: request.id,
         jsonrpc: default_jsonrpc(),
-        result: (),
+        result: json!({
+            "resultType": "complete",
+            "tools": [],
+            "ttlMs": 0,
+            "cacheScope": "public",
+        }),
     })
 }
 
@@ -87,7 +95,9 @@ mod tests {
             .uri("/")
             .header("Mcp-Method", "tools/list")
             .header("Content-Type", "application/json")
-            .body(Body::from(json!({"id": 1, "method": "tools/list"}).to_string()))
+            .body(Body::from(
+                json!({"id": 1, "method": "tools/list"}).to_string(),
+            ))
             .unwrap();
 
         let response = app.oneshot(request).await.unwrap();
@@ -103,7 +113,9 @@ mod tests {
             .header("Mcp-Method", "tools/call")
             .header("Mcp-Name", "echo")
             .header("Content-Type", "application/json")
-            .body(Body::from(json!({"id": 1, "method": "tools/call/echo"}).to_string()))
+            .body(Body::from(
+                json!({"id": 1, "method": "tools/call/echo"}).to_string(),
+            ))
             .unwrap();
 
         let response = app.oneshot(request).await.unwrap();

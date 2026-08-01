@@ -3,6 +3,10 @@ use std::error::Error;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
+    tracing_subscriber::fmt()
+        .with_max_level(tracing::Level::DEBUG)
+        .init();
+
     let app = routes::router();
 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:3000").await?;

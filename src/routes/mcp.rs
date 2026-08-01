@@ -1,31 +1,52 @@
+use std::convert::Infallible;
+use std::sync::LazyLock;
+
 use axum::{
     Json, Router,
     body::Body,
-    http::{HeaderMap, Request, StatusCode, Uri},
-    middleware::{self, Next},
-    response::Response,
+    debug_handler,
+    http::{HeaderMap, Request, Response, StatusCode, Uri},
+    response::IntoResponse,
     routing::post,
 };
 use serde_json::{Value, json};
+use tower_service::Service;
 use tracing::{debug, error, info};
 
 use crate::mcp::{JsonRpcRequest, JsonRpcResultResponse, default_jsonrpc};
 
-async fn rewrite_mcp_path(
+static DISPATCHER: LazyLock<Router> = LazyLock::new(|| {
+    Router::new()
+        .route("/tools/call/echo", post(echo))
+        .route("/tools/list", post(list_tools))
+        .route("/server/discover", post(server_discover))
+});
+
+pub fn router() -> Router {
+    Router::new().route("/", post(mcp_dispatcher))
+}
+
+// NOTE: We use `mcp_dispatcher` with an internal static `DISPATCHER` router service
+// instead of Axum middleware (`axum::middleware::from_fn`).
+// In Axum, route matching happens BEFORE route middleware runs. If middleware mutates
+// `*req.uri_mut()`, Axum will NOT re-evaluate top-level route matching.
+// Therefore, we manually rewrite the request URI based on the `Mcp-Method` / `Mcp-Name`
+// headers and dispatch directly to `DISPATCHER.clone().call(req).await`.
+#[debug_handler]
+pub async fn mcp_dispatcher(
     headers: HeaderMap,
     mut req: Request<Body>,
-    next: Next,
-) -> Result<Response, StatusCode> {
-    // Because of .nest("/mcp", ...), req.uri().path() is relative to /mcp (e.g., "/" or "")
+) -> Result<Response<Body>, Infallible> {
+    debug!(?req, "MCP Dispatcher");
     let path = req.uri().path();
-
     if path == "/" || path.is_empty() {
+        debug!("Handling /mcp request");
         let method = headers.get("Mcp-Method").and_then(|v| v.to_str().ok());
         let name = headers.get("Mcp-Name").and_then(|v| v.to_str().ok());
 
         let Some(method) = method else {
             debug!("Invalid MCP request. Missing 'Mcp-Method' header");
-            return Err(StatusCode::BAD_REQUEST);
+            return Ok(StatusCode::BAD_REQUEST.into_response());
         };
 
         let method = method.trim_matches('/');
@@ -44,23 +65,12 @@ async fn rewrite_mcp_path(
 
         let Ok(new_uri) = new_uri_str.parse::<Uri>() else {
             error!(new_uri_str, "Generated invalid Uri");
-            return Err(StatusCode::BAD_REQUEST);
+            return Ok(StatusCode::BAD_REQUEST.into_response());
         };
         info!(?new_uri, "Forwarding MCP request");
         *req.uri_mut() = new_uri;
     }
-
-    Ok(next.run(req).await)
-}
-
-async fn noop() {}
-
-pub fn router() -> Router {
-    Router::new()
-        .route("/tools/call/echo", post(echo))
-        .route("/tools/list", post(list_tools))
-        .route("/", post(noop))
-        .layer(middleware::from_fn(rewrite_mcp_path))
+    DISPATCHER.clone().call(req).await
 }
 
 pub async fn list_tools(Json(request): Json<JsonRpcRequest>) -> Json<JsonRpcResultResponse<Value>> {
@@ -69,15 +79,68 @@ pub async fn list_tools(Json(request): Json<JsonRpcRequest>) -> Json<JsonRpcResu
         jsonrpc: default_jsonrpc(),
         result: json!({
             "resultType": "complete",
-            "tools": [],
+            "tools": [{
+                "name": "echo",
+                "title": "Echo",
+                "description": "Echoes the value back to the client",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "value": {
+                            "type": "string",
+                            "description": "The value to be echoed",
+                        }
+                    },
+                    "required": ["value"],
+                },
+            }],
             "ttlMs": 0,
             "cacheScope": "public",
         }),
     })
 }
 
-pub async fn echo(Json(_params): Json<JsonRpcRequest<Value>>) -> Json<Value> {
-    Json(json!({"result": "ok"}))
+#[debug_handler]
+pub async fn server_discover(
+    Json(request): Json<JsonRpcRequest>,
+) -> Json<JsonRpcResultResponse<Value>> {
+    debug!(?request, "Received server/discover request");
+    Json(JsonRpcResultResponse {
+        id: request.id,
+        jsonrpc: default_jsonrpc(),
+        result: json!({
+            "resultType": "complete",
+            "supportedVersions": ["2026-07-28"],
+            "capabilities": {
+                "tools": {}
+            },
+            "_meta": {
+              "io.modelcontextprotocol/serverInfo": {
+                "name": "mcp-routing server",
+                "version": "0.1.0"
+              }
+            },
+            "instructions": "Example server",
+            "ttlMs": 0,
+            "cacheScope": "public"
+        }),
+    })
+}
+
+pub async fn echo(
+    Json(request): Json<JsonRpcRequest<Value>>,
+) -> Json<JsonRpcResultResponse<Value>> {
+    Json(JsonRpcResultResponse {
+        id: request.id,
+        jsonrpc: default_jsonrpc(),
+        result: json!({
+            "resultType": "complete",
+            "content": [{
+                "type": "text",
+                "text": "Hello"
+            }],
+        }),
+    })
 }
 
 #[cfg(test)]
@@ -115,6 +178,23 @@ mod tests {
             .header("Content-Type", "application/json")
             .body(Body::from(
                 json!({"id": 1, "method": "tools/call/echo"}).to_string(),
+            ))
+            .unwrap();
+
+        let response = app.oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_header_routing_server_discover() {
+        let app = router();
+        let request = Request::builder()
+            .method("POST")
+            .uri("/")
+            .header("Mcp-Method", "server/discover")
+            .header("Content-Type", "application/json")
+            .body(Body::from(
+                json!({"id": 1, "method": "server/discover"}).to_string(),
             ))
             .unwrap();
 

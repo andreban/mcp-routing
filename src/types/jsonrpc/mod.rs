@@ -12,7 +12,7 @@ pub use response::{JsonRpcErrorResponse, JsonRpcResponse, JsonRpcResultResponse}
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum JsonRpcId {
+pub enum JsonRpcRequestId {
     String(String),
     Number(f64),
 }

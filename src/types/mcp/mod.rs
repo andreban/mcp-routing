@@ -91,7 +91,7 @@ pub struct Implementation {
     /// Clients that support rendering icons SHOULD also support:
     ///  - image/svg+xml - SVG images (scalable but requires security precautions)
     ///  - image/webp - WebP images (modern, efficient format)
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub icons: Vec<Icon>,
     /// Intended for programmatic or logical use, but used as a display name in past specs or
     /// fallback (if title isn’t present).
@@ -149,6 +149,24 @@ pub struct SamplingCapability {}
 #[serde(rename_all = "camelCase")]
 pub struct ElicitationCapability {}
 
+/// An object containing metadata for a result.
+///
+/// See https://modelcontextprotocol.io/specification/2026-07-28/schema#resultmetaobject
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ResultMetaObject {
+    /// Identifies the server software producing the response.
+    /// Servers SHOULD include this field on every response unless specifically configured not to do so.
+    #[serde(
+        rename = "io.modelcontextprotocol/serverInfo",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub server_info: Option<Implementation>,
+    /// Additional metadata properties.
+    #[serde(flatten, skip_serializing_if = "HashMap::is_empty")]
+    pub extra: HashMap<String, Value>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -167,5 +185,27 @@ mod tests {
 
         let reserialized = serde_json::to_value(&caps).unwrap();
         assert!(reserialized.get("sampling").is_some());
+    }
+
+    #[test]
+    fn test_result_meta_object_serde() {
+        let json_data = serde_json::json!({
+            "io.modelcontextprotocol/serverInfo": {
+                "name": "test-server",
+                "version": "1.0.0"
+            },
+            "custom/meta": "value"
+        });
+
+        let meta: ResultMetaObject = serde_json::from_value(json_data).unwrap();
+        assert_eq!(meta.server_info.as_ref().unwrap().name, "test-server");
+        assert_eq!(meta.extra.get("custom/meta").unwrap(), "value");
+
+        let reserialized = serde_json::to_value(&meta).unwrap();
+        assert_eq!(
+            reserialized["io.modelcontextprotocol/serverInfo"]["name"],
+            "test-server"
+        );
+        assert_eq!(reserialized["custom/meta"], "value");
     }
 }

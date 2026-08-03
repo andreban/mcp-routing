@@ -1,6 +1,7 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, collections::HashMap};
 
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 pub mod tools;
 
@@ -114,4 +115,57 @@ pub struct Implementation {
     /// An optional URL of the website for this implementation.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub website_url: Option<String>,
+}
+
+/// Capabilities a client may support. Known capabilities are defined here, in this schema,
+/// but this is not a closed set: any client can define its own, additional capabilities.
+///
+/// See https://modelcontextprotocol.io/specification/2026-07-28/schema#clientcapabilities
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClientCapabilities {
+    /// Experimental, non-standard capabilities that the client supports.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub experimental: Option<HashMap<String, Value>>,
+    /// Present if the client supports sampling LLM completions from the server.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sampling: Option<SamplingCapability>,
+    /// Present if the client supports server-driven elicitation.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub elicitation: Option<ElicitationCapability>,
+}
+
+/// Capability configuration for sampling LLM completions.
+///
+/// See https://modelcontextprotocol.io/specification/2026-07-28/schema#clientcapabilities
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SamplingCapability {}
+
+/// Capability configuration for server-driven elicitation.
+///
+/// See https://modelcontextprotocol.io/specification/2026-07-28/schema#clientcapabilities
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ElicitationCapability {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_client_capabilities_serde() {
+        let json_data = serde_json::json!({
+            "sampling": {},
+            "elicitation": {}
+        });
+
+        let caps: ClientCapabilities = serde_json::from_value(json_data).unwrap();
+        assert!(caps.sampling.is_some());
+        assert!(caps.elicitation.is_some());
+        assert!(caps.experimental.is_none());
+
+        let reserialized = serde_json::to_value(&caps).unwrap();
+        assert!(reserialized.get("sampling").is_some());
+    }
 }

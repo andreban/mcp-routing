@@ -13,7 +13,7 @@ use serde_json::{Value, json};
 use tower_service::Service;
 use tracing::{debug, error, info};
 
-use crate::mcp::{JsonRpcRequest, JsonRpcResultResponse, default_jsonrpc};
+use crate::types::jsonrpc::{JsonRpcRequest, JsonRpcResultResponse};
 
 static DISPATCHER: LazyLock<Router> = LazyLock::new(|| {
     Router::new()
@@ -74,10 +74,9 @@ pub async fn mcp_dispatcher(
 }
 
 pub async fn list_tools(Json(request): Json<JsonRpcRequest>) -> Json<JsonRpcResultResponse<Value>> {
-    Json(JsonRpcResultResponse {
-        id: request.id,
-        jsonrpc: default_jsonrpc(),
-        result: json!({
+    Json(JsonRpcResultResponse::new(
+        request.id,
+        json!({
             "resultType": "complete",
             "tools": [{
                 "name": "echo",
@@ -97,7 +96,7 @@ pub async fn list_tools(Json(request): Json<JsonRpcRequest>) -> Json<JsonRpcResu
             "ttlMs": 0,
             "cacheScope": "public",
         }),
-    })
+    ))
 }
 
 #[debug_handler]
@@ -105,10 +104,9 @@ pub async fn server_discover(
     Json(request): Json<JsonRpcRequest>,
 ) -> Json<JsonRpcResultResponse<Value>> {
     debug!(?request, "Received server/discover request");
-    Json(JsonRpcResultResponse {
-        id: request.id,
-        jsonrpc: default_jsonrpc(),
-        result: json!({
+    Json(JsonRpcResultResponse::new(
+        request.id,
+        json!({
             "resultType": "complete",
             "supportedVersions": ["2026-07-28"],
             "capabilities": {
@@ -124,23 +122,22 @@ pub async fn server_discover(
             "ttlMs": 0,
             "cacheScope": "public"
         }),
-    })
+    ))
 }
 
 pub async fn echo(
     Json(request): Json<JsonRpcRequest<Value>>,
 ) -> Json<JsonRpcResultResponse<Value>> {
-    Json(JsonRpcResultResponse {
-        id: request.id,
-        jsonrpc: default_jsonrpc(),
-        result: json!({
+    Json(JsonRpcResultResponse::new(
+        request.id,
+        json!({
             "resultType": "complete",
             "content": [{
                 "type": "text",
                 "text": "Hello"
             }],
         }),
-    })
+    ))
 }
 
 #[cfg(test)]

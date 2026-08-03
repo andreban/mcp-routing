@@ -1,2 +1,2 @@
-pub mod mcp;
+pub mod types;
 pub mod routes;

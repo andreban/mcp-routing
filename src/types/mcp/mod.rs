@@ -3,7 +3,7 @@ use std::{borrow::Cow, collections::HashMap};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-pub mod discover;
+pub mod server;
 pub mod tools;
 
 /// A progress token, used to associate progress notifications with the original request.

@@ -17,7 +17,9 @@ use tracing::{debug, error, info};
 use crate::types::mcp::{
     CacheScope, ContentBlock, Implementation, ResultMetaObject, ServerCapabilities, TextContent,
     ToolsCapability,
-    discover::{ServerDiscoverRequest, ServerDiscoverResult, ServerDiscoverResultResponse},
+    server::discover::{
+        ServerDiscoverRequest, ServerDiscoverResult, ServerDiscoverResultResponse,
+    },
     tools::{
         Tool,
         call::{CallToolRequest, CallToolResult, CallToolResultResponse},

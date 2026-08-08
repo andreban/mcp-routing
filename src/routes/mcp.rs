@@ -10,13 +10,14 @@ use axum::{
     response::IntoResponse,
     routing::post,
 };
-use serde_json::{Value, json};
+use serde_json::json;
 use tower_service::Service;
 use tracing::{debug, error, info};
 
-use crate::types::jsonrpc::{JsonRpcRequest, JsonRpcResultResponse};
 use crate::types::mcp::{
-    CacheScope, ContentBlock, TextContent,
+    CacheScope, ContentBlock, Implementation, ResultMetaObject, ServerCapabilities, TextContent,
+    ToolsCapability,
+    discover::{ServerDiscoverRequest, ServerDiscoverResult, ServerDiscoverResultResponse},
     tools::{
         Tool,
         call::{CallToolRequest, CallToolResult, CallToolResultResponse},
@@ -82,9 +83,7 @@ pub async fn mcp_dispatcher(
     DISPATCHER.clone().call(req).await
 }
 
-pub async fn list_tools(
-    Json(request): Json<ListToolsRequest>,
-) -> Json<ListToolsResultResponse> {
+pub async fn list_tools(Json(request): Json<ListToolsRequest>) -> Json<ListToolsResultResponse> {
     Json(ListToolsResultResponse::new(
         request.id,
         ListToolsResult {
@@ -119,33 +118,41 @@ pub async fn list_tools(
 
 #[debug_handler]
 pub async fn server_discover(
-    Json(request): Json<JsonRpcRequest>,
-) -> Json<JsonRpcResultResponse<Value>> {
+    Json(request): Json<ServerDiscoverRequest>,
+) -> Json<ServerDiscoverResultResponse> {
     debug!(?request, "Received server/discover request");
-    Json(JsonRpcResultResponse::new(
+    Json(ServerDiscoverResultResponse::new(
         request.id,
-        json!({
-            "resultType": "complete",
-            "supportedVersions": ["2026-07-28"],
-            "capabilities": {
-                "tools": {}
+        ServerDiscoverResult {
+            meta: Some(ResultMetaObject {
+                server_info: Some(Implementation {
+                    icons: vec![],
+                    name: "mcp-routing server".to_string(),
+                    title: None,
+                    version: "0.1.0".to_string(),
+                    description: None,
+                    website_url: None,
+                }),
+                extra: HashMap::new(),
+            }),
+            result_type: Some("complete".to_string()),
+            supported_versions: vec!["2026-07-28".to_string()],
+            capabilities: ServerCapabilities {
+                tools: Some(ToolsCapability { list_changed: None }),
+                resources: None,
+                prompts: None,
+                completions: None,
+                experimental: None,
             },
-            "_meta": {
-              "io.modelcontextprotocol/serverInfo": {
-                "name": "mcp-routing server",
-                "version": "0.1.0"
-              }
-            },
-            "instructions": "Example server",
-            "ttlMs": 0,
-            "cacheScope": "public"
-        }),
+            instructions: Some("Example server".to_string()),
+            ttl_ms: Some(0),
+            cache_scope: Some(CacheScope::Public),
+            extras: HashMap::new(),
+        },
     ))
 }
 
-pub async fn echo(
-    Json(request): Json<CallToolRequest>,
-) -> Json<CallToolResultResponse> {
+pub async fn echo(Json(request): Json<CallToolRequest>) -> Json<CallToolResultResponse> {
     let value = request
         .params
         .as_ref()

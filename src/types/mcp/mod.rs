@@ -3,6 +3,7 @@ use std::{borrow::Cow, collections::HashMap};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+pub mod discover;
 pub mod tools;
 
 /// A progress token, used to associate progress notifications with the original request.
@@ -148,6 +149,73 @@ pub struct SamplingCapability {}
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ElicitationCapability {}
+
+/// Capabilities a server may support. Known capabilities are defined here, in this schema,
+/// but this is not a closed set: any server can define its own, additional capabilities.
+///
+/// See https://modelcontextprotocol.io/specification/2026-07-28/schema#servercapabilities
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ServerCapabilities {
+    /// Present if the server supports tool operations.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tools: Option<ToolsCapability>,
+    /// Present if the server supports resource operations.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub resources: Option<ResourcesCapability>,
+    /// Present if the server supports prompt templates.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub prompts: Option<PromptsCapability>,
+    /// Present if the server supports argument/value completion.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub completions: Option<CompletionsCapability>,
+    /// Experimental, non-standard capabilities that the server supports.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub experimental: Option<HashMap<String, Value>>,
+}
+
+/// Capability configuration for tool operations.
+///
+/// See https://modelcontextprotocol.io/specification/2026-07-28/schema#servercapabilities
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ToolsCapability {
+    /// Optional hint indicating whether the server emits notifications when tool lists change.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub list_changed: Option<bool>,
+}
+
+/// Capability configuration for resource operations.
+///
+/// See https://modelcontextprotocol.io/specification/2026-07-28/schema#servercapabilities
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ResourcesCapability {
+    /// Optional hint indicating whether the server supports subscribing to resource updates.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub subscribe: Option<bool>,
+    /// Optional hint indicating whether the server emits notifications when resource lists change.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub list_changed: Option<bool>,
+}
+
+/// Capability configuration for prompt templates.
+///
+/// See https://modelcontextprotocol.io/specification/2026-07-28/schema#servercapabilities
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PromptsCapability {
+    /// Optional hint indicating whether the server emits notifications when prompt lists change.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub list_changed: Option<bool>,
+}
+
+/// Capability configuration for completion operations.
+///
+/// See https://modelcontextprotocol.io/specification/2026-07-28/schema#servercapabilities
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CompletionsCapability {}
 
 /// An object containing metadata for a result.
 ///

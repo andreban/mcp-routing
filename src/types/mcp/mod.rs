@@ -167,6 +167,23 @@ pub struct ResultMetaObject {
     pub extra: HashMap<String, Value>,
 }
 
+/// Additional metadata associated with a request or entity.
+///
+/// See https://modelcontextprotocol.io/specification/2026-07-28/schema#metaobject
+pub type MetaObject = HashMap<String, Value>;
+
+/// Specifies the scope for caching responses (`public` or `private`).
+///
+/// See https://modelcontextprotocol.io/specification/2026-07-28/schema#cachescope
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum CacheScope {
+    /// The response contains no user-specific data and may be cached publicly.
+    Public,
+    /// The response contains user-specific data and should only be cached privately.
+    Private,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -14,6 +14,7 @@ use tower_service::Service;
 use tracing::{debug, error, info};
 
 use crate::types::jsonrpc::{JsonRpcRequest, JsonRpcResultResponse};
+use crate::types::mcp::tools::list::ListToolsRequest;
 
 static DISPATCHER: LazyLock<Router> = LazyLock::new(|| {
     Router::new()
@@ -73,7 +74,9 @@ pub async fn mcp_dispatcher(
     DISPATCHER.clone().call(req).await
 }
 
-pub async fn list_tools(Json(request): Json<JsonRpcRequest>) -> Json<JsonRpcResultResponse<Value>> {
+pub async fn list_tools(
+    Json(request): Json<ListToolsRequest>,
+) -> Json<JsonRpcResultResponse<Value>> {
     Json(JsonRpcResultResponse::new(
         request.id,
         json!({

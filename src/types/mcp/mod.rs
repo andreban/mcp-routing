@@ -167,6 +167,44 @@ pub struct ResultMetaObject {
     pub extra: HashMap<String, Value>,
 }
 
+/// An object containing metadata for a request.
+///
+/// See https://modelcontextprotocol.io/specification/2026-07-28/schema#requestmetaobject
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RequestMetaObject {
+    /// A progress token used to associate progress notifications with the original request.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub progress_token: Option<ProgressToken>,
+    /// Identifies the client software producing the request.
+    #[serde(
+        rename = "io.modelcontextprotocol/clientInfo",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub client_info: Option<Implementation>,
+    /// Capabilities supported by the client for this request.
+    #[serde(
+        rename = "io.modelcontextprotocol/clientCapabilities",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub client_capabilities: Option<ClientCapabilities>,
+    /// Specifies the MCP protocol version being used for the request.
+    #[serde(
+        rename = "io.modelcontextprotocol/protocolVersion",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub protocol_version: Option<String>,
+    /// Desired log level for the request.
+    #[serde(
+        rename = "io.modelcontextprotocol/logLevel",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub log_level: Option<LoggingLevel>,
+    /// Additional metadata properties.
+    #[serde(flatten, skip_serializing_if = "HashMap::is_empty")]
+    pub extra: HashMap<String, Value>,
+}
+
 /// Additional metadata associated with a request or entity.
 ///
 /// See https://modelcontextprotocol.io/specification/2026-07-28/schema#metaobject

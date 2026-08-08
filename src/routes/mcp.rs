@@ -16,7 +16,7 @@ use tracing::{debug, error, info};
 
 use crate::types::jsonrpc::{JsonRpcRequest, JsonRpcResultResponse};
 use crate::types::mcp::{
-    CacheScope,
+    CacheScope, ContentBlock, TextContent,
     tools::{
         Tool,
         call::{CallToolRequest, CallToolResult, CallToolResultResponse},
@@ -146,24 +146,39 @@ pub async fn server_discover(
 pub async fn echo(
     Json(request): Json<CallToolRequest>,
 ) -> Json<CallToolResultResponse> {
-    let text = request
+    let value = request
         .params
         .as_ref()
         .and_then(|p| p.arguments.as_ref())
         .and_then(|args| args.get("value"))
-        .and_then(|v| v.as_str())
-        .unwrap_or("Hello");
+        .and_then(|v| v.as_str());
+
+    let (content, is_error) = match value {
+        Some(text) => (
+            vec![ContentBlock::Text(TextContent {
+                text: text.to_string(),
+                annotations: None,
+                meta: None,
+            })],
+            false,
+        ),
+        None => (
+            vec![ContentBlock::Text(TextContent {
+                text: "Missing required string parameter: value".to_string(),
+                annotations: None,
+                meta: None,
+            })],
+            true,
+        ),
+    };
 
     Json(CallToolResultResponse::new(
         request.id,
         CallToolResult {
             meta: None,
             result_type: Some("complete".to_string()),
-            content: vec![json!({
-                "type": "text",
-                "text": text,
-            })],
-            is_error: Some(false),
+            content,
+            is_error: Some(is_error),
             structured_content: None,
             extras: HashMap::new(),
         },

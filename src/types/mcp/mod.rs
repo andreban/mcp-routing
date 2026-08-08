@@ -222,6 +222,172 @@ pub enum CacheScope {
     Private,
 }
 
+/// Specifies the role of an entity in a conversation.
+///
+/// See https://modelcontextprotocol.io/specification/2026-07-28/schema#role
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Role {
+    User,
+    Assistant,
+}
+
+/// Annotations that can be attached to content blocks.
+///
+/// See https://modelcontextprotocol.io/specification/2026-07-28/schema#contentannotations
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ContentAnnotations {
+    /// Intended audience for the content.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub audience: Vec<Role>,
+    /// Priority level for content inclusion/processing (0.0 to 1.0).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub priority: Option<f32>,
+}
+
+/// Text content block.
+///
+/// See https://modelcontextprotocol.io/specification/2026-07-28/schema#textcontent
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TextContent {
+    /// The text content.
+    pub text: String,
+    /// Optional annotations for this content.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub annotations: Option<ContentAnnotations>,
+    /// Optional protocol-level metadata.
+    #[serde(rename = "_meta", skip_serializing_if = "Option::is_none")]
+    pub meta: Option<MetaObject>,
+}
+
+/// Image content block.
+///
+/// See https://modelcontextprotocol.io/specification/2026-07-28/schema#imagecontent
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImageContent {
+    /// Base64-encoded image data.
+    pub data: String,
+    /// MIME type of the image (e.g., `image/png`, `image/jpeg`).
+    pub mime_type: String,
+    /// Optional annotations for this content.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub annotations: Option<ContentAnnotations>,
+    /// Optional protocol-level metadata.
+    #[serde(rename = "_meta", skip_serializing_if = "Option::is_none")]
+    pub meta: Option<MetaObject>,
+}
+
+/// Audio content block.
+///
+/// See https://modelcontextprotocol.io/specification/2026-07-28/schema#audiocontent
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AudioContent {
+    /// Base64-encoded audio data.
+    pub data: String,
+    /// MIME type of the audio (e.g., `audio/wav`, `audio/mp3`).
+    pub mime_type: String,
+    /// Optional annotations for this content.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub annotations: Option<ContentAnnotations>,
+    /// Optional protocol-level metadata.
+    #[serde(rename = "_meta", skip_serializing_if = "Option::is_none")]
+    pub meta: Option<MetaObject>,
+}
+
+/// Text resource contents.
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TextResourceContents {
+    /// The URI of the resource.
+    pub uri: String,
+    /// The text content of the resource.
+    pub text: String,
+    /// Optional MIME type of the resource.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mime_type: Option<String>,
+}
+
+/// Blob resource contents.
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BlobResourceContents {
+    /// The URI of the resource.
+    pub uri: String,
+    /// Base64-encoded binary blob data.
+    pub blob: String,
+    /// Optional MIME type of the resource.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mime_type: Option<String>,
+}
+
+/// Resource contents (text or blob).
+///
+/// See https://modelcontextprotocol.io/specification/2026-07-28/schema#resourcecontents
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum ResourceContents {
+    Text(TextResourceContents),
+    Blob(BlobResourceContents),
+}
+
+/// Embedded resource content block.
+///
+/// See https://modelcontextprotocol.io/specification/2026-07-28/schema#embeddedresource
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EmbeddedResource {
+    /// The embedded resource contents.
+    pub resource: ResourceContents,
+    /// Optional annotations for this content.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub annotations: Option<ContentAnnotations>,
+    /// Optional protocol-level metadata.
+    #[serde(rename = "_meta", skip_serializing_if = "Option::is_none")]
+    pub meta: Option<MetaObject>,
+}
+
+/// Resource link content block.
+///
+/// See https://modelcontextprotocol.io/specification/2026-07-28/schema#resourcelink
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ResourceLink {
+    /// The URI of the linked resource.
+    pub uri: String,
+    /// Name or title of the resource link.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    /// Description of the resource link.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    /// Optional MIME type of the linked resource.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mime_type: Option<String>,
+    /// Optional annotations for this content.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub annotations: Option<ContentAnnotations>,
+    /// Optional protocol-level metadata.
+    #[serde(rename = "_meta", skip_serializing_if = "Option::is_none")]
+    pub meta: Option<MetaObject>,
+}
+
+/// A content block in a message or tool result.
+///
+/// See https://modelcontextprotocol.io/specification/2026-07-28/schema#contentblock
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "camelCase")]
+pub enum ContentBlock {
+    Text(TextContent),
+    Image(ImageContent),
+    Audio(AudioContent),
+    Resource(EmbeddedResource),
+    ResourceLink(ResourceLink),
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

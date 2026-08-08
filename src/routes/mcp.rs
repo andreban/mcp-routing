@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::convert::Infallible;
 use std::sync::LazyLock;
 
@@ -14,7 +15,13 @@ use tower_service::Service;
 use tracing::{debug, error, info};
 
 use crate::types::jsonrpc::{JsonRpcRequest, JsonRpcResultResponse};
-use crate::types::mcp::tools::list::ListToolsRequest;
+use crate::types::mcp::{
+    CacheScope,
+    tools::{
+        Tool,
+        list::{ListToolsRequest, ListToolsResult, ListToolsResultResponse},
+    },
+};
 
 static DISPATCHER: LazyLock<Router> = LazyLock::new(|| {
     Router::new()
@@ -76,16 +83,21 @@ pub async fn mcp_dispatcher(
 
 pub async fn list_tools(
     Json(request): Json<ListToolsRequest>,
-) -> Json<JsonRpcResultResponse<Value>> {
-    Json(JsonRpcResultResponse::new(
+) -> Json<ListToolsResultResponse> {
+    Json(ListToolsResultResponse::new(
         request.id,
-        json!({
-            "resultType": "complete",
-            "tools": [{
-                "name": "echo",
-                "title": "Echo",
-                "description": "Echoes the value back to the client",
-                "inputSchema": {
+        ListToolsResult {
+            meta: None,
+            result_type: Some("complete".to_string()),
+            next_cursor: None,
+            ttl_ms: Some(0),
+            cache_scope: Some(CacheScope::Public),
+            tools: vec![Tool {
+                icons: Vec::new(),
+                name: "echo".to_string(),
+                title: Some("Echo".to_string()),
+                description: Some("Echoes the value back to the client".to_string()),
+                input_schema: json!({
                     "type": "object",
                     "properties": {
                         "value": {
@@ -94,11 +106,13 @@ pub async fn list_tools(
                         }
                     },
                     "required": ["value"],
-                },
+                }),
+                output_schema: None,
+                annotations: None,
+                meta: None,
             }],
-            "ttlMs": 0,
-            "cacheScope": "public",
-        }),
+            extras: HashMap::new(),
+        },
     ))
 }
 

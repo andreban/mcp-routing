@@ -19,6 +19,7 @@ use crate::types::mcp::{
     CacheScope,
     tools::{
         Tool,
+        call::{CallToolRequest, CallToolResult, CallToolResultResponse},
         list::{ListToolsRequest, ListToolsResult, ListToolsResultResponse},
     },
 };
@@ -143,17 +144,29 @@ pub async fn server_discover(
 }
 
 pub async fn echo(
-    Json(request): Json<JsonRpcRequest<Value>>,
-) -> Json<JsonRpcResultResponse<Value>> {
-    Json(JsonRpcResultResponse::new(
+    Json(request): Json<CallToolRequest>,
+) -> Json<CallToolResultResponse> {
+    let text = request
+        .params
+        .as_ref()
+        .and_then(|p| p.arguments.as_ref())
+        .and_then(|args| args.get("value"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("Hello");
+
+    Json(CallToolResultResponse::new(
         request.id,
-        json!({
-            "resultType": "complete",
-            "content": [{
+        CallToolResult {
+            meta: None,
+            result_type: Some("complete".to_string()),
+            content: vec![json!({
                 "type": "text",
-                "text": "Hello"
-            }],
-        }),
+                "text": text,
+            })],
+            is_error: Some(false),
+            structured_content: None,
+            extras: HashMap::new(),
+        },
     ))
 }
 

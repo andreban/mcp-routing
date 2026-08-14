@@ -9,6 +9,7 @@ description: "Guidelines for strict MCP 2026-07-28 specification compliance and 
 ## 1. Protocol Specification Strictness
 - **Strict Schema Validation**: Adhere strictly to the Model Context Protocol specification JSON Schema (`2026-07-28`). Do not add `#[serde(default)]` to fields that are marked as required in the MCP schema (e.g., `name` in `CallToolParams`).
 - **Exact Method Matching**: MCP JSON-RPC `method` strings are exact identifiers (`server/discover`, `tools/list`, `tools/call`). Never introduce or accommodate non-standard compound methods (such as `tools/call/<name>`).
+- **Clean Protocol Layering & Separation**: Do not mix higher-level MCP domain protocol types, error codes (`-32020` through `-32022`), or data structures into generic lower-level transport/framing modules (e.g. `src/types/jsonrpc/`). Keep generic JSON-RPC 2.0 types pure to the JSON-RPC 2.0 specification, and define all MCP-specific extensions, errors, and schemas strictly in `src/types/mcp/`.
 
 ## 2. Modular Tower Service Architecture
 - **Lean Service Entrypoints**: Keep `tower::Service::call` minimal (delegating to a dispatch function or inner method).

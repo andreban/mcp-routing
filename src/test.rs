@@ -274,7 +274,7 @@ async fn test_mcp_router_invalid_method_suffix_returns_not_found() {
         .unwrap();
 
     let response = app.oneshot(request).await.unwrap();
-    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
 
     let bytes = response.into_body().collect().await.unwrap().to_bytes();
     let res: JsonRpcErrorResponse = serde_json::from_slice(&bytes).unwrap();
@@ -295,7 +295,7 @@ async fn test_mcp_router_missing_method_in_header_and_body_returns_bad_request()
         .unwrap();
 
     let response = app.oneshot(request).await.unwrap();
-    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
 
     let bytes = response.into_body().collect().await.unwrap().to_bytes();
     let res: JsonRpcErrorResponse = serde_json::from_slice(&bytes).unwrap();
@@ -332,9 +332,9 @@ async fn test_mcp_router_missing_tool_name_returns_bad_request() {
     assert_eq!(res.error.code, JsonRpcErrorCode::InvalidParams);
 }
 
-/// Tests that calling an unregistered tool returns a JSON-RPC Method Not Found error (-32601).
+/// Tests that calling an unregistered tool returns a JSON-RPC Invalid Params error (-32602).
 #[tokio::test]
-async fn test_mcp_router_unknown_tool_returns_not_found() {
+async fn test_mcp_router_unknown_tool_returns_invalid_params() {
     let app = McpRouter::new(test_server_info());
     let request = Request::builder()
         .method("POST")
@@ -359,7 +359,7 @@ async fn test_mcp_router_unknown_tool_returns_not_found() {
     let res: JsonRpcErrorResponse = serde_json::from_slice(&bytes).unwrap();
     assert_eq!(res.jsonrpc, "2.0");
     assert_eq!(res.id, Some(1.into()));
-    assert_eq!(res.error.code, JsonRpcErrorCode::MethodNotFound);
+    assert_eq!(res.error.code, JsonRpcErrorCode::InvalidParams);
 }
 
 /// Tests that an unknown method returns a JSON-RPC Method Not Found error (-32601).
@@ -380,7 +380,7 @@ async fn test_mcp_router_unknown_method_returns_not_found() {
         .unwrap();
 
     let response = app.oneshot(request).await.unwrap();
-    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
 
     let bytes = response.into_body().collect().await.unwrap().to_bytes();
     let res: JsonRpcErrorResponse = serde_json::from_slice(&bytes).unwrap();
@@ -962,7 +962,7 @@ async fn test_mcp_router_prompts_get_unknown() {
 
     let bytes = response.into_body().collect().await.unwrap().to_bytes();
     let err_resp: JsonRpcErrorResponse = serde_json::from_slice(&bytes).unwrap();
-    assert_eq!(err_resp.error.code, JsonRpcErrorCode::MethodNotFound);
+    assert_eq!(err_resp.error.code, JsonRpcErrorCode::InvalidParams);
 }
 
 /// Tests caching headers for `prompts/list` and `prompts/get`.

@@ -339,12 +339,12 @@ async fn test_resources_read_missing_uri_returns_invalid_params() {
 }
 
 #[tokio::test]
-async fn test_resources_read_unknown_resource_returns_method_not_found() {
+async fn test_resources_read_unknown_resource_returns_invalid_params() {
     let mut router = McpRouter::new(create_test_server());
 
     let request = Request::builder()
         .method("POST")
-        .uri("/mcp")
+        .uri("/")
         .header("Content-Type", "application/json")
         .body(
             serde_json::json!({
@@ -366,7 +366,7 @@ async fn test_resources_read_unknown_resource_returns_method_not_found() {
     let resp_json: serde_json::Value = serde_json::from_slice(&body_bytes).unwrap();
 
     assert_eq!(resp_json["id"], 1.0);
-    assert_eq!(resp_json["error"]["code"], -32601);
+    assert_eq!(resp_json["error"]["code"], -32602);
     assert!(
         resp_json["error"]["message"]
             .as_str()

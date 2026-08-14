@@ -293,9 +293,9 @@ impl ToolRegistry {
             return if ctx.is_notification {
                 DispatchOutcome::notification()
             } else {
-                DispatchOutcome::error(JsonRpcErrorResponse::method_not_found(
+                DispatchOutcome::error(JsonRpcErrorResponse::invalid_params(
                     ctx.req_id,
-                    format!("Method not found: tool '{tool_name}' not found"),
+                    format!("Invalid params: tool '{tool_name}' not found"),
                 ))
             };
         };

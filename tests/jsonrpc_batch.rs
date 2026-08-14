@@ -269,13 +269,13 @@ async fn test_batch_all_notifications_returns_204() {
         .unwrap();
 
     let (status, _, body_bytes) = common::execute_request_raw(app, req).await;
-    assert_eq!(status, StatusCode::NO_CONTENT);
+    assert_eq!(status, StatusCode::ACCEPTED);
     assert!(body_bytes.is_empty());
 }
 
-/// Tests that a single notification request returns HTTP 204 No Content with an empty body.
+/// Tests that a single notification request returns HTTP 202 Accepted with an empty body.
 #[tokio::test]
-async fn test_single_notification_returns_204() {
+async fn test_single_notification_returns_202() {
     let app = create_test_app();
 
     let notif_req = json!({
@@ -291,7 +291,7 @@ async fn test_single_notification_returns_204() {
         .unwrap();
 
     let (status, _, body_bytes) = common::execute_request_raw(app, req).await;
-    assert_eq!(status, StatusCode::NO_CONTENT);
+    assert_eq!(status, StatusCode::ACCEPTED);
     assert!(body_bytes.is_empty());
 }
 
@@ -312,7 +312,7 @@ async fn test_empty_batch_array_returns_invalid_request() {
         .unwrap();
 
     let (status, _, body) = common::execute_request(app, req).await;
-    assert_eq!(status, StatusCode::OK);
+    assert_eq!(status, StatusCode::BAD_REQUEST);
     assert!(
         body.is_object(),
         "Empty batch must return a single JSON object, NOT an array"
@@ -416,7 +416,7 @@ async fn test_batch_malformed_json_returns_parse_error() {
         .unwrap();
 
     let (status, _, body) = common::execute_request(app, req).await;
-    assert_eq!(status, StatusCode::OK);
+    assert_eq!(status, StatusCode::BAD_REQUEST);
     assert!(
         body.is_object(),
         "Malformed JSON must return a single JSON-RPC error object"
@@ -441,7 +441,7 @@ async fn test_top_level_primitive_returns_invalid_request() {
         .unwrap();
 
     let (status, _, body) = common::execute_request(app, req).await;
-    assert_eq!(status, StatusCode::OK);
+    assert_eq!(status, StatusCode::BAD_REQUEST);
 
     let err_resp: JsonRpcErrorResponse = serde_json::from_value(body).unwrap();
     assert_eq!(err_resp.jsonrpc, "2.0");

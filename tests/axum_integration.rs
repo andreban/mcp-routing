@@ -328,7 +328,7 @@ async fn test_axum_real_tcp_server_e2e() {
     assert_eq!(err_res.id, Some(99.into()));
     assert_eq!(
         err_res.error.code.code(),
-        mcp_routing::types::jsonrpc::METHOD_NOT_FOUND_CODE
+        mcp_routing::types::jsonrpc::INVALID_PARAMS_CODE
     );
 
     // 4. Test HTTP 405 Method Not Allowed on non-POST methods over real TCP

@@ -341,7 +341,7 @@ async fn test_prompts_get_with_caching_directives() {
 
 /// Tests error handling for unknown prompt name.
 #[tokio::test]
-async fn test_prompts_get_unknown_prompt_returns_method_not_found() {
+async fn test_prompts_get_unknown_prompt_returns_invalid_params() {
     let app = McpRouter::new(common::sample_server_info())
         .register_prompt("existing_prompt", handle_no_args_static_str);
 
@@ -354,7 +354,7 @@ async fn test_prompts_get_unknown_prompt_returns_method_not_found() {
     let (status, _headers, body) = common::execute_request(app, req).await;
 
     assert_eq!(status, StatusCode::OK);
-    assert_eq!(body["error"]["code"], -32601);
+    assert_eq!(body["error"]["code"], -32602);
     assert!(
         body["error"]["message"]
             .as_str()

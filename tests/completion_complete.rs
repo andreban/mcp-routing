@@ -346,7 +346,7 @@ async fn test_completion_caching_directives() {
 }
 
 #[tokio::test]
-async fn test_completion_unhandled_target_returns_method_not_found() {
+async fn test_completion_unhandled_target_returns_invalid_params() {
     let mut router = create_base_router().register_prompt_arg_completion(
         "registered_prompt",
         "known_arg",
@@ -365,8 +365,8 @@ async fn test_completion_unhandled_target_returns_method_not_found() {
 
     let (status, body, _) = send_mcp_request(&mut router, payload, None).await;
     assert_eq!(status, StatusCode::OK);
-    assert_eq!(body["error"]["code"], -32601);
-    assert!(body["error"]["message"].as_str().unwrap().contains("No completion handler registered"));
+    assert_eq!(body["error"]["code"], -32602);
+    assert!(body["error"]["message"].as_str().unwrap().contains("no completion handler registered"));
 }
 
 #[tokio::test]

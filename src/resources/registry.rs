@@ -358,9 +358,9 @@ impl ResourceRegistry {
                     ))
                 }
                 Err(ResourceError::NotFound(err)) => {
-                    DispatchOutcome::error(JsonRpcErrorResponse::method_not_found(
+                    DispatchOutcome::error(JsonRpcErrorResponse::invalid_params(
                         ctx.req_id,
-                        format!("Method not found: {err}"),
+                        format!("Invalid params: {err}"),
                     ))
                 }
                 Err(ResourceError::Internal(err)) => {
@@ -485,9 +485,9 @@ impl ResourceRegistry {
             return if ctx.is_notification {
                 DispatchOutcome::notification()
             } else {
-                DispatchOutcome::error(JsonRpcErrorResponse::method_not_found(
+                DispatchOutcome::error(JsonRpcErrorResponse::invalid_params(
                     ctx.req_id,
-                    format!("Method not found: resource '{resource_uri}' not found"),
+                    format!("Invalid params: resource '{resource_uri}' not found"),
                 ))
             };
         };

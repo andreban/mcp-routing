@@ -14,7 +14,7 @@ use tower::Service;
 
 use crate::body::{
     BoxError, ResponseBody, bad_request, empty_response, json_response, json_response_with_caching,
-    method_not_allowed, unsupported_media_type,
+    json_response_with_status, method_not_allowed, unsupported_media_type,
 };
 use crate::router::{McpRouter, McpRouterInner};
 use crate::types::jsonrpc::JsonRpcErrorResponse;
@@ -81,7 +81,7 @@ impl McpRouterInner {
                 tracing::debug!(?err, "Failed to parse JSON body");
                 let error_response =
                     JsonRpcErrorResponse::parse_error(format!("Parse error: {err}"));
-                return attach_session(json_response(&error_response));
+                return attach_session(json_response_with_status(StatusCode::BAD_REQUEST, &error_response));
             }
         };
 
@@ -92,7 +92,7 @@ impl McpRouterInner {
                         None,
                         "Invalid Request: empty batch array",
                     );
-                    json_response(&error_response)
+                    json_response_with_status(StatusCode::BAD_REQUEST, &error_response)
                 } else {
                     let mut responses: Vec<serde_json::Value> = Vec::with_capacity(items.len());
                     for item in items {
@@ -110,7 +110,7 @@ impl McpRouterInner {
                     }
 
                     if responses.is_empty() {
-                        empty_response(StatusCode::NO_CONTENT)
+                        empty_response(StatusCode::ACCEPTED)
                     } else {
                         json_response(&responses)
                     }
@@ -127,7 +127,7 @@ impl McpRouterInner {
                     .await;
 
                 match outcome.response {
-                    None => empty_response(StatusCode::NO_CONTENT),
+                    None => empty_response(StatusCode::ACCEPTED),
                     Some(val) => {
                         if outcome.has_cache_headers {
                             json_response_with_caching(
@@ -135,6 +135,8 @@ impl McpRouterInner {
                                 outcome.ttl_ms,
                                 outcome.cache_scope.as_ref(),
                             )
+                        } else if outcome.status_code != StatusCode::OK {
+                            json_response_with_status(outcome.status_code, &val)
                         } else {
                             json_response(&val)
                         }
@@ -146,7 +148,7 @@ impl McpRouterInner {
                     None,
                     "Invalid Request: expected object or batch array",
                 );
-                json_response(&error_response)
+                json_response_with_status(StatusCode::BAD_REQUEST, &error_response)
             }
         };
 

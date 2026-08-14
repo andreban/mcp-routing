@@ -3,9 +3,11 @@
 
 use std::sync::Arc;
 
+use http::StatusCode;
+
 use crate::extract::SessionId;
 use crate::types::jsonrpc::{JsonRpcErrorResponse, JsonRpcRequestId};
-use crate::types::mcp::CacheScope;
+use crate::types::mcp::{CacheScope, mcp_error_code_to_http_status};
 
 /// Represents the internal outcome of dispatching a JSON-RPC method.
 #[derive(Debug)]
@@ -14,6 +16,7 @@ pub(crate) struct DispatchOutcome {
     pub(crate) ttl_ms: Option<u64>,
     pub(crate) cache_scope: Option<CacheScope>,
     pub(crate) has_cache_headers: bool,
+    pub(crate) status_code: StatusCode,
 }
 
 impl DispatchOutcome {
@@ -27,15 +30,18 @@ impl DispatchOutcome {
             ttl_ms,
             cache_scope,
             has_cache_headers: true,
+            status_code: StatusCode::OK,
         }
     }
 
     pub(crate) fn error(err: JsonRpcErrorResponse) -> Self {
+        let status_code = mcp_error_code_to_http_status(err.error.code.code());
         Self {
             response: serde_json::to_value(err).ok(),
             ttl_ms: None,
             cache_scope: None,
             has_cache_headers: false,
+            status_code,
         }
     }
 
@@ -45,6 +51,7 @@ impl DispatchOutcome {
             ttl_ms: None,
             cache_scope: None,
             has_cache_headers: false,
+            status_code: StatusCode::ACCEPTED,
         }
     }
 }

@@ -259,7 +259,7 @@ async fn test_mcp_session_id_propagation_on_error_responses() {
         .body(Full::new(Bytes::from_static(b"not json")))
         .unwrap();
     let resp = router.call(req_parse_err).await.unwrap();
-    assert_eq!(resp.status(), StatusCode::OK);
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
     assert_eq!(
         resp.headers()
             .get("Mcp-Session-Id")

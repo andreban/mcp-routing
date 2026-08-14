@@ -201,9 +201,9 @@ impl CompletionRegistry {
                 Reference::Resource { uri } => format!("resource '{uri}'"),
             };
             tracing::debug!("No completion handler found for {target}");
-            return DispatchOutcome::error(JsonRpcErrorResponse::method_not_found(
+            return DispatchOutcome::error(JsonRpcErrorResponse::invalid_params(
                 ctx.req_id,
-                format!("No completion handler registered for {target}"),
+                format!("Invalid params: no completion handler registered for {target}"),
             ));
         };
 
@@ -337,7 +337,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_completion_registry_unhandled_returns_method_not_found() {
+    async fn test_completion_registry_unhandled_returns_invalid_params() {
         let registry = CompletionRegistry::new();
 
         let headers = http::HeaderMap::new();
@@ -358,6 +358,6 @@ mod tests {
 
         let outcome = registry.dispatch_complete(ctx, Some(params)).await;
         let resp = outcome.response.expect("expected error response");
-        assert_eq!(resp["error"]["code"], -32601);
+        assert_eq!(resp["error"]["code"], crate::types::jsonrpc::INVALID_PARAMS_CODE);
     }
 }

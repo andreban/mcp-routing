@@ -133,7 +133,7 @@ async fn test_logging_set_level_notification() {
 
     let (status, body, _) = send_mcp_request(&mut router, payload, None).await;
 
-    assert_eq!(status, StatusCode::NO_CONTENT);
+    assert_eq!(status, StatusCode::ACCEPTED);
     assert_eq!(body, serde_json::Value::Null);
     assert_eq!(router.current_logging_level(), LoggingLevel::Warning);
 }

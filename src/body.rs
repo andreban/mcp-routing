@@ -183,9 +183,17 @@ pub fn compute_etag(bytes: &[u8]) -> String {
 
 /// Helper function to construct a JSON response with status 200 OK.
 pub(crate) fn json_response<T: serde::Serialize>(val: &T) -> Response<ResponseBody> {
+    json_response_with_status(StatusCode::OK, val)
+}
+
+/// Helper function to construct a JSON response with the specified status code.
+pub(crate) fn json_response_with_status<T: serde::Serialize>(
+    status: StatusCode,
+    val: &T,
+) -> Response<ResponseBody> {
     match serde_json::to_vec(val) {
         Ok(bytes) => Response::builder()
-            .status(StatusCode::OK)
+            .status(status)
             .header(header::CONTENT_TYPE, "application/json")
             .body(ResponseBody::from_bytes(Bytes::from(bytes)))
             .unwrap(),

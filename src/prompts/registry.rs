@@ -268,9 +268,9 @@ impl PromptRegistry {
             return if ctx.is_notification {
                 DispatchOutcome::notification()
             } else {
-                DispatchOutcome::error(JsonRpcErrorResponse::method_not_found(
+                DispatchOutcome::error(JsonRpcErrorResponse::invalid_params(
                     ctx.req_id,
-                    format!("Method not found: prompt '{prompt_name}' not found"),
+                    format!("Invalid params: prompt '{prompt_name}' not found"),
                 ))
             };
         };

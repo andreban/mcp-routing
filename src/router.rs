@@ -38,6 +38,11 @@ use crate::types::{
 /// - `tools/call` tool execution endpoints (delegating to typed handlers)
 #[derive(Clone)]
 pub struct McpRouter {
+    inner: Arc<McpRouterInner>,
+}
+
+#[derive(Clone)]
+struct McpRouterInner {
     server_info: Implementation,
     instructions: Option<String>,
     capabilities: ServerCapabilities,
@@ -50,36 +55,38 @@ impl McpRouter {
     /// Creates a new [`McpRouter`] initialized with the given server [`Implementation`] metadata.
     pub fn new(server_info: Implementation) -> Self {
         Self {
-            server_info,
-            instructions: None,
-            capabilities: ServerCapabilities {
-                tools: Some(ToolsCapability { list_changed: None }),
-                resources: None,
-                prompts: None,
-                completions: None,
-                experimental: None,
-            },
-            supported_versions: vec!["2026-07-28".to_string()],
-            tools: Vec::new(),
-            tool_handlers: HashMap::new(),
+            inner: Arc::new(McpRouterInner {
+                server_info,
+                instructions: None,
+                capabilities: ServerCapabilities {
+                    tools: Some(ToolsCapability { list_changed: None }),
+                    resources: None,
+                    prompts: None,
+                    completions: None,
+                    experimental: None,
+                },
+                supported_versions: vec!["2026-07-28".to_string()],
+                tools: Vec::new(),
+                tool_handlers: HashMap::new(),
+            }),
         }
     }
 
     /// Sets human-readable instructions describing how to use this MCP server.
     pub fn instructions(mut self, instructions: impl Into<String>) -> Self {
-        self.instructions = Some(instructions.into());
+        Arc::make_mut(&mut self.inner).instructions = Some(instructions.into());
         self
     }
 
     /// Sets the server capabilities advertised in `server/discover`.
     pub fn capabilities(mut self, capabilities: ServerCapabilities) -> Self {
-        self.capabilities = capabilities;
+        Arc::make_mut(&mut self.inner).capabilities = capabilities;
         self
     }
 
     /// Sets the MCP protocol versions supported by this server.
     pub fn supported_versions(mut self, supported_versions: Vec<String>) -> Self {
-        self.supported_versions = supported_versions;
+        Arc::make_mut(&mut self.inner).supported_versions = supported_versions;
         self
     }
 
@@ -95,8 +102,9 @@ impl McpRouter {
     {
         let tool = tool.into();
         let name = tool.name.clone();
-        self.tool_handlers.insert(name, handler.into_tool_handler());
-        self.tools.push(tool);
+        let inner = Arc::make_mut(&mut self.inner);
+        inner.tool_handlers.insert(name, handler.into_tool_handler());
+        inner.tools.push(tool);
         self
     }
 }
@@ -155,7 +163,7 @@ where
     }
 
     fn call(&mut self, req: Request<B>) -> Self::Future {
-        let this = self.clone();
+        let this = Arc::clone(&self.inner);
 
         Box::pin(async move {
             let Some((method, name)) = extract_mcp_target(&req) else {
@@ -175,10 +183,10 @@ where
 
                 let response = server::discover::handle_server_discover(
                     request,
-                    this.server_info,
-                    this.instructions,
-                    this.capabilities,
-                    this.supported_versions,
+                    this.server_info.clone(),
+                    this.instructions.clone(),
+                    this.capabilities.clone(),
+                    this.supported_versions.clone(),
                 );
 
                 return Ok(json_response(&response));
@@ -191,7 +199,7 @@ where
                     Err(err_resp) => return Ok(err_resp),
                 };
 
-                let response = tools::list::handle_list_tools(request, this.tools);
+                let response = tools::list::handle_list_tools(request, this.tools.clone());
                 return Ok(json_response(&response));
             }
 

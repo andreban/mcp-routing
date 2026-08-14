@@ -1,3 +1,6 @@
+// Copyright 2026 André Cipriani Bandarra
+// SPDX-License-Identifier: Apache-2.0
+
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
@@ -13,7 +16,7 @@ pub type ListToolsResultResponse = JsonRpcResultResponse<ListToolsResult>;
 
 /// Parameters for a `tools/list` request.
 ///
-/// See https://modelcontextprotocol.io/specification/2026-07-28/schema#listtoolsrequest
+/// See <https://modelcontextprotocol.io/specification/2026-07-28/schema#listtoolsrequest>
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ListToolsParams {
@@ -30,7 +33,7 @@ pub struct ListToolsParams {
 
 /// The server's response to a `tools/list` request.
 ///
-/// See https://modelcontextprotocol.io/specification/2026-07-28/schema#listtoolsresult
+/// See <https://modelcontextprotocol.io/specification/2026-07-28/schema#listtoolsresult>
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ListToolsResult {

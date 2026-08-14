@@ -1,3 +1,6 @@
+// Copyright 2026 André Cipriani Bandarra
+// SPDX-License-Identifier: Apache-2.0
+
 use std::collections::HashMap;
 
 use crate::types::mcp::{
@@ -8,6 +11,7 @@ use crate::types::mcp::{
     },
 };
 
+/// Handles an MCP `tools/list` request by constructing a [`ListToolsResultResponse`] with the registered tools.
 pub fn handle_list_tools(
     req: ListToolsRequest,
     tools: Vec<Tool>,

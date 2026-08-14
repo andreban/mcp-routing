@@ -1,3 +1,6 @@
+// Copyright 2026 André Cipriani Bandarra
+// SPDX-License-Identifier: Apache-2.0
+
 use std::borrow::Cow;
 
 use serde::{Deserialize, Serialize};

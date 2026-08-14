@@ -1,14 +1,20 @@
+// Copyright 2026 André Cipriani Bandarra
+// SPDX-License-Identifier: Apache-2.0
+
+use std::convert::Infallible;
+
 use axum::{
     Router,
     body::Body,
-    http::{Request, StatusCode},
+    http::{Request, Response, StatusCode},
     routing::post,
 };
+use http_body_util::BodyExt;
 use serde_json::json;
 use tower::ServiceExt;
 
 use crate::{
-    McpRouter,
+    McpRouter, ResponseBody,
     types::mcp::{
         Implementation,
         server::discover::ServerDiscoverResultResponse,
@@ -59,7 +65,7 @@ async fn test_mcp_router_builtin_tools_list() {
     let response = app.oneshot(request).await.unwrap();
     assert_eq!(response.status(), StatusCode::OK);
 
-    let bytes = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
     let res: ListToolsResultResponse = serde_json::from_slice(&bytes).unwrap();
     assert_eq!(res.result.tools.len(), 1);
     assert_eq!(res.result.tools[0].name, "test_tool");
@@ -84,7 +90,7 @@ async fn test_mcp_router_builtin_server_discover() {
     let response = app.oneshot(request).await.unwrap();
     assert_eq!(response.status(), StatusCode::OK);
 
-    let bytes = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
     let res: ServerDiscoverResultResponse = serde_json::from_slice(&bytes).unwrap();
     let server_info = res.result.meta.unwrap().server_info.unwrap();
     assert_eq!(server_info.name, "test-server");
@@ -163,13 +169,13 @@ async fn test_mcp_router_nested_in_axum() {
 }
 
 #[tokio::test]
-async fn test_mcp_router_custom_route_override() {
-    async fn custom_discover() -> &'static str {
-        "custom_discover"
-    }
-
-    let app = McpRouter::new(test_server_info())
-        .route("/server/discover", post(custom_discover));
+async fn test_mcp_router_custom_route_override_tower() {
+    let app = McpRouter::new(test_server_info()).route(
+        "/server/discover",
+        tower::service_fn(|_req: Request<ResponseBody>| async {
+            Ok::<_, Infallible>(Response::new(ResponseBody::from("custom_discover")))
+        }),
+    );
 
     let request = Request::builder()
         .method("POST")
@@ -181,8 +187,34 @@ async fn test_mcp_router_custom_route_override() {
 
     let response = app.oneshot(request).await.unwrap();
     assert_eq!(response.status(), StatusCode::OK);
-    let bytes = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
     assert_eq!(bytes.as_ref(), b"custom_discover");
+}
+
+#[tokio::test]
+async fn test_mcp_router_custom_route_override_axum() {
+    async fn custom_discover() -> &'static str {
+        "custom_discover_axum"
+    }
+
+    let app = McpRouter::new(test_server_info()).route(
+        "/server/discover",
+        post(custom_discover)
+            .map_request(|req: Request<ResponseBody>| req.map(axum::body::Body::new)),
+    );
+
+    let request = Request::builder()
+        .method("POST")
+        .uri("/")
+        .header("Mcp-Method", "server/discover")
+        .header("Content-Type", "application/json")
+        .body(Body::empty())
+        .unwrap();
+
+    let response = app.oneshot(request).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+    assert_eq!(bytes.as_ref(), b"custom_discover_axum");
 }
 
 #[tokio::test]
@@ -223,7 +255,7 @@ async fn test_mcp_router_typed_tool_handler_success() {
     let response = app.oneshot(request).await.unwrap();
     assert_eq!(response.status(), StatusCode::OK);
 
-    let bytes = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
     let res: CallToolResultResponse = serde_json::from_slice(&bytes).unwrap();
     assert_eq!(res.id, 42.into());
     assert_eq!(res.result.is_error, Some(false));
@@ -275,7 +307,7 @@ async fn test_mcp_router_typed_tool_handler_error_result() {
     let response = app.oneshot(request).await.unwrap();
     assert_eq!(response.status(), StatusCode::OK);
 
-    let bytes = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
     let res: CallToolResultResponse = serde_json::from_slice(&bytes).unwrap();
     assert_eq!(res.id, 43.into());
     assert_eq!(res.result.is_error, Some(true));
@@ -285,3 +317,4 @@ async fn test_mcp_router_typed_tool_handler_error_result() {
         panic!("Expected text block");
     }
 }
+

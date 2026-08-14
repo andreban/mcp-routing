@@ -1,3 +1,6 @@
+// Copyright 2026 André Cipriani Bandarra
+// SPDX-License-Identifier: Apache-2.0
+
 use std::borrow::Cow;
 
 use serde::{Deserialize, Serialize};
@@ -10,7 +13,7 @@ pub mod list;
 
 /// The definition of a tool exposed by an MCP server.
 ///
-/// See https://modelcontextprotocol.io/specification/2026-07-28/schema#tool
+/// See <https://modelcontextprotocol.io/specification/2026-07-28/schema#tool>
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Tool {
@@ -69,7 +72,7 @@ impl From<Cow<'static, str>> for Tool {
 
 /// Execution hints and behavioral annotations for a tool.
 ///
-/// See https://modelcontextprotocol.io/specification/2026-07-28/schema#toolannotations
+/// See <https://modelcontextprotocol.io/specification/2026-07-28/schema#toolannotations>
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ToolAnnotations {

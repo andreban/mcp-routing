@@ -1,3 +1,6 @@
+// Copyright 2026 André Cipriani Bandarra
+// SPDX-License-Identifier: Apache-2.0
+
 use std::collections::HashMap;
 
 use crate::types::mcp::{
@@ -7,6 +10,7 @@ use crate::types::mcp::{
     },
 };
 
+/// Handles an MCP `server/discover` request by constructing a [`ServerDiscoverResultResponse`].
 pub fn handle_server_discover(
     req: ServerDiscoverRequest,
     server_info: Implementation,

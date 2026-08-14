@@ -1,3 +1,6 @@
+// Copyright 2026 André Cipriani Bandarra
+// SPDX-License-Identifier: Apache-2.0
+
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
@@ -13,7 +16,7 @@ pub type ServerDiscoverResultResponse = JsonRpcResultResponse<ServerDiscoverResu
 
 /// Parameters for a `server/discover` request.
 ///
-/// See https://modelcontextprotocol.io/specification/2026-07-28/schema#serverdiscoverrequest
+/// See <https://modelcontextprotocol.io/specification/2026-07-28/schema#serverdiscoverrequest>
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ServerDiscoverParams {
@@ -27,7 +30,7 @@ pub struct ServerDiscoverParams {
 
 /// The server's response to a `server/discover` request.
 ///
-/// See https://modelcontextprotocol.io/specification/2026-07-28/schema#serverdiscoverresult
+/// See <https://modelcontextprotocol.io/specification/2026-07-28/schema#serverdiscoverresult>
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ServerDiscoverResult {

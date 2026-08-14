@@ -1,3 +1,6 @@
+// Copyright 2026 André Cipriani Bandarra
+// SPDX-License-Identifier: Apache-2.0
+
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
@@ -13,7 +16,7 @@ pub type CallToolResultResponse<S = Value> = JsonRpcResultResponse<CallToolResul
 
 /// Parameters for a `tools/call` request.
 ///
-/// See https://modelcontextprotocol.io/specification/2026-07-28/schema#calltoolrequest
+/// See <https://modelcontextprotocol.io/specification/2026-07-28/schema#calltoolrequest>
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CallToolParams<A = Value>  {
@@ -32,7 +35,7 @@ pub struct CallToolParams<A = Value>  {
 
 /// The server's response to a `tools/call` request.
 ///
-/// See https://modelcontextprotocol.io/specification/2026-07-28/schema#calltoolresult
+/// See <https://modelcontextprotocol.io/specification/2026-07-28/schema#calltoolresult>
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CallToolResult<S = Value> {

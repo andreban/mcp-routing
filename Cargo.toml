@@ -2,17 +2,22 @@
 name = "mcp-routing"
 version = "0.1.0"
 edition = "2024"
+license = "Apache-2.0"
 
 [dependencies]
-axum = { version = "0.8.9", features = ["multipart", "macros"] }
+bytes = "1"
+http = "1"
+http-body = "1"
+http-body-util = "0.1"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
-tokio = { version = "1.53.1", features = ["full"] }
-tower = "0.5.3"
-tower-http = { version = "0.7.0", features = ["trace"] }
-tower-service = "0.3.3"
+tower = { version = "0.5.3", features = ["util"] }
 tracing = "0.1.44"
-tracing-subscriber = "0.3.23"
 
 [dev-dependencies]
+axum = { version = "0.8.9", features = ["multipart", "macros"] }
+tokio = { version = "1.53.1", features = ["full"] }
 tower = { version = "0.5.3", features = ["util"] }
+tracing-subscriber = "0.3.23"
+
+

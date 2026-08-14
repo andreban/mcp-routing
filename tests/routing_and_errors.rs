@@ -3,20 +3,26 @@
 
 //! # Routing Edge Cases & Error Handling Integration Tests
 //!
-//! Verifies the error boundaries, HTTP status codes, and header normalization of [`McpRouter`](mcp_routing::McpRouter):
+//! Verifies the error boundaries, JSON-RPC 2.0 error codes, and header normalization of [`McpRouter`](mcp_routing::McpRouter):
 //! - Header and body normalization (leading/trailing slash tolerance in `Mcp-Method` and `Mcp-Name`)
-//! - Missing or empty method rejection (`400 Bad Request`)
-//! - Missing or empty tool name rejection for `tools/call` (`400 Bad Request`)
-//! - Unknown method rejection (`404 Not Found`)
-//! - Non-standard method path suffixes (`404 Not Found`)
-//! - Unregistered tool execution attempts (`404 Not Found`)
-//! - Malformed JSON payloads across all endpoints (`400 Bad Request`)
+//! - Missing or empty method rejection (`-32600 Invalid Request`)
+//! - Missing or empty tool name rejection for `tools/call` (`-32602 Invalid Params`)
+//! - Unknown method rejection (`-32601 Method Not Found`)
+//! - Non-standard method path suffixes (`-32601 Method Not Found`)
+//! - Unregistered tool execution attempts (`-32601 Method Not Found`)
+//! - Malformed JSON payloads across all endpoints (`-32700 Parse Error` with `id: null`)
 
 mod common;
 
 use axum::body::Body;
 use http::{Request, StatusCode};
-use mcp_routing::McpRouter;
+use mcp_routing::{
+    McpRouter,
+    types::jsonrpc::{
+        INVALID_PARAMS_CODE, INVALID_REQUEST_CODE, METHOD_NOT_FOUND_CODE, PARSE_ERROR_CODE,
+        JsonRpcErrorResponse,
+    },
+};
 use serde_json::json;
 
 async fn dummy_tool() -> &'static str {
@@ -78,9 +84,9 @@ async fn test_slash_normalization_in_headers_and_body() {
     assert_eq!(body3["result"]["content"][0]["text"], "success");
 }
 
-/// Tests that requests lacking a method in both the `Mcp-Method` header and the JSON body return `400 Bad Request`.
+/// Tests that requests lacking a method in both the `Mcp-Method` header and the JSON body return `Invalid Request` (-32600).
 #[tokio::test]
-async fn test_missing_method_returns_bad_request() {
+async fn test_missing_method_returns_invalid_request() {
     let app = McpRouter::new(common::sample_server_info());
 
     // No Mcp-Method header and no method in body
@@ -93,14 +99,22 @@ async fn test_missing_method_returns_bad_request() {
         }),
     );
 
-    let (status, _headers, body_bytes) = common::execute_request_raw(app, req).await;
-    assert_eq!(status, StatusCode::BAD_REQUEST);
-    assert!(body_bytes.is_empty());
+    let (status, headers, body) = common::execute_request(app, req).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        headers.get("content-type").unwrap().to_str().unwrap(),
+        "application/json"
+    );
+
+    let err_resp: JsonRpcErrorResponse = serde_json::from_value(body).unwrap();
+    assert_eq!(err_resp.jsonrpc, "2.0");
+    assert_eq!(err_resp.id, Some(1.into()));
+    assert_eq!(err_resp.error.code.code(), INVALID_REQUEST_CODE);
 }
 
-/// Tests that requests with an empty `Mcp-Method` header string return `400 Bad Request`.
+/// Tests that requests with an empty `Mcp-Method` header string return `Invalid Request` (-32600).
 #[tokio::test]
-async fn test_empty_method_returns_bad_request() {
+async fn test_empty_method_returns_invalid_request() {
     let app = McpRouter::new(common::sample_server_info());
 
     // Mcp-Method header is empty string
@@ -113,14 +127,18 @@ async fn test_empty_method_returns_bad_request() {
         }),
     );
 
-    let (status, _headers, body_bytes) = common::execute_request_raw(app, req).await;
-    assert_eq!(status, StatusCode::BAD_REQUEST);
-    assert!(body_bytes.is_empty());
+    let (status, _headers, body) = common::execute_request(app, req).await;
+    assert_eq!(status, StatusCode::OK);
+
+    let err_resp: JsonRpcErrorResponse = serde_json::from_value(body).unwrap();
+    assert_eq!(err_resp.jsonrpc, "2.0");
+    assert_eq!(err_resp.id, Some(1.into()));
+    assert_eq!(err_resp.error.code.code(), INVALID_REQUEST_CODE);
 }
 
-/// Tests that a `tools/call` request without a tool name in headers or body returns `400 Bad Request`.
+/// Tests that a `tools/call` request without a tool name in headers or body returns `Invalid Params` (-32602).
 #[tokio::test]
-async fn test_missing_tool_name_returns_bad_request() {
+async fn test_missing_tool_name_returns_invalid_params() {
     let app = McpRouter::new(common::sample_server_info())
         .register_tool("sample", dummy_tool);
 
@@ -138,14 +156,18 @@ async fn test_missing_tool_name_returns_bad_request() {
         }),
     );
 
-    let (status, _headers, body_bytes) = common::execute_request_raw(app, req).await;
-    assert_eq!(status, StatusCode::BAD_REQUEST);
-    assert!(body_bytes.is_empty());
+    let (status, _headers, body) = common::execute_request(app, req).await;
+    assert_eq!(status, StatusCode::OK);
+
+    let err_resp: JsonRpcErrorResponse = serde_json::from_value(body).unwrap();
+    assert_eq!(err_resp.jsonrpc, "2.0");
+    assert_eq!(err_resp.id, Some(1.into()));
+    assert_eq!(err_resp.error.code.code(), INVALID_PARAMS_CODE);
 }
 
-/// Tests that a `tools/call` request with an empty tool name string returns `400 Bad Request`.
+/// Tests that a `tools/call` request with an empty tool name string returns `Invalid Params` (-32602).
 #[tokio::test]
-async fn test_empty_tool_name_returns_bad_request() {
+async fn test_empty_tool_name_returns_invalid_params() {
     let app = McpRouter::new(common::sample_server_info())
         .register_tool("sample", dummy_tool);
 
@@ -163,14 +185,18 @@ async fn test_empty_tool_name_returns_bad_request() {
         }),
     );
 
-    let (status, _headers, body_bytes) = common::execute_request_raw(app, req).await;
-    assert_eq!(status, StatusCode::BAD_REQUEST);
-    assert!(body_bytes.is_empty());
+    let (status, _headers, body) = common::execute_request(app, req).await;
+    assert_eq!(status, StatusCode::OK);
+
+    let err_resp: JsonRpcErrorResponse = serde_json::from_value(body).unwrap();
+    assert_eq!(err_resp.jsonrpc, "2.0");
+    assert_eq!(err_resp.id, Some(1.into()));
+    assert_eq!(err_resp.error.code.code(), INVALID_PARAMS_CODE);
 }
 
-/// Tests that an unrecognized MCP method (e.g. `resources/list` before implementation) returns `404 Not Found`.
+/// Tests that an unrecognized MCP method (e.g. `resources/list` before implementation) returns `Method Not Found` (-32601).
 #[tokio::test]
-async fn test_unknown_method_returns_not_found() {
+async fn test_unknown_method_returns_method_not_found() {
     let app = McpRouter::new(common::sample_server_info());
 
     let req = common::build_request(
@@ -183,14 +209,18 @@ async fn test_unknown_method_returns_not_found() {
         }),
     );
 
-    let (status, _headers, body_bytes) = common::execute_request_raw(app, req).await;
-    assert_eq!(status, StatusCode::NOT_FOUND);
-    assert!(body_bytes.is_empty());
+    let (status, _headers, body) = common::execute_request(app, req).await;
+    assert_eq!(status, StatusCode::OK);
+
+    let err_resp: JsonRpcErrorResponse = serde_json::from_value(body).unwrap();
+    assert_eq!(err_resp.jsonrpc, "2.0");
+    assert_eq!(err_resp.id, Some(1.into()));
+    assert_eq!(err_resp.error.code.code(), METHOD_NOT_FOUND_CODE);
 }
 
-/// Tests that non-standard path suffix methods like `tools/call/echo` return `404 Not Found`.
+/// Tests that non-standard path suffix methods like `tools/call/echo` return `Method Not Found` (-32601).
 #[tokio::test]
-async fn test_invalid_method_path_suffix_returns_not_found() {
+async fn test_invalid_method_path_suffix_returns_method_not_found() {
     let app = McpRouter::new(common::sample_server_info())
         .register_tool("echo", dummy_tool);
 
@@ -204,14 +234,18 @@ async fn test_invalid_method_path_suffix_returns_not_found() {
         }),
     );
 
-    let (status, _headers, body_bytes) = common::execute_request_raw(app, req).await;
-    assert_eq!(status, StatusCode::NOT_FOUND);
-    assert!(body_bytes.is_empty());
+    let (status, _headers, body) = common::execute_request(app, req).await;
+    assert_eq!(status, StatusCode::OK);
+
+    let err_resp: JsonRpcErrorResponse = serde_json::from_value(body).unwrap();
+    assert_eq!(err_resp.jsonrpc, "2.0");
+    assert_eq!(err_resp.id, Some(1.into()));
+    assert_eq!(err_resp.error.code.code(), METHOD_NOT_FOUND_CODE);
 }
 
-/// Tests that attempting to call an unregistered tool name returns `404 Not Found`.
+/// Tests that attempting to call an unregistered tool name returns `Method Not Found` (-32601).
 #[tokio::test]
-async fn test_unknown_tool_returns_not_found() {
+async fn test_unknown_tool_returns_method_not_found() {
     let app = McpRouter::new(common::sample_server_info())
         .register_tool("existing_tool", dummy_tool);
 
@@ -228,14 +262,18 @@ async fn test_unknown_tool_returns_not_found() {
         }),
     );
 
-    let (status, _headers, body_bytes) = common::execute_request_raw(app, req).await;
-    assert_eq!(status, StatusCode::NOT_FOUND);
-    assert!(body_bytes.is_empty());
+    let (status, _headers, body) = common::execute_request(app, req).await;
+    assert_eq!(status, StatusCode::OK);
+
+    let err_resp: JsonRpcErrorResponse = serde_json::from_value(body).unwrap();
+    assert_eq!(err_resp.jsonrpc, "2.0");
+    assert_eq!(err_resp.id, Some(1.into()));
+    assert_eq!(err_resp.error.code.code(), METHOD_NOT_FOUND_CODE);
 }
 
-/// Tests that malformed or non-JSON payloads across all endpoints return `400 Bad Request`.
+/// Tests that malformed or non-JSON payloads across all endpoints return `Parse Error` (-32700) with `id: null`.
 #[tokio::test]
-async fn test_malformed_json_body_returns_bad_request() {
+async fn test_malformed_json_body_returns_parse_error() {
     let app = McpRouter::new(common::sample_server_info())
         .register_tool("echo", dummy_tool);
 
@@ -248,9 +286,11 @@ async fn test_malformed_json_body_returns_bad_request() {
         .body(Body::from("NOT_A_VALID_JSON{"))
         .unwrap();
 
-    let (status1, _, body1) = common::execute_request_raw(app.clone(), req1).await;
-    assert_eq!(status1, StatusCode::BAD_REQUEST);
-    assert!(body1.is_empty());
+    let (status1, _, body1) = common::execute_request(app.clone(), req1).await;
+    assert_eq!(status1, StatusCode::OK);
+    assert_eq!(body1["jsonrpc"], "2.0");
+    assert_eq!(body1["id"], serde_json::Value::Null);
+    assert_eq!(body1["error"]["code"], PARSE_ERROR_CODE);
 
     // 2. Invalid JSON in tools/list
     let req2 = Request::builder()
@@ -261,9 +301,11 @@ async fn test_malformed_json_body_returns_bad_request() {
         .body(Body::from("{\"jsonrpc\": \"2.0\", \"id\": "))
         .unwrap();
 
-    let (status2, _, body2) = common::execute_request_raw(app.clone(), req2).await;
-    assert_eq!(status2, StatusCode::BAD_REQUEST);
-    assert!(body2.is_empty());
+    let (status2, _, body2) = common::execute_request(app.clone(), req2).await;
+    assert_eq!(status2, StatusCode::OK);
+    assert_eq!(body2["jsonrpc"], "2.0");
+    assert_eq!(body2["id"], serde_json::Value::Null);
+    assert_eq!(body2["error"]["code"], PARSE_ERROR_CODE);
 
     // 3. Invalid JSON in tools/call
     let req3 = Request::builder()
@@ -275,7 +317,9 @@ async fn test_malformed_json_body_returns_bad_request() {
         .body(Body::from("<xml>not json</xml>"))
         .unwrap();
 
-    let (status3, _, body3) = common::execute_request_raw(app.clone(), req3).await;
-    assert_eq!(status3, StatusCode::BAD_REQUEST);
-    assert!(body3.is_empty());
+    let (status3, _, body3) = common::execute_request(app.clone(), req3).await;
+    assert_eq!(status3, StatusCode::OK);
+    assert_eq!(body3["jsonrpc"], "2.0");
+    assert_eq!(body3["id"], serde_json::Value::Null);
+    assert_eq!(body3["error"]["code"], PARSE_ERROR_CODE);
 }

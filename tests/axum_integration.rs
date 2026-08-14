@@ -298,7 +298,7 @@ async fn test_axum_real_tcp_server_e2e() {
         panic!("Expected text block");
     }
 
-    // 3. Test 404 for unknown tool over real TCP
+    // 3. Test JSON-RPC Method Not Found error (-32601) for unknown tool over real TCP
     let (status, _headers, body) = common::send_raw_http_request(
         addr,
         "POST",
@@ -318,6 +318,13 @@ async fn test_axum_real_tcp_server_e2e() {
     )
     .await;
 
-    assert_eq!(status, StatusCode::NOT_FOUND);
-    assert!(body.is_empty());
+    assert_eq!(status, StatusCode::OK);
+    let err_res: mcp_routing::types::jsonrpc::JsonRpcErrorResponse =
+        serde_json::from_str(&body).unwrap();
+    assert_eq!(err_res.jsonrpc, "2.0");
+    assert_eq!(err_res.id, Some(99.into()));
+    assert_eq!(
+        err_res.error.code.code(),
+        mcp_routing::types::jsonrpc::METHOD_NOT_FOUND_CODE
+    );
 }

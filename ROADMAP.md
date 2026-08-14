@@ -39,8 +39,8 @@ This roadmap tracks all Model Context Protocol (MCP) features and capabilities f
 | **JSON-RPC Request Model** | ✅ | [`JsonRpcRequest<P>`](src/types/jsonrpc/request.rs) with flexible generic parameters | [`src/types/jsonrpc/request.rs`](src/types/jsonrpc/request.rs) |
 | **Flexible Request ID Format** | ✅ | [`JsonRpcRequestId`](src/types/jsonrpc/mod.rs) supporting string and numeric IDs | [`src/types/jsonrpc/mod.rs`](src/types/jsonrpc/mod.rs) |
 | **JSON-RPC Success Responses** | ✅ | [`JsonRpcResultResponse<R>`](src/types/jsonrpc/response.rs) serialized with standard `jsonrpc: "2.0"` | [`src/types/jsonrpc/response.rs`](src/types/jsonrpc/response.rs) |
-| **JSON-RPC Error Structures** | 🟡 | [`JsonRpcErrorResponse<E>`](src/types/jsonrpc/response.rs) type exists, but router returns raw empty HTTP responses on routing/deserialization errors | [`src/types/jsonrpc/response.rs`](src/types/jsonrpc/response.rs) |
-| **Standard JSON-RPC Error Codes** | ❌ | Structured error mapping for `ParseError` (`-32700`), `InvalidRequest` (`-32600`), `MethodNotFound` (`-32601`), `InvalidParams` (`-32602`), and `InternalError` (`-32603`) | Planned for [`src/types/jsonrpc/`](src/types/jsonrpc) |
+| **JSON-RPC Error Structures** | ✅ | [`JsonRpcErrorResponse<E>`](src/types/jsonrpc/response.rs) with standard `error` objects and `id` mapping (including `null` on parse errors) | [`src/types/jsonrpc/response.rs`](src/types/jsonrpc/response.rs) |
+| **Standard JSON-RPC Error Codes** | ✅ | Structured error mapping for `ParseError` (`-32700`), `InvalidRequest` (`-32600`), `MethodNotFound` (`-32601`), `InvalidParams` (`-32602`), and `InternalError` (`-32603`) | [`src/types/jsonrpc/error.rs`](src/types/jsonrpc/error.rs) |
 | **JSON-RPC Batch Requests** | ❌ | Processing and batching array payloads `[JsonRpcRequest, ...]` over HTTP POST | Planned for [`src/router.rs`](src/router.rs) |
 | **JSON-RPC Notifications** | 🟡 | [`JsonRpcNotification<P>`](src/types/jsonrpc/notification.rs) type defined, but no notification dispatcher/handler in router | [`src/types/jsonrpc/notification.rs`](src/types/jsonrpc/notification.rs) |
 
@@ -146,8 +146,8 @@ gantt
     section Phase 1: Robustness & Spec Errors
     Body-based method fallback         :done, p1_1, 2026-08-15, 3d
     Tool name param fallback           :done, p1_2, after p1_1, 2d
-    JSON-RPC error code responses      :active, p1_3, after p1_2, 3d
-    HTTP verb & Content-Type validation:p1_4, after p1_3, 2d
+    JSON-RPC error code responses      :done, p1_3, after p1_2, 3d
+    HTTP verb & Content-Type validation:active, p1_4, after p1_3, 2d
     Cache-Control header propagation   :p1_5, after p1_4, 2d
     section Phase 2: Core Capabilities
     Prompts (prompts/list, prompts/get):p2_1, after p1_5, 5d

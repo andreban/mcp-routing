@@ -17,12 +17,15 @@ use tower::ServiceExt;
 
 use crate::{
     McpRouter,
-    types::mcp::{
-        Implementation,
-        server::discover::ServerDiscoverResultResponse,
-        tools::{
-            Tool,
-            list::ListToolsResultResponse,
+    types::{
+        jsonrpc::{JsonRpcErrorCode, JsonRpcErrorResponse},
+        mcp::{
+            Implementation,
+            server::discover::ServerDiscoverResultResponse,
+            tools::{
+                Tool,
+                list::ListToolsResultResponse,
+            },
         },
     },
 };
@@ -243,11 +246,10 @@ async fn test_mcp_router_tool_name_fallback_with_header_method() {
     assert_eq!(response.status(), StatusCode::OK);
 }
 
-/// Tests that non-standard method suffix strings return `404 Not Found`.
+/// Tests that non-standard method suffix strings return a JSON-RPC Method Not Found error (-32601).
 #[tokio::test]
 async fn test_mcp_router_invalid_method_suffix_returns_not_found() {
     let app = McpRouter::new(test_server_info()).register_tool("echo", mock_handler);
-    // Request with non-standard method "tools/call/echo" should return NOT_FOUND
     let request = Request::builder()
         .method("POST")
         .uri("/")
@@ -266,10 +268,16 @@ async fn test_mcp_router_invalid_method_suffix_returns_not_found() {
         .unwrap();
 
     let response = app.oneshot(request).await.unwrap();
-    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+    let res: JsonRpcErrorResponse = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(res.jsonrpc, "2.0");
+    assert_eq!(res.id, Some(1.into()));
+    assert_eq!(res.error.code, JsonRpcErrorCode::MethodNotFound);
 }
 
-/// Tests that missing method in both header and body returns `400 Bad Request`.
+/// Tests that missing method in both header and body returns a JSON-RPC Invalid Request error (-32600).
 #[tokio::test]
 async fn test_mcp_router_missing_method_in_header_and_body_returns_bad_request() {
     let app = McpRouter::new(test_server_info());
@@ -281,10 +289,16 @@ async fn test_mcp_router_missing_method_in_header_and_body_returns_bad_request()
         .unwrap();
 
     let response = app.oneshot(request).await.unwrap();
-    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+    let res: JsonRpcErrorResponse = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(res.jsonrpc, "2.0");
+    assert_eq!(res.id, Some(1.into()));
+    assert_eq!(res.error.code, JsonRpcErrorCode::InvalidRequest);
 }
 
-/// Tests that missing tool name in `tools/call` returns `400 Bad Request`.
+/// Tests that missing tool name in `tools/call` returns a JSON-RPC Invalid Params error (-32602).
 #[tokio::test]
 async fn test_mcp_router_missing_tool_name_returns_bad_request() {
     let app = McpRouter::new(test_server_info());
@@ -303,10 +317,16 @@ async fn test_mcp_router_missing_tool_name_returns_bad_request() {
         .unwrap();
 
     let response = app.oneshot(request).await.unwrap();
-    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+    let res: JsonRpcErrorResponse = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(res.jsonrpc, "2.0");
+    assert_eq!(res.id, Some(1.into()));
+    assert_eq!(res.error.code, JsonRpcErrorCode::InvalidParams);
 }
 
-/// Tests that calling an unregistered tool returns `404 Not Found`.
+/// Tests that calling an unregistered tool returns a JSON-RPC Method Not Found error (-32601).
 #[tokio::test]
 async fn test_mcp_router_unknown_tool_returns_not_found() {
     let app = McpRouter::new(test_server_info());
@@ -327,10 +347,16 @@ async fn test_mcp_router_unknown_tool_returns_not_found() {
         .unwrap();
 
     let response = app.oneshot(request).await.unwrap();
-    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+    let res: JsonRpcErrorResponse = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(res.jsonrpc, "2.0");
+    assert_eq!(res.id, Some(1.into()));
+    assert_eq!(res.error.code, JsonRpcErrorCode::MethodNotFound);
 }
 
-/// Tests that an unknown method returns `404 Not Found`.
+/// Tests that an unknown method returns a JSON-RPC Method Not Found error (-32601).
 #[tokio::test]
 async fn test_mcp_router_unknown_method_returns_not_found() {
     let app = McpRouter::new(test_server_info());
@@ -348,7 +374,13 @@ async fn test_mcp_router_unknown_method_returns_not_found() {
         .unwrap();
 
     let response = app.oneshot(request).await.unwrap();
-    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+    let res: JsonRpcErrorResponse = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(res.jsonrpc, "2.0");
+    assert_eq!(res.id, Some(1.into()));
+    assert_eq!(res.error.code, JsonRpcErrorCode::MethodNotFound);
 }
 
 /// Tests mounting an `McpRouter` in Axum with `nest_service`.

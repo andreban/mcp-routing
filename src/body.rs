@@ -123,11 +123,6 @@ pub(crate) fn bad_request() -> Response<ResponseBody> {
     empty_response(StatusCode::BAD_REQUEST)
 }
 
-/// Helper function to construct an empty 404 Not Found response.
-pub(crate) fn not_found() -> Response<ResponseBody> {
-    empty_response(StatusCode::NOT_FOUND)
-}
-
 /// Helper function to construct a JSON response with status 200 OK.
 pub(crate) fn json_response<T: serde::Serialize>(val: &T) -> Response<ResponseBody> {
     match serde_json::to_vec(val) {
@@ -188,9 +183,6 @@ mod tests {
     async fn test_response_helpers() {
         let resp_bad = bad_request();
         assert_eq!(resp_bad.status(), StatusCode::BAD_REQUEST);
-
-        let resp_nf = not_found();
-        assert_eq!(resp_nf.status(), StatusCode::NOT_FOUND);
 
         let resp_json = json_response(&serde_json::json!({"ok": true}));
         assert_eq!(resp_json.status(), StatusCode::OK);

@@ -1,6 +1,7 @@
 // Copyright 2026 André Cipriani Bandarra
 // SPDX-License-Identifier: Apache-2.0
 
+mod error;
 mod notification;
 mod request;
 mod response;
@@ -9,6 +10,10 @@ use std::{borrow::Cow, fmt::Debug};
 
 use serde::{Deserialize, Serialize};
 
+pub use error::{
+    INTERNAL_ERROR_CODE, INVALID_PARAMS_CODE, INVALID_REQUEST_CODE, METHOD_NOT_FOUND_CODE,
+    PARSE_ERROR_CODE, JsonRpcError, JsonRpcErrorCode,
+};
 pub use notification::JsonRpcNotification;
 pub use request::JsonRpcRequest;
 pub use response::{JsonRpcErrorResponse, JsonRpcResponse, JsonRpcResultResponse};
@@ -58,7 +63,7 @@ impl From<f64> for JsonRpcRequestId {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum JsonRpcMessage<P = (), N = (), R = (), E = ()> {
+pub enum JsonRpcMessage<P = (), N = (), R = (), E = JsonRpcError> {
     Request(JsonRpcRequest<P>),
     Notification(JsonRpcNotification<N>),
     Response(JsonRpcResponse<R, E>),
@@ -117,8 +122,8 @@ mod tests {
         assert_eq!(res_json["id"], 1.0);
         assert_eq!(res_json["result"], "success_result");
 
-        // Error Response
-        let err_resp = JsonRpcErrorResponse::new(
+        // Error Response with numeric ID
+        let err_resp = JsonRpcErrorResponse::with_id(
             1.into(),
             serde_json::json!({
                 "code": -32601,
@@ -127,7 +132,15 @@ mod tests {
         );
         let err_json = serde_json::to_value(&err_resp).unwrap();
         assert_eq!(err_json["jsonrpc"], "2.0");
+        assert_eq!(err_json["id"], 1.0);
         assert_eq!(err_json["error"]["code"], -32601);
+
+        // Error Response with null ID (e.g. Parse Error)
+        let parse_err_resp = JsonRpcErrorResponse::parse_error("Invalid syntax");
+        let parse_err_json = serde_json::to_value(&parse_err_resp).unwrap();
+        assert_eq!(parse_err_json["jsonrpc"], "2.0");
+        assert_eq!(parse_err_json["id"], serde_json::Value::Null);
+        assert_eq!(parse_err_json["error"]["code"], -32700);
 
         // Notification
         let notif = JsonRpcNotification::new(
@@ -140,17 +153,21 @@ mod tests {
         assert!(notif_json.get("id").is_none());
 
         // Untagged JsonRpcMessage
-        let msg_req: JsonRpcMessage<serde_json::Value, (), (), ()> =
+        let msg_req: JsonRpcMessage<serde_json::Value, (), (), JsonRpcError> =
             serde_json::from_value(req_json).unwrap();
         assert!(matches!(msg_req, JsonRpcMessage::Request(_)));
 
-        let msg_notif: JsonRpcMessage<(), serde_json::Value, (), ()> =
+        let msg_notif: JsonRpcMessage<(), serde_json::Value, (), JsonRpcError> =
             serde_json::from_value(notif_json).unwrap();
         assert!(matches!(msg_notif, JsonRpcMessage::Notification(_)));
 
         let msg_resp: JsonRpcMessage<(), (), String, serde_json::Value> =
             serde_json::from_value(res_json).unwrap();
         assert!(matches!(msg_resp, JsonRpcMessage::Response(_)));
+
+        let msg_err: JsonRpcMessage<(), (), (), JsonRpcError> =
+            serde_json::from_value(parse_err_json).unwrap();
+        assert!(matches!(msg_err, JsonRpcMessage::Response(_)));
     }
 
     /// Tests the [`default_jsonrpc`] helper constant.

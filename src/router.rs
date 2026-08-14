@@ -14,9 +14,10 @@ use http_body_util::BodyExt;
 use serde::Deserialize;
 use tower::Service;
 
-use crate::body::{BoxError, ResponseBody, bad_request, json_response, not_found};
+use crate::body::{BoxError, ResponseBody, bad_request, json_response};
 use crate::server;
 use crate::tools::{self, IntoToolHandler, ToolHandler};
+use crate::types::jsonrpc::{JsonRpcErrorResponse, JsonRpcRequestId};
 use crate::types::mcp::{
     Implementation, ServerCapabilities, ToolsCapability,
     server::discover::ServerDiscoverRequest,
@@ -123,33 +124,75 @@ impl McpRouterInner {
             }
         };
 
-        let method = match extract_method(&parts.headers, &body_bytes) {
-            Some(m) => m,
-            None => {
-                tracing::debug!("Missing method in both Mcp-Method header and JSON-RPC body");
-                return bad_request();
+        #[derive(Deserialize)]
+        struct RequestPeek {
+            id: Option<JsonRpcRequestId>,
+            method: Option<String>,
+        }
+
+        let peek: RequestPeek = match serde_json::from_slice(&body_bytes) {
+            Ok(p) => p,
+            Err(err) => {
+                tracing::debug!(?err, "Failed to parse JSON body");
+                let error_response =
+                    JsonRpcErrorResponse::parse_error(format!("Parse error: {err}"));
+                return json_response(&error_response);
             }
         };
+
+        let method = extract_method(&parts.headers, peek.method.as_deref());
+        let Some(method) = method else {
+            tracing::debug!("Missing method in both Mcp-Method header and JSON-RPC body");
+            let error_response = JsonRpcErrorResponse::invalid_request(
+                peek.id,
+                "Invalid Request: missing method",
+            );
+            return json_response(&error_response);
+        };
+
+        if method.is_empty() {
+            tracing::debug!("Empty method provided");
+            let error_response = JsonRpcErrorResponse::invalid_request(
+                peek.id,
+                "Invalid Request: empty method",
+            );
+            return json_response(&error_response);
+        }
 
         let header_name = extract_header_name(&parts.headers);
 
         match method.as_str() {
-            "server/discover" => self.handle_server_discover(&body_bytes),
-            "tools/list" => self.handle_tools_list(&body_bytes),
-            "tools/call" => self.handle_tools_call(header_name.as_deref(), &body_bytes).await,
-            _ => {
-                tracing::debug!(%method, "Method not found");
-                not_found()
+            "server/discover" => self.handle_server_discover(peek.id, &body_bytes),
+            "tools/list" => self.handle_tools_list(peek.id, &body_bytes),
+            "tools/call" => {
+                self.handle_tools_call(peek.id, header_name.as_deref(), &body_bytes)
+                    .await
+            }
+            unknown_method => {
+                tracing::debug!(%unknown_method, "Method not found");
+                let error_response = JsonRpcErrorResponse::method_not_found(
+                    peek.id,
+                    format!("Method not found: {unknown_method}"),
+                );
+                json_response(&error_response)
             }
         }
     }
 
-    fn handle_server_discover(&self, body: &[u8]) -> Response<ResponseBody> {
+    fn handle_server_discover(
+        &self,
+        req_id: Option<JsonRpcRequestId>,
+        body: &[u8],
+    ) -> Response<ResponseBody> {
         let request: ServerDiscoverRequest = match serde_json::from_slice(body) {
             Ok(r) => r,
             Err(err) => {
                 tracing::error!(?err, "Failed to parse ServerDiscoverRequest");
-                return bad_request();
+                let error_response = JsonRpcErrorResponse::invalid_params(
+                    req_id,
+                    format!("Invalid params: {err}"),
+                );
+                return json_response(&error_response);
             }
         };
 
@@ -164,12 +207,20 @@ impl McpRouterInner {
         json_response(&response)
     }
 
-    fn handle_tools_list(&self, body: &[u8]) -> Response<ResponseBody> {
+    fn handle_tools_list(
+        &self,
+        req_id: Option<JsonRpcRequestId>,
+        body: &[u8],
+    ) -> Response<ResponseBody> {
         let request: ListToolsRequest = match serde_json::from_slice(body) {
             Ok(r) => r,
             Err(err) => {
                 tracing::error!(?err, "Failed to parse ListToolsRequest");
-                return bad_request();
+                let error_response = JsonRpcErrorResponse::invalid_params(
+                    req_id,
+                    format!("Invalid params: {err}"),
+                );
+                return json_response(&error_response);
             }
         };
 
@@ -179,6 +230,7 @@ impl McpRouterInner {
 
     async fn handle_tools_call(
         &self,
+        req_id: Option<JsonRpcRequestId>,
         header_name: Option<&str>,
         body: &[u8],
     ) -> Response<ResponseBody> {
@@ -186,7 +238,11 @@ impl McpRouterInner {
             Ok(r) => r,
             Err(err) => {
                 tracing::error!(?err, "Failed to parse CallToolRequest");
-                return bad_request();
+                let error_response = JsonRpcErrorResponse::invalid_params(
+                    req_id,
+                    format!("Invalid params: {err}"),
+                );
+                return json_response(&error_response);
             }
         };
 
@@ -197,8 +253,21 @@ impl McpRouterInner {
 
         let Some(tool_name) = tool_name else {
             tracing::debug!("Missing tool name for tools/call");
-            return bad_request();
+            let error_response = JsonRpcErrorResponse::invalid_params(
+                Some(request.id),
+                "Invalid params: missing tool name",
+            );
+            return json_response(&error_response);
         };
+
+        if tool_name.is_empty() {
+            tracing::debug!("Empty tool name for tools/call");
+            let error_response = JsonRpcErrorResponse::invalid_params(
+                Some(request.id),
+                "Invalid params: empty tool name",
+            );
+            return json_response(&error_response);
+        }
 
         if let Some(handler) = self.tool_handlers.get(tool_name) {
             let req_id = request.id.clone();
@@ -208,7 +277,11 @@ impl McpRouterInner {
         }
 
         tracing::debug!(tool_name, "Tool not found");
-        not_found()
+        let error_response = JsonRpcErrorResponse::method_not_found(
+            Some(request.id),
+            format!("Method not found: tool '{tool_name}' not found"),
+        );
+        json_response(&error_response)
     }
 }
 
@@ -217,45 +290,29 @@ fn extract_header_name(headers: &http::HeaderMap) -> Option<String> {
         .get("Mcp-Name")
         .and_then(|v| v.to_str().ok())
         .map(|s| s.trim_matches('/').to_string())
-        .filter(|s| !s.is_empty())
 }
 
-fn extract_method(headers: &http::HeaderMap, body: &[u8]) -> Option<String> {
+fn extract_method(headers: &http::HeaderMap, body_method: Option<&str>) -> Option<String> {
     // 1. Prefer Mcp-Method HTTP header
     if let Some(header_method) = headers
         .get("Mcp-Method")
         .and_then(|v| v.to_str().ok())
-        .map(|s| s.trim_matches('/').to_string())
-        .filter(|s| !s.is_empty())
     {
-        return Some(header_method);
+        return Some(header_method.trim_matches('/').to_string());
     }
 
     // 2. Fall back to JSON-RPC request body method
-    #[derive(Deserialize)]
-    struct MethodPeek {
-        method: Option<String>,
-    }
-
-    serde_json::from_slice::<MethodPeek>(body)
-        .ok()
-        .and_then(|peek| peek.method)
-        .map(|m| m.trim_matches('/').to_string())
-        .filter(|m| !m.is_empty())
+    body_method.map(|m| m.trim_matches('/').to_string())
 }
 
 fn resolve_tool_name<'a>(
     header_name: Option<&'a str>,
     params_name: Option<&'a str>,
 ) -> Option<&'a str> {
-    header_name
-        .map(|n| n.trim_matches('/'))
-        .filter(|n| !n.is_empty())
-        .or_else(|| {
-            params_name
-                .map(|n| n.trim_matches('/'))
-                .filter(|n| !n.is_empty())
-        })
+    if let Some(h) = header_name {
+        return Some(h.trim_matches('/'));
+    }
+    params_name.map(|n| n.trim_matches('/'))
 }
 
 impl<B> Service<Request<B>> for McpRouter
@@ -292,39 +349,36 @@ mod tests {
         assert_eq!(extract_header_name(&headers), Some("my_tool".to_string()));
 
         headers.insert("Mcp-Name", "///".parse().unwrap());
-        assert_eq!(extract_header_name(&headers), None);
+        assert_eq!(extract_header_name(&headers), Some("".to_string()));
     }
 
     /// Tests extracting the method from `Mcp-Method` header or JSON body.
     #[test]
     fn test_extract_method() {
         let mut headers = HeaderMap::new();
-        let body = b"{\"method\": \"tools/list\"}";
 
         // Preference: header over body
         headers.insert("Mcp-Method", "server/discover".parse().unwrap());
         assert_eq!(
-            extract_method(&headers, body),
+            extract_method(&headers, Some("tools/list")),
             Some("server/discover".to_string())
         );
 
         // Fallback to body when header is absent
         headers.remove("Mcp-Method");
         assert_eq!(
-            extract_method(&headers, body),
+            extract_method(&headers, Some("tools/list")),
             Some("tools/list".to_string())
         );
 
         // Slash normalization
-        let slash_body = b"{\"method\": \"/tools/call/\"}";
         assert_eq!(
-            extract_method(&headers, slash_body),
+            extract_method(&headers, Some("/tools/call/")),
             Some("tools/call".to_string())
         );
 
-        // Invalid JSON body and no header
-        let invalid_body = b"not json";
-        assert_eq!(extract_method(&headers, invalid_body), None);
+        // Invalid / absent method
+        assert_eq!(extract_method(&headers, None), None);
     }
 
     /// Tests resolving tool name between header preference and body parameter fallback.
@@ -338,8 +392,8 @@ mod tests {
             resolve_tool_name(None, Some("/body_tool/")),
             Some("body_tool")
         );
-        assert_eq!(resolve_tool_name(Some(""), Some("body_tool")), Some("body_tool"));
+        assert_eq!(resolve_tool_name(Some(""), Some("body_tool")), Some(""));
         assert_eq!(resolve_tool_name(None, None), None);
-        assert_eq!(resolve_tool_name(Some("///"), Some("///")), None);
+        assert_eq!(resolve_tool_name(Some("///"), Some("///")), Some(""));
     }
 }

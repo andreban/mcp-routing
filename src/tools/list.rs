@@ -15,6 +15,8 @@ use crate::types::mcp::{
 pub fn handle_list_tools(
     req: ListToolsRequest,
     tools: Vec<Tool>,
+    ttl_ms: Option<u64>,
+    cache_scope: Option<CacheScope>,
 ) -> ListToolsResultResponse {
     ListToolsResultResponse::new(
         req.id,
@@ -22,8 +24,8 @@ pub fn handle_list_tools(
             meta: None,
             result_type: Some("complete".to_string()),
             next_cursor: None,
-            ttl_ms: Some(0),
-            cache_scope: Some(CacheScope::Public),
+            ttl_ms,
+            cache_scope,
             tools,
             extras: HashMap::new(),
         },

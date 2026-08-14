@@ -178,12 +178,11 @@ pub async fn send_raw_http_request(
 
     let mut header_map = HeaderMap::new();
     for line in header_lines {
-        if let Some((k, v)) = line.split_once(':') {
-            if let Ok(name) = http::header::HeaderName::from_bytes(k.trim().as_bytes()) {
-                if let Ok(val) = http::HeaderValue::from_str(v.trim()) {
-                    header_map.insert(name, val);
-                }
-            }
+        if let Some((k, v)) = line.split_once(':')
+            && let Ok(name) = http::header::HeaderName::from_bytes(k.trim().as_bytes())
+            && let Ok(val) = http::HeaderValue::from_str(v.trim())
+        {
+            header_map.insert(name, val);
         }
     }
 

@@ -60,6 +60,8 @@
 //!
 //! let mcp_router = McpRouter::new(server_info)
 //!     .instructions("Example MCP server providing an echo tool")
+//!     .server_discover_ttl(3_600_000) // 1 hour TTL
+//!     .tools_list_ttl(300_000)        // 5 minutes TTL
 //!     .register_tool(echo_tool, echo);
 //! ```
 
@@ -73,6 +75,6 @@ pub(crate) mod utils;
 #[cfg(test)]
 mod test;
 
-pub use body::{BoxError, ResponseBody};
+pub use body::{BoxError, ResponseBody, compute_etag, format_cache_control};
 pub use router::McpRouter;
 pub use tools::{IntoToolHandler, IntoToolResult, ToolHandler};

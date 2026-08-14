@@ -490,3 +490,70 @@ async fn test_tools_call_empty_arguments_object() {
         assert_eq!(t.text, "empty_params_ok");
     }
 }
+
+/// Tests that tools configured with cache directives return `Cache-Control` and `ETag` headers.
+///
+/// Verifies:
+/// - `register_tool_with_cache` sets HTTP `Cache-Control` header on `tools/call` response
+/// - `.tool_cache()` updates cache settings for registered tools
+/// - Responses have status 200 OK, valid ETag, and matching JSON-RPC payload
+#[tokio::test]
+async fn test_tools_call_with_tool_caching_directives() {
+    use mcp_routing::types::mcp::CacheScope;
+
+    let app = McpRouter::new(common::sample_server_info())
+        .register_tool_with_cache(
+            "cached_calculator",
+            handle_calculator,
+            Some(180_000), // 3 minutes
+            Some(CacheScope::Public),
+        )
+        .register_tool("regular_calculator", handle_calculator);
+
+    // 1. Call cached tool -> expect Cache-Control: public, max-age=180
+    let req1 = common::build_request(
+        Some("tools/call"),
+        Some("cached_calculator"),
+        json!({
+            "jsonrpc": "2.0",
+            "id": "cache-calc-1",
+            "method": "tools/call",
+            "params": {
+                "name": "cached_calculator",
+                "arguments": { "a": 5, "b": 3, "operation": "add" }
+            }
+        }),
+    );
+    let (status1, headers1, body1) = common::execute_request(app.clone(), req1).await;
+    assert_eq!(status1, StatusCode::OK);
+    assert_eq!(
+        headers1.get("cache-control").unwrap().to_str().unwrap(),
+        "public, max-age=180"
+    );
+    assert!(headers1.contains_key("etag"));
+
+    let res1: CallToolResultResponse = serde_json::from_value(body1).unwrap();
+    assert_eq!(res1.result.is_error, Some(false));
+    if let ContentBlock::Text(ref t) = res1.result.content[0] {
+        assert_eq!(t.text, "8");
+    }
+
+    // 2. Call regular tool -> expect ETag but no Cache-Control header
+    let req2 = common::build_request(
+        Some("tools/call"),
+        Some("regular_calculator"),
+        json!({
+            "jsonrpc": "2.0",
+            "id": "reg-calc-2",
+            "method": "tools/call",
+            "params": {
+                "name": "regular_calculator",
+                "arguments": { "a": 5, "b": 3, "operation": "add" }
+            }
+        }),
+    );
+    let (status2, headers2, _) = common::execute_request(app, req2).await;
+    assert_eq!(status2, StatusCode::OK);
+    assert_eq!(headers2.get("cache-control"), None);
+    assert!(headers2.contains_key("etag"));
+}

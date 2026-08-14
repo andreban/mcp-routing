@@ -17,6 +17,8 @@ pub fn handle_server_discover(
     instructions: Option<String>,
     capabilities: ServerCapabilities,
     supported_versions: Vec<String>,
+    ttl_ms: Option<u64>,
+    cache_scope: Option<CacheScope>,
 ) -> ServerDiscoverResultResponse {
     ServerDiscoverResultResponse::new(
         req.id,
@@ -29,8 +31,8 @@ pub fn handle_server_discover(
             supported_versions,
             capabilities,
             instructions,
-            ttl_ms: Some(0),
-            cache_scope: Some(CacheScope::Public),
+            ttl_ms,
+            cache_scope,
             extras: HashMap::new(),
         },
     )

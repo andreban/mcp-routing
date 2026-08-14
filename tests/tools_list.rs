@@ -53,6 +53,11 @@ async fn test_tools_list_empty() {
         headers.get("content-type").unwrap().to_str().unwrap(),
         "application/json"
     );
+    assert_eq!(
+        headers.get("cache-control").unwrap().to_str().unwrap(),
+        "public, max-age=0"
+    );
+    assert!(headers.contains_key("etag"));
 
     let res: ListToolsResultResponse = serde_json::from_value(body).unwrap();
     assert_eq!(res.jsonrpc, "2.0");
@@ -229,4 +234,40 @@ async fn test_tools_list_with_pagination_cursor_and_meta() {
     assert_eq!(res.id, "cursor-req".into());
     assert_eq!(res.result.tools.len(), 1);
     assert_eq!(res.result.tools[0].name, "tool_a");
+}
+
+/// Tests custom TTL and cache scope configuration on `tools/list`.
+///
+/// Verifies:
+/// - Custom `tools_list_cache(Some(600000), Some(CacheScope::Public))` sets `Cache-Control: public, max-age=600`
+/// - ETag header is present
+/// - JSON-RPC response contains configured `ttl_ms` and `cache_scope`
+#[tokio::test]
+async fn test_tools_list_custom_caching_parameters() {
+    let app = McpRouter::new(common::sample_server_info())
+        .tools_list_cache(Some(600000), Some(CacheScope::Public))
+        .register_tool(common::sample_tool("cache_tool"), dummy_handler);
+
+    let req = common::build_request(
+        Some("tools/list"),
+        None,
+        json!({
+            "jsonrpc": "2.0",
+            "id": "cache-list-test",
+            "method": "tools/list"
+        }),
+    );
+
+    let (status, headers, body) = common::execute_request(app, req).await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        headers.get("cache-control").unwrap().to_str().unwrap(),
+        "public, max-age=600"
+    );
+    assert!(headers.contains_key("etag"));
+
+    let res: ListToolsResultResponse = serde_json::from_value(body).unwrap();
+    assert_eq!(res.result.ttl_ms, Some(600000));
+    assert!(matches!(res.result.cache_scope, Some(CacheScope::Public)));
 }

@@ -78,6 +78,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let mcp_router = McpRouter::new(server_info)
         .instructions("Example MCP server providing an echo tool")
+        // Cache server/discover response for 1 hour publicly:
+        // generates HTTP `Cache-Control: public, max-age=3600` and `ETag`
+        .server_discover_cache(Some(3_600_000), Some(mcp_routing::types::mcp::CacheScope::Public))
+        // Cache tools/list response for 5 minutes publicly:
+        // generates HTTP `Cache-Control: public, max-age=300` and `ETag`
+        .tools_list_cache(Some(300_000), Some(mcp_routing::types::mcp::CacheScope::Public))
         .register_tool(echo_tool, echo);
 
     // Nest the MCP router as a service in Axum
@@ -111,12 +117,18 @@ Return types can implement `IntoToolResult`:
 - `CallToolResult`
 - `Result<T, E>` where `T: IntoToolResult` and `E: Display`
 
-## Running the Example
+## Running the Examples
 
-Run the included routing example:
+Run the basic starter example:
 
 ```bash
-cargo run --example routing
+cargo run --example basic
+```
+
+Run the caching example (demonstrating discovery and per-tool caching):
+
+```bash
+cargo run --example caching
 ```
 
 ## Running Tests

@@ -95,8 +95,8 @@ mod tests {
         let id_u64: JsonRpcRequestId = 2000_u64.into();
         assert_eq!(id_u64, JsonRpcRequestId::Number(2000.0));
 
-        let id_f64: JsonRpcRequestId = 3.14_f64.into();
-        assert_eq!(id_f64, JsonRpcRequestId::Number(3.14));
+        let id_f64: JsonRpcRequestId = 3.5_f64.into();
+        assert_eq!(id_f64, JsonRpcRequestId::Number(3.5));
 
         let serialized = serde_json::to_string(&id_str).unwrap();
         assert_eq!(serialized, "\"abc\"");

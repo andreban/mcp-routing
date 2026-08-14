@@ -638,3 +638,225 @@ async fn test_mcp_router_accepts_valid_content_types_with_charset() {
     );
 }
 
+/// Tests default `Cache-Control: public, max-age=0` and `ETag` headers on `server/discover`.
+#[tokio::test]
+async fn test_mcp_router_server_discover_caching_headers_default() {
+    let app = McpRouter::new(test_server_info());
+
+    let request = Request::builder()
+        .method("POST")
+        .uri("/")
+        .header("Mcp-Method", "server/discover")
+        .header("Content-Type", "application/json")
+        .body(Body::from(
+            json!({"id": 1, "method": "server/discover"}).to_string(),
+        ))
+        .unwrap();
+
+    let response = app.oneshot(request).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        response.headers().get("cache-control").and_then(|h| h.to_str().ok()),
+        Some("public, max-age=0")
+    );
+    assert!(response.headers().contains_key("etag"));
+
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+    let expected_etag = crate::body::compute_etag(&bytes);
+    assert_eq!(
+        expected_etag,
+        crate::body::compute_etag(&bytes)
+    );
+}
+
+/// Tests default `Cache-Control: public, max-age=0` and `ETag` headers on `tools/list`.
+#[tokio::test]
+async fn test_mcp_router_tools_list_caching_headers_default() {
+    let app = McpRouter::new(test_server_info()).register_tool("echo", mock_handler);
+
+    let request = Request::builder()
+        .method("POST")
+        .uri("/")
+        .header("Mcp-Method", "tools/list")
+        .header("Content-Type", "application/json")
+        .body(Body::from(
+            json!({"id": 1, "method": "tools/list"}).to_string(),
+        ))
+        .unwrap();
+
+    let response = app.oneshot(request).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        response.headers().get("cache-control").and_then(|h| h.to_str().ok()),
+        Some("public, max-age=0")
+    );
+    assert!(response.headers().contains_key("etag"));
+}
+
+/// Tests custom caching configuration on `server/discover` using builder methods.
+#[tokio::test]
+async fn test_mcp_router_server_discover_custom_caching_headers() {
+    use crate::types::mcp::CacheScope;
+
+    let app = McpRouter::new(test_server_info())
+        .server_discover_cache(Some(60000), Some(CacheScope::Private));
+
+    let request = Request::builder()
+        .method("POST")
+        .uri("/")
+        .header("Mcp-Method", "server/discover")
+        .header("Content-Type", "application/json")
+        .body(Body::from(
+            json!({"id": 1, "method": "server/discover"}).to_string(),
+        ))
+        .unwrap();
+
+    let response = app.oneshot(request).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        response.headers().get("cache-control").and_then(|h| h.to_str().ok()),
+        Some("private, max-age=60")
+    );
+    assert!(response.headers().contains_key("etag"));
+
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+    let res: ServerDiscoverResultResponse = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(res.result.ttl_ms, Some(60000));
+    assert!(matches!(res.result.cache_scope, Some(CacheScope::Private)));
+}
+
+/// Tests custom caching configuration on `tools/list` using individual TTL and scope builders.
+#[tokio::test]
+async fn test_mcp_router_tools_list_custom_caching_headers() {
+    use crate::types::mcp::CacheScope;
+
+    let app = McpRouter::new(test_server_info())
+        .tools_list_ttl(120000)
+        .tools_list_cache_scope(CacheScope::Public)
+        .register_tool("echo", mock_handler);
+
+    let request = Request::builder()
+        .method("POST")
+        .uri("/")
+        .header("Mcp-Method", "tools/list")
+        .header("Content-Type", "application/json")
+        .body(Body::from(
+            json!({"id": 1, "method": "tools/list"}).to_string(),
+        ))
+        .unwrap();
+
+    let response = app.oneshot(request).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        response.headers().get("cache-control").and_then(|h| h.to_str().ok()),
+        Some("public, max-age=120")
+    );
+    assert!(response.headers().contains_key("etag"));
+
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+    let res: ListToolsResultResponse = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(res.result.ttl_ms, Some(120000));
+    assert!(matches!(res.result.cache_scope, Some(CacheScope::Public)));
+}
+
+/// Tests disabling caching directives (no `Cache-Control` header) while preserving `ETag`.
+#[tokio::test]
+async fn test_mcp_router_disabled_caching_headers() {
+    let app = McpRouter::new(test_server_info())
+        .server_discover_cache(None, None);
+
+    let request = Request::builder()
+        .method("POST")
+        .uri("/")
+        .header("Mcp-Method", "server/discover")
+        .header("Content-Type", "application/json")
+        .body(Body::from(
+            json!({"id": 1, "method": "server/discover"}).to_string(),
+        ))
+        .unwrap();
+
+    let response = app.oneshot(request).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response.headers().get("cache-control"), None);
+    assert!(response.headers().contains_key("etag"));
+
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+    let res: ServerDiscoverResultResponse = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(res.result.ttl_ms, None);
+    assert_eq!(res.result.cache_scope, None);
+}
+
+/// Tests per-tool caching headers on `tools/call` via `register_tool_with_cache` and `tool_cache`.
+#[tokio::test]
+async fn test_mcp_router_per_tool_caching_headers() {
+    use crate::types::mcp::CacheScope;
+
+    let app = McpRouter::new(test_server_info())
+        .register_tool_with_cache(
+            "cached_tool",
+            mock_handler,
+            Some(45000),
+            Some(CacheScope::Public),
+        )
+        .register_tool("configured_tool", mock_handler)
+        .tool_cache("configured_tool", Some(90000), Some(CacheScope::Private))
+        .register_tool("uncached_tool", mock_handler);
+
+    // 1. Tool registered with cache (public, 45s)
+    let req1 = Request::builder()
+        .method("POST")
+        .uri("/")
+        .header("Mcp-Method", "tools/call")
+        .header("Mcp-Name", "cached_tool")
+        .header("Content-Type", "application/json")
+        .body(Body::from(
+            json!({"id": 1, "method": "tools/call", "params": {"name": "cached_tool"}}).to_string(),
+        ))
+        .unwrap();
+
+    let resp1 = app.clone().oneshot(req1).await.unwrap();
+    assert_eq!(resp1.status(), StatusCode::OK);
+    assert_eq!(
+        resp1.headers().get("cache-control").and_then(|h| h.to_str().ok()),
+        Some("public, max-age=45")
+    );
+    assert!(resp1.headers().contains_key("etag"));
+
+    // 2. Tool configured via .tool_cache() (private, 90s)
+    let req2 = Request::builder()
+        .method("POST")
+        .uri("/")
+        .header("Mcp-Method", "tools/call")
+        .header("Mcp-Name", "configured_tool")
+        .header("Content-Type", "application/json")
+        .body(Body::from(
+            json!({"id": 2, "method": "tools/call", "params": {"name": "configured_tool"}}).to_string(),
+        ))
+        .unwrap();
+
+    let resp2 = app.clone().oneshot(req2).await.unwrap();
+    assert_eq!(resp2.status(), StatusCode::OK);
+    assert_eq!(
+        resp2.headers().get("cache-control").and_then(|h| h.to_str().ok()),
+        Some("private, max-age=90")
+    );
+    assert!(resp2.headers().contains_key("etag"));
+
+    // 3. Tool without cache settings (ETag only, no Cache-Control)
+    let req3 = Request::builder()
+        .method("POST")
+        .uri("/")
+        .header("Mcp-Method", "tools/call")
+        .header("Mcp-Name", "uncached_tool")
+        .header("Content-Type", "application/json")
+        .body(Body::from(
+            json!({"id": 3, "method": "tools/call", "params": {"name": "uncached_tool"}}).to_string(),
+        ))
+        .unwrap();
+
+    let resp3 = app.oneshot(req3).await.unwrap();
+    assert_eq!(resp3.status(), StatusCode::OK);
+    assert_eq!(resp3.headers().get("cache-control"), None);
+    assert!(resp3.headers().contains_key("etag"));
+}
+

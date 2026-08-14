@@ -43,7 +43,7 @@ pub struct Icon {
 /// Specifies whether an icon is intended for a light or dark theme context.
 ///
 /// See <https://modelcontextprotocol.io/specification/2026-07-28/schema#icontheme>
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum IconTheme {
     /// Designed for light background themes.
@@ -57,7 +57,7 @@ pub enum IconTheme {
 /// Maps to RFC-5424 syslog severities.
 ///
 /// See <https://modelcontextprotocol.io/specification/2026-07-28/schema#logginglevel>
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum LoggingLevel {
     /// Detailed debugging information.
@@ -295,7 +295,7 @@ pub type MetaObject = HashMap<String, Value>;
 /// Specifies the scope for caching responses (`public` or `private`).
 ///
 /// See <https://modelcontextprotocol.io/specification/2026-07-28/schema#cachescope>
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum CacheScope {
     /// The response contains no user-specific data and may be cached publicly.
@@ -307,7 +307,7 @@ pub enum CacheScope {
 /// Specifies the role of an entity in a conversation.
 ///
 /// See <https://modelcontextprotocol.io/specification/2026-07-28/schema#role>
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Role {
     User,

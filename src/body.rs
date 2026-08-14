@@ -137,6 +137,50 @@ pub(crate) fn unsupported_media_type() -> Response<ResponseBody> {
     empty_response(StatusCode::UNSUPPORTED_MEDIA_TYPE)
 }
 
+/// Formats an HTTP `Cache-Control` header value based on optional `ttl_ms` and `cache_scope`.
+///
+/// Directives:
+/// - `CacheScope::Public` -> `"public"`
+/// - `CacheScope::Private` -> `"private"`
+/// - `ttl_ms` -> `format!("max-age={}", ttl_ms / 1000)`
+///
+/// Returns `None` if neither `ttl_ms` nor `cache_scope` is provided.
+pub fn format_cache_control(
+    ttl_ms: Option<u64>,
+    cache_scope: Option<&crate::types::mcp::CacheScope>,
+) -> Option<String> {
+    let mut directives = Vec::new();
+
+    if let Some(scope) = cache_scope {
+        match scope {
+            crate::types::mcp::CacheScope::Public => directives.push("public".to_string()),
+            crate::types::mcp::CacheScope::Private => directives.push("private".to_string()),
+        }
+    }
+
+    if let Some(ttl) = ttl_ms {
+        directives.push(format!("max-age={}", ttl / 1000));
+    }
+
+    if directives.is_empty() {
+        None
+    } else {
+        Some(directives.join(", "))
+    }
+}
+
+/// Computes an entity tag (ETag) string for the given response body bytes.
+///
+/// Uses standard FNV-1a 64-bit hashing and formats the result as a quoted entity tag (e.g. `"\"0123456789abcdef\""`).
+pub fn compute_etag(bytes: &[u8]) -> String {
+    let mut hash: u64 = 0xcbf29ce484222325;
+    for &byte in bytes {
+        hash ^= u64::from(byte);
+        hash = hash.wrapping_mul(0x100000001b3);
+    }
+    format!("\"{:016x}\"", hash)
+}
+
 /// Helper function to construct a JSON response with status 200 OK.
 pub(crate) fn json_response<T: serde::Serialize>(val: &T) -> Response<ResponseBody> {
     match serde_json::to_vec(val) {
@@ -145,6 +189,35 @@ pub(crate) fn json_response<T: serde::Serialize>(val: &T) -> Response<ResponseBo
             .header(header::CONTENT_TYPE, "application/json")
             .body(ResponseBody::from_bytes(Bytes::from(bytes)))
             .unwrap(),
+        Err(err) => {
+            tracing::error!(?err, "Failed to serialize JSON response");
+            empty_response(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
+}
+
+/// Helper function to construct a JSON response with status 200 OK, ETag, and optional Cache-Control headers.
+pub(crate) fn json_response_with_caching<T: serde::Serialize>(
+    val: &T,
+    ttl_ms: Option<u64>,
+    cache_scope: Option<&crate::types::mcp::CacheScope>,
+) -> Response<ResponseBody> {
+    match serde_json::to_vec(val) {
+        Ok(bytes) => {
+            let etag = compute_etag(&bytes);
+            let mut builder = Response::builder()
+                .status(StatusCode::OK)
+                .header(header::CONTENT_TYPE, "application/json")
+                .header(header::ETAG, etag);
+
+            if let Some(cache_control) = format_cache_control(ttl_ms, cache_scope) {
+                builder = builder.header(header::CACHE_CONTROL, cache_control);
+            }
+
+            builder
+                .body(ResponseBody::from_bytes(Bytes::from(bytes)))
+                .unwrap()
+        }
         Err(err) => {
             tracing::error!(?err, "Failed to serialize JSON response");
             empty_response(StatusCode::INTERNAL_SERVER_ERROR)
@@ -219,5 +292,87 @@ mod tests {
         );
         let bytes = resp_json.into_body().collect().await.unwrap().to_bytes();
         assert_eq!(bytes.as_ref(), b"{\"ok\":true}");
+    }
+
+    /// Tests `format_cache_control` directive combinations and edge cases.
+    #[test]
+    fn test_format_cache_control() {
+        use crate::types::mcp::CacheScope;
+
+        // Both public and ttl_ms
+        assert_eq!(
+            format_cache_control(Some(0), Some(&CacheScope::Public)),
+            Some("public, max-age=0".to_string())
+        );
+        assert_eq!(
+            format_cache_control(Some(60000), Some(&CacheScope::Public)),
+            Some("public, max-age=60".to_string())
+        );
+
+        // Private and ttl_ms
+        assert_eq!(
+            format_cache_control(Some(3600000), Some(&CacheScope::Private)),
+            Some("private, max-age=3600".to_string())
+        );
+
+        // Scope only
+        assert_eq!(
+            format_cache_control(None, Some(&CacheScope::Public)),
+            Some("public".to_string())
+        );
+        assert_eq!(
+            format_cache_control(None, Some(&CacheScope::Private)),
+            Some("private".to_string())
+        );
+
+        // TTL only
+        assert_eq!(
+            format_cache_control(Some(5000), None),
+            Some("max-age=5".to_string())
+        );
+
+        // Neither
+        assert_eq!(format_cache_control(None, None), None);
+    }
+
+    /// Tests deterministic `compute_etag` output and quoting format.
+    #[test]
+    fn test_compute_etag() {
+        let etag1 = compute_etag(b"{\"hello\":\"world\"}");
+        let etag2 = compute_etag(b"{\"hello\":\"world\"}");
+        let etag_different = compute_etag(b"{\"hello\":\"other\"}");
+
+        // Must be quoted
+        assert!(etag1.starts_with('"') && etag1.ends_with('"'));
+        // Deterministic
+        assert_eq!(etag1, etag2);
+        // Different payloads produce different ETags
+        assert_ne!(etag1, etag_different);
+    }
+
+    /// Tests `json_response_with_caching` headers propagation.
+    #[tokio::test]
+    async fn test_json_response_with_caching() {
+        use crate::types::mcp::CacheScope;
+
+        let data = serde_json::json!({"result": "cached_data"});
+        let resp = json_response_with_caching(&data, Some(10000), Some(&CacheScope::Public));
+
+        assert_eq!(resp.status(), StatusCode::OK);
+        assert_eq!(
+            resp.headers().get(header::CONTENT_TYPE).unwrap(),
+            "application/json"
+        );
+        assert_eq!(
+            resp.headers().get(header::CACHE_CONTROL).unwrap(),
+            "public, max-age=10"
+        );
+        assert!(resp.headers().contains_key(header::ETAG));
+
+        let expected_etag = compute_etag(serde_json::to_string(&data).unwrap().as_bytes());
+        assert_eq!(
+            resp.headers().get(header::ETAG).unwrap().to_str().unwrap(),
+            expected_etag
+        );
     }
 }

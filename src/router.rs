@@ -15,13 +15,14 @@ use serde::Deserialize;
 use tower::Service;
 
 use crate::body::{
-    BoxError, ResponseBody, bad_request, json_response, method_not_allowed, unsupported_media_type,
+    BoxError, ResponseBody, bad_request, json_response, json_response_with_caching,
+    method_not_allowed, unsupported_media_type,
 };
 use crate::server;
 use crate::tools::{self, IntoToolHandler, ToolHandler};
 use crate::types::jsonrpc::{JsonRpcErrorResponse, JsonRpcRequestId};
 use crate::types::mcp::{
-    Implementation, ServerCapabilities, ToolsCapability,
+    CacheScope, Implementation, ServerCapabilities, ToolsCapability,
     server::discover::ServerDiscoverRequest,
     tools::{
         Tool,
@@ -50,6 +51,11 @@ struct McpRouterInner {
     supported_versions: Vec<String>,
     tools: Vec<Tool>,
     tool_handlers: HashMap<String, Arc<dyn ToolHandler>>,
+    tool_cache_settings: HashMap<String, (Option<u64>, Option<CacheScope>)>,
+    server_discover_ttl_ms: Option<u64>,
+    server_discover_cache_scope: Option<CacheScope>,
+    tools_list_ttl_ms: Option<u64>,
+    tools_list_cache_scope: Option<CacheScope>,
 }
 
 impl McpRouter {
@@ -69,6 +75,11 @@ impl McpRouter {
                 supported_versions: vec!["2026-07-28".to_string()],
                 tools: Vec::new(),
                 tool_handlers: HashMap::new(),
+                tool_cache_settings: HashMap::new(),
+                server_discover_ttl_ms: Some(0),
+                server_discover_cache_scope: Some(CacheScope::Public),
+                tools_list_ttl_ms: Some(0),
+                tools_list_cache_scope: Some(CacheScope::Public),
             }),
         }
     }
@@ -91,6 +102,54 @@ impl McpRouter {
         self
     }
 
+    /// Sets the time-to-live (`ttl_ms`) and cache scope for `server/discover` responses.
+    pub fn server_discover_cache(
+        mut self,
+        ttl_ms: Option<u64>,
+        cache_scope: Option<CacheScope>,
+    ) -> Self {
+        let inner = Arc::make_mut(&mut self.inner);
+        inner.server_discover_ttl_ms = ttl_ms;
+        inner.server_discover_cache_scope = cache_scope;
+        self
+    }
+
+    /// Sets the time-to-live (`ttl_ms`) in milliseconds for `server/discover` responses.
+    pub fn server_discover_ttl(mut self, ttl_ms: u64) -> Self {
+        Arc::make_mut(&mut self.inner).server_discover_ttl_ms = Some(ttl_ms);
+        self
+    }
+
+    /// Sets the cache scope for `server/discover` responses.
+    pub fn server_discover_cache_scope(mut self, cache_scope: CacheScope) -> Self {
+        Arc::make_mut(&mut self.inner).server_discover_cache_scope = Some(cache_scope);
+        self
+    }
+
+    /// Sets the time-to-live (`ttl_ms`) and cache scope for `tools/list` responses.
+    pub fn tools_list_cache(
+        mut self,
+        ttl_ms: Option<u64>,
+        cache_scope: Option<CacheScope>,
+    ) -> Self {
+        let inner = Arc::make_mut(&mut self.inner);
+        inner.tools_list_ttl_ms = ttl_ms;
+        inner.tools_list_cache_scope = cache_scope;
+        self
+    }
+
+    /// Sets the time-to-live (`ttl_ms`) in milliseconds for `tools/list` responses.
+    pub fn tools_list_ttl(mut self, ttl_ms: u64) -> Self {
+        Arc::make_mut(&mut self.inner).tools_list_ttl_ms = Some(ttl_ms);
+        self
+    }
+
+    /// Sets the cache scope for `tools/list` responses.
+    pub fn tools_list_cache_scope(mut self, cache_scope: CacheScope) -> Self {
+        Arc::make_mut(&mut self.inner).tools_list_cache_scope = Some(cache_scope);
+        self
+    }
+
     /// Registers a tool definition alongside a typed asynchronous handler function.
     ///
     /// The handler function can take typed deserializable arguments (or no arguments)
@@ -106,6 +165,43 @@ impl McpRouter {
         let inner = Arc::make_mut(&mut self.inner);
         inner.tool_handlers.insert(name, handler.into_tool_handler());
         inner.tools.push(tool);
+        self
+    }
+
+    /// Registers a tool definition alongside a typed asynchronous handler and tool-specific caching directives.
+    ///
+    /// The specified `ttl_ms` and `cache_scope` will be propagated as HTTP `Cache-Control` headers
+    /// when the tool is executed via `tools/call`.
+    pub fn register_tool_with_cache<TTool, H, T>(
+        mut self,
+        tool: TTool,
+        handler: H,
+        ttl_ms: Option<u64>,
+        cache_scope: Option<CacheScope>,
+    ) -> Self
+    where
+        TTool: Into<Tool>,
+        H: IntoToolHandler<T>,
+        T: 'static,
+    {
+        let tool = tool.into();
+        let name = tool.name.clone();
+        let inner = Arc::make_mut(&mut self.inner);
+        inner.tool_handlers.insert(name.clone(), handler.into_tool_handler());
+        inner.tool_cache_settings.insert(name, (ttl_ms, cache_scope));
+        inner.tools.push(tool);
+        self
+    }
+
+    /// Sets the cache configuration (`ttl_ms` and `cache_scope`) for a specific registered tool by name.
+    pub fn tool_cache(
+        mut self,
+        tool_name: impl Into<String>,
+        ttl_ms: Option<u64>,
+        cache_scope: Option<CacheScope>,
+    ) -> Self {
+        let inner = Arc::make_mut(&mut self.inner);
+        inner.tool_cache_settings.insert(tool_name.into(), (ttl_ms, cache_scope));
         self
     }
 }
@@ -215,9 +311,15 @@ impl McpRouterInner {
             self.instructions.clone(),
             self.capabilities.clone(),
             self.supported_versions.clone(),
+            self.server_discover_ttl_ms,
+            self.server_discover_cache_scope.clone(),
         );
 
-        json_response(&response)
+        json_response_with_caching(
+            &response,
+            response.result.ttl_ms,
+            response.result.cache_scope.as_ref(),
+        )
     }
 
     fn handle_tools_list(
@@ -237,8 +339,17 @@ impl McpRouterInner {
             }
         };
 
-        let response = tools::list::handle_list_tools(request, self.tools.clone());
-        json_response(&response)
+        let response = tools::list::handle_list_tools(
+            request,
+            self.tools.clone(),
+            self.tools_list_ttl_ms,
+            self.tools_list_cache_scope.clone(),
+        );
+        json_response_with_caching(
+            &response,
+            response.result.ttl_ms,
+            response.result.cache_scope.as_ref(),
+        )
     }
 
     async fn handle_tools_call(
@@ -283,10 +394,15 @@ impl McpRouterInner {
         }
 
         if let Some(handler) = self.tool_handlers.get(tool_name) {
+            let (tool_ttl, tool_scope) = self
+                .tool_cache_settings
+                .get(tool_name)
+                .cloned()
+                .unwrap_or((None, None));
             let req_id = request.id.clone();
             let result = handler.call(request).await;
             let response = CallToolResultResponse::new(req_id, result);
-            return json_response(&response);
+            return json_response_with_caching(&response, tool_ttl, tool_scope.as_ref());
         }
 
         tracing::debug!(tool_name, "Tool not found");

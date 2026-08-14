@@ -57,6 +57,11 @@ async fn test_server_discover_via_header() {
         headers.get("content-type").unwrap().to_str().unwrap(),
         "application/json"
     );
+    assert_eq!(
+        headers.get("cache-control").unwrap().to_str().unwrap(),
+        "public, max-age=0"
+    );
+    assert!(headers.contains_key("etag"));
 
     let res: ServerDiscoverResultResponse = serde_json::from_value(body.clone()).unwrap();
     assert_eq!(res.jsonrpc, "2.0");
@@ -236,4 +241,41 @@ async fn test_server_discover_with_request_meta_params() {
         res.result.meta.unwrap().server_info.unwrap().name,
         "meta-aware-server"
     );
+}
+
+/// Tests custom TTL and cache scope configuration on `server/discover`.
+///
+/// Verifies:
+/// - Custom `ttl_ms` (e.g. 30000) produces `max-age=30`
+/// - Custom `cache_scope` (e.g. `Private`) produces `private`
+/// - Result JSON payload matches configured TTL and scope
+/// - ETag header is present and deterministic
+#[tokio::test]
+async fn test_server_discover_caching_headers_and_custom_ttl() {
+    let server_info = Implementation::new("caching-server", "1.0.0");
+    let app = McpRouter::new(server_info)
+        .server_discover_cache(Some(30000), Some(CacheScope::Private));
+
+    let req = common::build_request(
+        Some("server/discover"),
+        None,
+        json!({
+            "jsonrpc": "2.0",
+            "id": "cache-test-1",
+            "method": "server/discover"
+        }),
+    );
+
+    let (status, headers, body) = common::execute_request(app, req).await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        headers.get("cache-control").unwrap().to_str().unwrap(),
+        "private, max-age=30"
+    );
+    assert!(headers.contains_key("etag"));
+
+    let res: ServerDiscoverResultResponse = serde_json::from_value(body).unwrap();
+    assert_eq!(res.result.ttl_ms, Some(30000));
+    assert!(matches!(res.result.cache_scope, Some(CacheScope::Private)));
 }

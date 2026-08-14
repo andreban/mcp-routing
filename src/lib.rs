@@ -81,6 +81,7 @@ pub use body::{BoxError, ResponseBody, compute_etag, format_cache_control};
 pub use extract::{
     Extension, ExtractionError, FromRequestContext, Meta, RequestContext, SessionId, State,
 };
-pub use prompts::{IntoPromptHandler, IntoPromptResult, PromptError, PromptHandler};
+pub use prompts::{IntoPromptHandler, IntoPromptResult, PromptError, PromptHandler, PromptRegistry};
 pub use router::McpRouter;
-pub use tools::{IntoToolHandler, IntoToolResult, ToolHandler};
+pub use server::ServerConfig;
+pub use tools::{IntoToolHandler, IntoToolResult, ToolHandler, ToolRegistry};

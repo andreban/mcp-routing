@@ -15,6 +15,9 @@ use crate::types::mcp::{
 };
 
 pub mod list;
+pub mod registry;
+
+pub use registry::ToolRegistry;
 
 /// Trait for types that can be converted into a [`CallToolResult`].
 pub trait IntoToolResult: Send {

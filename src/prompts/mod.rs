@@ -18,6 +18,9 @@ use crate::types::mcp::{
 };
 
 pub mod list;
+pub mod registry;
+
+pub use registry::PromptRegistry;
 
 /// Error type encountered during prompt execution or argument deserialization.
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -153,4 +153,27 @@ mod tests {
         assert_eq!(reserialized["content"][0]["type"], "text");
         assert_eq!(reserialized["content"][0]["text"], "Hello");
     }
+
+    /// Tests [`CallToolResult`] convenience constructors (`text`, `error`, `with_content`).
+    #[test]
+    fn test_call_tool_result_builder_constructors() {
+        let text_res = CallToolResult::<serde_json::Value>::text("Hello result");
+        assert_eq!(text_res.result_type.as_deref(), Some("complete"));
+        assert_eq!(text_res.is_error, Some(false));
+        assert_eq!(text_res.content.len(), 1);
+
+        let err_res = CallToolResult::<serde_json::Value>::error("Failure message");
+        assert_eq!(err_res.result_type.as_deref(), Some("complete"));
+        assert_eq!(err_res.is_error, Some(true));
+        assert_eq!(err_res.content.len(), 1);
+
+        let block = ContentBlock::Text(TextContent {
+            text: "block".to_string(),
+            annotations: None,
+            meta: None,
+        });
+        let with_content_res = CallToolResult::<serde_json::Value>::with_content(vec![block]);
+        assert_eq!(with_content_res.is_error, Some(false));
+        assert_eq!(with_content_res.content.len(), 1);
+    }
 }

@@ -276,3 +276,70 @@ where
         Box::pin(async move { Ok(this.dispatch(req).await) })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use http::HeaderMap;
+
+    /// Tests extracting the `Mcp-Name` header and trimming slashes.
+    #[test]
+    fn test_extract_header_name() {
+        let mut headers = HeaderMap::new();
+        assert_eq!(extract_header_name(&headers), None);
+
+        headers.insert("Mcp-Name", "/my_tool/".parse().unwrap());
+        assert_eq!(extract_header_name(&headers), Some("my_tool".to_string()));
+
+        headers.insert("Mcp-Name", "///".parse().unwrap());
+        assert_eq!(extract_header_name(&headers), None);
+    }
+
+    /// Tests extracting the method from `Mcp-Method` header or JSON body.
+    #[test]
+    fn test_extract_method() {
+        let mut headers = HeaderMap::new();
+        let body = b"{\"method\": \"tools/list\"}";
+
+        // Preference: header over body
+        headers.insert("Mcp-Method", "server/discover".parse().unwrap());
+        assert_eq!(
+            extract_method(&headers, body),
+            Some("server/discover".to_string())
+        );
+
+        // Fallback to body when header is absent
+        headers.remove("Mcp-Method");
+        assert_eq!(
+            extract_method(&headers, body),
+            Some("tools/list".to_string())
+        );
+
+        // Slash normalization
+        let slash_body = b"{\"method\": \"/tools/call/\"}";
+        assert_eq!(
+            extract_method(&headers, slash_body),
+            Some("tools/call".to_string())
+        );
+
+        // Invalid JSON body and no header
+        let invalid_body = b"not json";
+        assert_eq!(extract_method(&headers, invalid_body), None);
+    }
+
+    /// Tests resolving tool name between header preference and body parameter fallback.
+    #[test]
+    fn test_resolve_tool_name() {
+        assert_eq!(
+            resolve_tool_name(Some("/header_tool/"), Some("body_tool")),
+            Some("header_tool")
+        );
+        assert_eq!(
+            resolve_tool_name(None, Some("/body_tool/")),
+            Some("body_tool")
+        );
+        assert_eq!(resolve_tool_name(Some(""), Some("body_tool")), Some("body_tool"));
+        assert_eq!(resolve_tool_name(None, None), None);
+        assert_eq!(resolve_tool_name(Some("///"), Some("///")), None);
+    }
+}

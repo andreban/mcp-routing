@@ -67,3 +67,95 @@ pub enum JsonRpcMessage<P = (), N = (), R = (), E = ()> {
 pub fn default_jsonrpc() -> Cow<'static, str> {
     Cow::Borrowed("2.0")
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Tests conversion from various string and numeric primitive types into [`JsonRpcRequestId`].
+    #[test]
+    fn test_jsonrpc_request_id_conversions() {
+        let id_str: JsonRpcRequestId = "abc".into();
+        assert_eq!(id_str, JsonRpcRequestId::String("abc".to_string()));
+
+        let id_string: JsonRpcRequestId = "hello".to_string().into();
+        assert_eq!(id_string, JsonRpcRequestId::String("hello".to_string()));
+
+        let id_i32: JsonRpcRequestId = 42_i32.into();
+        assert_eq!(id_i32, JsonRpcRequestId::Number(42.0));
+
+        let id_i64: JsonRpcRequestId = 1000_i64.into();
+        assert_eq!(id_i64, JsonRpcRequestId::Number(1000.0));
+
+        let id_u64: JsonRpcRequestId = 2000_u64.into();
+        assert_eq!(id_u64, JsonRpcRequestId::Number(2000.0));
+
+        let id_f64: JsonRpcRequestId = 3.14_f64.into();
+        assert_eq!(id_f64, JsonRpcRequestId::Number(3.14));
+
+        let serialized = serde_json::to_string(&id_str).unwrap();
+        assert_eq!(serialized, "\"abc\"");
+
+        let serialized_num = serde_json::to_string(&id_i32).unwrap();
+        assert_eq!(serialized_num, "42.0");
+    }
+
+    /// Tests JSON-RPC 2.0 message envelope structures ([`JsonRpcRequest`], [`JsonRpcResultResponse`], [`JsonRpcErrorResponse`], [`JsonRpcNotification`], [`JsonRpcMessage`]).
+    #[test]
+    fn test_jsonrpc_messages_serde() {
+        // Request
+        let req = JsonRpcRequest::new(1.into(), "tools/list", Some(()));
+        let req_json = serde_json::to_value(&req).unwrap();
+        assert_eq!(req_json["jsonrpc"], "2.0");
+        assert_eq!(req_json["method"], "tools/list");
+        assert_eq!(req_json["id"], 1.0);
+
+        // Result Response
+        let res = JsonRpcResultResponse::new(1.into(), "success_result");
+        let res_json = serde_json::to_value(&res).unwrap();
+        assert_eq!(res_json["jsonrpc"], "2.0");
+        assert_eq!(res_json["id"], 1.0);
+        assert_eq!(res_json["result"], "success_result");
+
+        // Error Response
+        let err_resp = JsonRpcErrorResponse::new(
+            1.into(),
+            serde_json::json!({
+                "code": -32601,
+                "message": "Method not found"
+            }),
+        );
+        let err_json = serde_json::to_value(&err_resp).unwrap();
+        assert_eq!(err_json["jsonrpc"], "2.0");
+        assert_eq!(err_json["error"]["code"], -32601);
+
+        // Notification
+        let notif = JsonRpcNotification::new(
+            "notifications/message",
+            Some(serde_json::json!({"text": "hi"})),
+        );
+        let notif_json = serde_json::to_value(&notif).unwrap();
+        assert_eq!(notif_json["jsonrpc"], "2.0");
+        assert_eq!(notif_json["method"], "notifications/message");
+        assert!(notif_json.get("id").is_none());
+
+        // Untagged JsonRpcMessage
+        let msg_req: JsonRpcMessage<serde_json::Value, (), (), ()> =
+            serde_json::from_value(req_json).unwrap();
+        assert!(matches!(msg_req, JsonRpcMessage::Request(_)));
+
+        let msg_notif: JsonRpcMessage<(), serde_json::Value, (), ()> =
+            serde_json::from_value(notif_json).unwrap();
+        assert!(matches!(msg_notif, JsonRpcMessage::Notification(_)));
+
+        let msg_resp: JsonRpcMessage<(), (), String, serde_json::Value> =
+            serde_json::from_value(res_json).unwrap();
+        assert!(matches!(msg_resp, JsonRpcMessage::Response(_)));
+    }
+
+    /// Tests the [`default_jsonrpc`] helper constant.
+    #[test]
+    fn test_default_jsonrpc_helper() {
+        assert_eq!(default_jsonrpc(), Cow::Borrowed("2.0"));
+    }
+}

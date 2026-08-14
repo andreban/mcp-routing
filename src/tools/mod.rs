@@ -143,3 +143,46 @@ where
         Arc::new(ArgsToolHandler(self, std::marker::PhantomData))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::types::mcp::TextContent;
+
+    /// Tests `IntoToolResult` implementations across primitive and complex return types.
+    #[test]
+    fn test_into_tool_result() {
+        // String
+        let res_str = "hello".into_tool_result();
+        assert_eq!(res_str.is_error, Some(false));
+        if let ContentBlock::Text(ref t) = res_str.content[0] {
+            assert_eq!(t.text, "hello");
+        }
+
+        // Owned String
+        let res_owned = "world".to_string().into_tool_result();
+        assert_eq!(res_owned.is_error, Some(false));
+
+        // Result::Ok
+        let res_ok: Result<&str, &str> = Ok("success");
+        let res = res_ok.into_tool_result();
+        assert_eq!(res.is_error, Some(false));
+
+        // Result::Err
+        let res_err: Result<&str, &str> = Err("failure");
+        let res = res_err.into_tool_result();
+        assert_eq!(res.is_error, Some(true));
+        if let ContentBlock::Text(ref t) = res.content[0] {
+            assert_eq!(t.text, "failure");
+        }
+
+        // ContentBlock
+        let block = ContentBlock::Text(TextContent {
+            text: "block".to_string(),
+            annotations: None,
+            meta: None,
+        });
+        let res_block = block.into_tool_result();
+        assert_eq!(res_block.content.len(), 1);
+    }
+}

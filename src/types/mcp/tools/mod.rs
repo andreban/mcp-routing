@@ -92,3 +92,40 @@ pub struct ToolAnnotations {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub open_world_hint: Option<bool>,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Tests `Into<Tool>` conversions from string primitives and `Cow`.
+    #[test]
+    fn test_tool_builder_conversions() {
+        let t_str: Tool = "my_tool".into();
+        assert_eq!(t_str.name, "my_tool");
+        assert_eq!(t_str.input_schema, serde_json::json!({ "type": "object" }));
+
+        let t_string: Tool = String::from("my_tool_2").into();
+        assert_eq!(t_string.name, "my_tool_2");
+
+        let t_cow: Tool = Cow::Borrowed("my_tool_3").into();
+        assert_eq!(t_cow.name, "my_tool_3");
+    }
+
+    /// Tests serialization of [`ToolAnnotations`].
+    #[test]
+    fn test_tool_annotations_serde() {
+        let annotations = ToolAnnotations {
+            title: Some("Annotated Tool".to_string()),
+            read_only_hint: Some(true),
+            destructive_hint: Some(false),
+            idempotent_hint: Some(true),
+            open_world_hint: Some(false),
+        };
+        let json_ann = serde_json::to_value(&annotations).unwrap();
+        assert_eq!(json_ann["title"], "Annotated Tool");
+        assert_eq!(json_ann["readOnlyHint"], true);
+        assert_eq!(json_ann["destructiveHint"], false);
+        assert_eq!(json_ann["idempotentHint"], true);
+        assert_eq!(json_ann["openWorldHint"], false);
+    }
+}

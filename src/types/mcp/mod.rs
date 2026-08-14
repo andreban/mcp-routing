@@ -474,6 +474,7 @@ pub enum ContentBlock {
 mod tests {
     use super::*;
 
+    /// Tests serialization and deserialization of [`ClientCapabilities`].
     #[test]
     fn test_client_capabilities_serde() {
         let json_data = serde_json::json!({
@@ -490,6 +491,28 @@ mod tests {
         assert!(reserialized.get("sampling").is_some());
     }
 
+    /// Tests serialization and deserialization of [`ServerCapabilities`].
+    #[test]
+    fn test_server_capabilities_serde() {
+        let mut exp = HashMap::new();
+        exp.insert("customFeature".to_string(), serde_json::json!({"enabled": true}));
+
+        let server_caps = ServerCapabilities {
+            tools: Some(ToolsCapability { list_changed: Some(true) }),
+            resources: Some(ResourcesCapability { subscribe: Some(true), list_changed: Some(false) }),
+            prompts: Some(PromptsCapability { list_changed: Some(true) }),
+            completions: Some(CompletionsCapability {}),
+            experimental: Some(exp),
+        };
+        let s_val = serde_json::to_value(&server_caps).unwrap();
+        assert_eq!(s_val["tools"]["listChanged"], true);
+        assert_eq!(s_val["resources"]["subscribe"], true);
+        assert_eq!(s_val["resources"]["listChanged"], false);
+        assert_eq!(s_val["prompts"]["listChanged"], true);
+        assert!(s_val.get("completions").is_some());
+    }
+
+    /// Tests serialization and deserialization of [`ResultMetaObject`].
     #[test]
     fn test_result_meta_object_serde() {
         let json_data = serde_json::json!({
@@ -512,6 +535,7 @@ mod tests {
         assert_eq!(reserialized["custom/meta"], "value");
     }
 
+    /// Tests serialization and deserialization of [`RequestMetaObject`] with [`LoggingLevel`].
     #[test]
     fn test_request_meta_object_with_log_level() {
         let json_data = serde_json::json!({
@@ -526,5 +550,165 @@ mod tests {
             reserialized["io.modelcontextprotocol/logLevel"],
             "debug"
         );
+    }
+
+    /// Tests all RFC-5424 [`LoggingLevel`] enum variants.
+    #[test]
+    fn test_logging_levels_serde() {
+        let levels = vec![
+            (LoggingLevel::Debug, "\"debug\""),
+            (LoggingLevel::Info, "\"info\""),
+            (LoggingLevel::Notice, "\"notice\""),
+            (LoggingLevel::Warning, "\"warning\""),
+            (LoggingLevel::Error, "\"error\""),
+            (LoggingLevel::Critical, "\"critical\""),
+            (LoggingLevel::Alert, "\"alert\""),
+            (LoggingLevel::Emergency, "\"emergency\""),
+        ];
+
+        for (level, expected_json) in levels {
+            let serialized = serde_json::to_string(&level).unwrap();
+            assert_eq!(serialized, expected_json);
+
+            let deserialized: LoggingLevel = serde_json::from_str(expected_json).unwrap();
+            assert_eq!(
+                serde_json::to_string(&deserialized).unwrap(),
+                expected_json
+            );
+        }
+    }
+
+    /// Tests numeric and string [`ProgressToken`] parsing.
+    #[test]
+    fn test_progress_token_serde() {
+        let num_token: ProgressToken = serde_json::from_value(serde_json::json!(42.0)).unwrap();
+        assert!(matches!(num_token, ProgressToken::Number(n) if (n - 42.0).abs() < f32::EPSILON));
+
+        let str_token: ProgressToken = serde_json::from_value(serde_json::json!("tok-123")).unwrap();
+        assert!(matches!(str_token, ProgressToken::String(s) if s == "tok-123"));
+    }
+
+    /// Tests [`CacheScope`] and [`Role`] enum serialization and deserialization.
+    #[test]
+    fn test_cache_scope_and_role_serde() {
+        let public_scope: CacheScope = serde_json::from_str("\"public\"").unwrap();
+        assert!(matches!(public_scope, CacheScope::Public));
+        assert_eq!(serde_json::to_string(&public_scope).unwrap(), "\"public\"");
+
+        let private_scope: CacheScope = serde_json::from_str("\"private\"").unwrap();
+        assert!(matches!(private_scope, CacheScope::Private));
+        assert_eq!(serde_json::to_string(&private_scope).unwrap(), "\"private\"");
+
+        let user_role: Role = serde_json::from_str("\"user\"").unwrap();
+        assert!(matches!(user_role, Role::User));
+        assert_eq!(serde_json::to_string(&user_role).unwrap(), "\"user\"");
+
+        let assistant_role: Role = serde_json::from_str("\"assistant\"").unwrap();
+        assert!(matches!(assistant_role, Role::Assistant));
+        assert_eq!(serde_json::to_string(&assistant_role).unwrap(), "\"assistant\"");
+    }
+
+    /// Tests [`Implementation`] metadata and [`Icon`] structures.
+    #[test]
+    fn test_implementation_and_icons_serde() {
+        let impl_info = Implementation {
+            icons: vec![
+                Icon {
+                    src: "https://example.com/icon1.png".to_string(),
+                    mime_type: Some("image/png".into()),
+                    sizes: vec!["32x32".to_string()],
+                    theme: Some(IconTheme::Light),
+                },
+                Icon {
+                    src: "https://example.com/icon2.svg".to_string(),
+                    mime_type: Some("image/svg+xml".into()),
+                    sizes: vec!["any".to_string()],
+                    theme: Some(IconTheme::Dark),
+                },
+            ],
+            name: "my-server".to_string(),
+            title: Some("My Server Title".to_string()),
+            version: "3.2.1".to_string(),
+            description: Some("Description here".to_string()),
+            website_url: Some("https://example.com".to_string()),
+        };
+
+        let val = serde_json::to_value(&impl_info).unwrap();
+        assert_eq!(val["name"], "my-server");
+        assert_eq!(val["title"], "My Server Title");
+        assert_eq!(val["version"], "3.2.1");
+        assert_eq!(val["description"], "Description here");
+        assert_eq!(val["websiteUrl"], "https://example.com");
+        assert_eq!(val["icons"].as_array().unwrap().len(), 2);
+        assert_eq!(val["icons"][0]["theme"], "light");
+        assert_eq!(val["icons"][1]["theme"], "dark");
+
+        let deserialized: Implementation = serde_json::from_value(val).unwrap();
+        assert_eq!(deserialized.name, "my-server");
+        assert_eq!(deserialized.icons.len(), 2);
+    }
+
+    /// Tests serialization and deserialization for all multi-modal [`ContentBlock`] variants.
+    #[test]
+    fn test_all_content_blocks_serde() {
+        let content_blocks = vec![
+            ContentBlock::Text(TextContent {
+                text: "sample text".to_string(),
+                annotations: Some(ContentAnnotations {
+                    audience: vec![Role::User],
+                    priority: Some(0.7),
+                }),
+                meta: None,
+            }),
+            ContentBlock::Image(ImageContent {
+                data: "base64image".to_string(),
+                mime_type: "image/png".to_string(),
+                annotations: None,
+                meta: None,
+            }),
+            ContentBlock::Audio(AudioContent {
+                data: "base64audio".to_string(),
+                mime_type: "audio/wav".to_string(),
+                annotations: None,
+                meta: None,
+            }),
+            ContentBlock::Resource(EmbeddedResource {
+                resource: ResourceContents::Text(TextResourceContents {
+                    uri: "file:///test.txt".to_string(),
+                    text: "text inside resource".to_string(),
+                    mime_type: Some("text/plain".to_string()),
+                }),
+                annotations: None,
+                meta: None,
+            }),
+            ContentBlock::Resource(EmbeddedResource {
+                resource: ResourceContents::Blob(BlobResourceContents {
+                    uri: "file:///test.bin".to_string(),
+                    blob: "base64blob".to_string(),
+                    mime_type: Some("application/octet-stream".to_string()),
+                }),
+                annotations: None,
+                meta: None,
+            }),
+            ContentBlock::ResourceLink(ResourceLink {
+                uri: "https://example.com/item".to_string(),
+                name: Some("Item link".to_string()),
+                description: Some("Item link description".to_string()),
+                mime_type: Some("text/html".to_string()),
+                annotations: None,
+                meta: None,
+            }),
+        ];
+
+        let val = serde_json::to_value(&content_blocks).unwrap();
+        assert_eq!(val[0]["type"], "text");
+        assert_eq!(val[1]["type"], "image");
+        assert_eq!(val[2]["type"], "audio");
+        assert_eq!(val[3]["type"], "resource");
+        assert_eq!(val[4]["type"], "resource");
+        assert_eq!(val[5]["type"], "resourceLink");
+
+        let deserialized: Vec<ContentBlock> = serde_json::from_value(val).unwrap();
+        assert_eq!(deserialized.len(), 6);
     }
 }

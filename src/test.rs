@@ -1,6 +1,11 @@
 // Copyright 2026 André Cipriani Bandarra
 // SPDX-License-Identifier: Apache-2.0
 
+//! # Internal McpRouter Unit Tests
+//!
+//! Unit test suite covering core router routing logic, handler dispatch, fallback resolution,
+//! and error condition handling.
+
 use axum::{
     Router,
     body::Body,
@@ -30,6 +35,7 @@ async fn mock_handler() -> &'static str {
     "ok"
 }
 
+/// Tests that `tools/list` returns the registered tool with its title and schema.
 #[tokio::test]
 async fn test_mcp_router_builtin_tools_list() {
     let tool = Tool {
@@ -69,6 +75,7 @@ async fn test_mcp_router_builtin_tools_list() {
     assert_eq!(res.result.tools[0].title.as_deref(), Some("Test Tool"));
 }
 
+/// Tests that `server/discover` returns the configured server metadata and instructions.
 #[tokio::test]
 async fn test_mcp_router_builtin_server_discover() {
     let app = McpRouter::new(test_server_info())
@@ -95,6 +102,7 @@ async fn test_mcp_router_builtin_server_discover() {
     assert_eq!(res.result.instructions.as_deref(), Some("Test instructions"));
 }
 
+/// Tests tool call routing using `Mcp-Method: tools/call` and `Mcp-Name: echo` headers.
 #[tokio::test]
 async fn test_mcp_router_header_routing_with_name() {
     let app = McpRouter::new(test_server_info()).register_tool("echo", mock_handler);
@@ -121,6 +129,7 @@ async fn test_mcp_router_header_routing_with_name() {
     assert_eq!(response.status(), StatusCode::OK);
 }
 
+/// Tests that `tools/list` falls back to the body method when `Mcp-Method` header is omitted.
 #[tokio::test]
 async fn test_mcp_router_body_method_fallback_tools_list() {
     let tool = Tool {
@@ -159,6 +168,7 @@ async fn test_mcp_router_body_method_fallback_tools_list() {
     assert_eq!(res.result.tools[0].name, "test_tool");
 }
 
+/// Tests that `server/discover` falls back to the body method when `Mcp-Method` header is omitted.
 #[tokio::test]
 async fn test_mcp_router_body_method_fallback_server_discover() {
     let app = McpRouter::new(test_server_info()).instructions("Test instructions");
@@ -180,6 +190,7 @@ async fn test_mcp_router_body_method_fallback_server_discover() {
     assert_eq!(res.result.instructions.as_deref(), Some("Test instructions"));
 }
 
+/// Tests tool call routing when both `Mcp-Method` and `Mcp-Name` headers are omitted.
 #[tokio::test]
 async fn test_mcp_router_body_method_and_tool_name_fallback() {
     let app = McpRouter::new(test_server_info()).register_tool("echo", mock_handler);
@@ -205,6 +216,7 @@ async fn test_mcp_router_body_method_and_tool_name_fallback() {
     assert_eq!(response.status(), StatusCode::OK);
 }
 
+/// Tests tool call routing with `Mcp-Method: tools/call` header but falling back to body for tool name.
 #[tokio::test]
 async fn test_mcp_router_tool_name_fallback_with_header_method() {
     let app = McpRouter::new(test_server_info()).register_tool("echo", mock_handler);
@@ -231,6 +243,7 @@ async fn test_mcp_router_tool_name_fallback_with_header_method() {
     assert_eq!(response.status(), StatusCode::OK);
 }
 
+/// Tests that non-standard method suffix strings return `404 Not Found`.
 #[tokio::test]
 async fn test_mcp_router_invalid_method_suffix_returns_not_found() {
     let app = McpRouter::new(test_server_info()).register_tool("echo", mock_handler);
@@ -256,6 +269,7 @@ async fn test_mcp_router_invalid_method_suffix_returns_not_found() {
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
 }
 
+/// Tests that missing method in both header and body returns `400 Bad Request`.
 #[tokio::test]
 async fn test_mcp_router_missing_method_in_header_and_body_returns_bad_request() {
     let app = McpRouter::new(test_server_info());
@@ -270,6 +284,7 @@ async fn test_mcp_router_missing_method_in_header_and_body_returns_bad_request()
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
 }
 
+/// Tests that missing tool name in `tools/call` returns `400 Bad Request`.
 #[tokio::test]
 async fn test_mcp_router_missing_tool_name_returns_bad_request() {
     let app = McpRouter::new(test_server_info());
@@ -291,6 +306,7 @@ async fn test_mcp_router_missing_tool_name_returns_bad_request() {
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
 }
 
+/// Tests that calling an unregistered tool returns `404 Not Found`.
 #[tokio::test]
 async fn test_mcp_router_unknown_tool_returns_not_found() {
     let app = McpRouter::new(test_server_info());
@@ -314,6 +330,7 @@ async fn test_mcp_router_unknown_tool_returns_not_found() {
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
 }
 
+/// Tests that an unknown method returns `404 Not Found`.
 #[tokio::test]
 async fn test_mcp_router_unknown_method_returns_not_found() {
     let app = McpRouter::new(test_server_info());
@@ -334,6 +351,7 @@ async fn test_mcp_router_unknown_method_returns_not_found() {
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
 }
 
+/// Tests mounting an `McpRouter` in Axum with `nest_service`.
 #[tokio::test]
 async fn test_mcp_router_nested_in_axum() {
     let mcp_router = McpRouter::new(test_server_info()).register_tool("hello", mock_handler);
@@ -362,7 +380,7 @@ async fn test_mcp_router_nested_in_axum() {
     assert_eq!(response.status(), StatusCode::OK);
 }
 
-
+/// Tests typed tool handler argument deserialization and success return wrapping.
 #[tokio::test]
 async fn test_mcp_router_typed_tool_handler_success() {
     use serde::{Deserialize, Serialize};
@@ -412,6 +430,7 @@ async fn test_mcp_router_typed_tool_handler_success() {
     }
 }
 
+/// Tests typed tool handler error result wrapping with `is_error: true`.
 #[tokio::test]
 async fn test_mcp_router_typed_tool_handler_error_result() {
     use serde::{Deserialize, Serialize};
@@ -463,4 +482,3 @@ async fn test_mcp_router_typed_tool_handler_error_result() {
         panic!("Expected text block");
     }
 }
-

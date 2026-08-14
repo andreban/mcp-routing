@@ -142,3 +142,63 @@ pub(crate) fn json_response<T: serde::Serialize>(val: &T) -> Response<ResponseBo
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use http_body_util::BodyExt;
+
+    /// Tests [`ResponseBody`] constructors, conversions, size hints, and async frame collection.
+    #[tokio::test]
+    async fn test_response_body_conversions_and_streaming() {
+        // Test ResponseBody::empty()
+        let empty_body = ResponseBody::empty();
+        assert_eq!(http_body::Body::size_hint(&empty_body).exact(), Some(0));
+        let collected_empty = empty_body.collect().await.unwrap().to_bytes();
+        assert!(collected_empty.is_empty());
+
+        // Test ResponseBody::from_bytes()
+        let from_bytes_body = ResponseBody::from_bytes(Bytes::from_static(b"hello world"));
+        let collected = from_bytes_body.collect().await.unwrap().to_bytes();
+        assert_eq!(collected.as_ref(), b"hello world");
+
+        // Test From<Vec<u8>>
+        let from_vec: ResponseBody = vec![1, 2, 3, 4].into();
+        let collected_vec = from_vec.collect().await.unwrap().to_bytes();
+        assert_eq!(collected_vec.as_ref(), &[1, 2, 3, 4]);
+
+        // Test From<String>
+        let from_string: ResponseBody = String::from("test string").into();
+        let collected_string = from_string.collect().await.unwrap().to_bytes();
+        assert_eq!(collected_string.as_ref(), b"test string");
+
+        // Test From<&'static str>
+        let from_str: ResponseBody = "static str".into();
+        let collected_str = from_str.collect().await.unwrap().to_bytes();
+        assert_eq!(collected_str.as_ref(), b"static str");
+
+        // Test Default
+        let default_body = ResponseBody::default();
+        let collected_default = default_body.collect().await.unwrap().to_bytes();
+        assert!(collected_default.is_empty());
+    }
+
+    /// Tests helper functions for constructing standard HTTP responses.
+    #[tokio::test]
+    async fn test_response_helpers() {
+        let resp_bad = bad_request();
+        assert_eq!(resp_bad.status(), StatusCode::BAD_REQUEST);
+
+        let resp_nf = not_found();
+        assert_eq!(resp_nf.status(), StatusCode::NOT_FOUND);
+
+        let resp_json = json_response(&serde_json::json!({"ok": true}));
+        assert_eq!(resp_json.status(), StatusCode::OK);
+        assert_eq!(
+            resp_json.headers().get(header::CONTENT_TYPE).unwrap(),
+            "application/json"
+        );
+        let bytes = resp_json.into_body().collect().await.unwrap().to_bytes();
+        assert_eq!(bytes.as_ref(), b"{\"ok\":true}");
+    }
+}

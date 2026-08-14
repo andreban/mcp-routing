@@ -6,6 +6,7 @@ use std::{borrow::Cow, collections::HashMap};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+pub mod prompts;
 pub mod server;
 pub mod tools;
 
@@ -468,6 +469,52 @@ pub enum ContentBlock {
     Audio(AudioContent),
     Resource(EmbeddedResource),
     ResourceLink(ResourceLink),
+}
+
+impl From<TextContent> for ContentBlock {
+    fn from(t: TextContent) -> Self {
+        ContentBlock::Text(t)
+    }
+}
+
+impl From<ImageContent> for ContentBlock {
+    fn from(i: ImageContent) -> Self {
+        ContentBlock::Image(i)
+    }
+}
+
+impl From<AudioContent> for ContentBlock {
+    fn from(a: AudioContent) -> Self {
+        ContentBlock::Audio(a)
+    }
+}
+
+impl From<EmbeddedResource> for ContentBlock {
+    fn from(r: EmbeddedResource) -> Self {
+        ContentBlock::Resource(r)
+    }
+}
+
+impl From<ResourceLink> for ContentBlock {
+    fn from(l: ResourceLink) -> Self {
+        ContentBlock::ResourceLink(l)
+    }
+}
+
+impl From<String> for ContentBlock {
+    fn from(s: String) -> Self {
+        ContentBlock::Text(TextContent {
+            text: s,
+            annotations: None,
+            meta: None,
+        })
+    }
+}
+
+impl From<&str> for ContentBlock {
+    fn from(s: &str) -> Self {
+        s.to_string().into()
+    }
 }
 
 #[cfg(test)]

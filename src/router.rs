@@ -18,11 +18,17 @@ use crate::body::{
     BoxError, ResponseBody, bad_request, json_response, json_response_with_caching,
     method_not_allowed, unsupported_media_type,
 };
+use crate::prompts::{self, IntoPromptHandler, PromptError, PromptHandler};
 use crate::server;
 use crate::tools::{self, IntoToolHandler, ToolHandler};
 use crate::types::jsonrpc::{JsonRpcErrorResponse, JsonRpcRequestId};
 use crate::types::mcp::{
-    CacheScope, Implementation, ServerCapabilities, ToolsCapability,
+    CacheScope, Implementation, PromptsCapability, ServerCapabilities, ToolsCapability,
+    prompts::{
+        Prompt,
+        get::{GetPromptRequest, GetPromptResultResponse},
+        list::ListPromptsRequest,
+    },
     server::discover::ServerDiscoverRequest,
     tools::{
         Tool,
@@ -30,7 +36,10 @@ use crate::types::mcp::{
         list::ListToolsRequest,
     },
 };
-use crate::utils::{extract_header_name, extract_method, is_json_content_type, resolve_tool_name};
+use crate::utils::{
+    extract_header_name, extract_method, is_json_content_type, resolve_prompt_name,
+    resolve_tool_name,
+};
 
 /// A [Tower](tower)-native router for the Model Context Protocol (MCP).
 ///
@@ -38,6 +47,8 @@ use crate::utils::{extract_header_name, extract_method, is_json_content_type, re
 /// - Built-in `server/discover` discovery endpoint
 /// - Built-in `tools/list` tool discovery endpoint
 /// - `tools/call` tool execution endpoints (delegating to typed handlers)
+/// - Built-in `prompts/list` prompt discovery endpoint
+/// - `prompts/get` prompt retrieval endpoints (delegating to typed handlers)
 #[derive(Clone)]
 pub struct McpRouter {
     inner: Arc<McpRouterInner>,
@@ -52,10 +63,15 @@ struct McpRouterInner {
     tools: Vec<Tool>,
     tool_handlers: HashMap<String, Arc<dyn ToolHandler>>,
     tool_cache_settings: HashMap<String, (Option<u64>, Option<CacheScope>)>,
+    prompts: Vec<Prompt>,
+    prompt_handlers: HashMap<String, Arc<dyn PromptHandler>>,
+    prompt_cache_settings: HashMap<String, (Option<u64>, Option<CacheScope>)>,
     server_discover_ttl_ms: Option<u64>,
     server_discover_cache_scope: Option<CacheScope>,
     tools_list_ttl_ms: Option<u64>,
     tools_list_cache_scope: Option<CacheScope>,
+    prompts_list_ttl_ms: Option<u64>,
+    prompts_list_cache_scope: Option<CacheScope>,
 }
 
 impl McpRouter {
@@ -76,10 +92,15 @@ impl McpRouter {
                 tools: Vec::new(),
                 tool_handlers: HashMap::new(),
                 tool_cache_settings: HashMap::new(),
+                prompts: Vec::new(),
+                prompt_handlers: HashMap::new(),
+                prompt_cache_settings: HashMap::new(),
                 server_discover_ttl_ms: Some(0),
                 server_discover_cache_scope: Some(CacheScope::Public),
                 tools_list_ttl_ms: Some(0),
                 tools_list_cache_scope: Some(CacheScope::Public),
+                prompts_list_ttl_ms: Some(0),
+                prompts_list_cache_scope: Some(CacheScope::Public),
             }),
         }
     }
@@ -204,6 +225,88 @@ impl McpRouter {
         inner.tool_cache_settings.insert(tool_name.into(), (ttl_ms, cache_scope));
         self
     }
+
+    /// Sets the time-to-live (`ttl_ms`) and cache scope for `prompts/list` responses.
+    pub fn prompts_list_cache(
+        mut self,
+        ttl_ms: Option<u64>,
+        cache_scope: Option<CacheScope>,
+    ) -> Self {
+        let inner = Arc::make_mut(&mut self.inner);
+        inner.prompts_list_ttl_ms = ttl_ms;
+        inner.prompts_list_cache_scope = cache_scope;
+        self
+    }
+
+    /// Sets the time-to-live (`ttl_ms`) in milliseconds for `prompts/list` responses.
+    pub fn prompts_list_ttl(mut self, ttl_ms: u64) -> Self {
+        Arc::make_mut(&mut self.inner).prompts_list_ttl_ms = Some(ttl_ms);
+        self
+    }
+
+    /// Sets the cache scope for `prompts/list` responses.
+    pub fn prompts_list_cache_scope(mut self, cache_scope: CacheScope) -> Self {
+        Arc::make_mut(&mut self.inner).prompts_list_cache_scope = Some(cache_scope);
+        self
+    }
+
+    /// Registers a prompt template alongside a typed asynchronous handler function.
+    ///
+    /// The handler function can take typed deserializable arguments (or no arguments)
+    /// and return any type implementing [`IntoPromptResult`](crate::prompts::IntoPromptResult).
+    pub fn register_prompt<TPrompt, H, T>(mut self, prompt: TPrompt, handler: H) -> Self
+    where
+        TPrompt: Into<Prompt>,
+        H: IntoPromptHandler<T>,
+        T: 'static,
+    {
+        let prompt = prompt.into();
+        let name = prompt.name.clone();
+        let inner = Arc::make_mut(&mut self.inner);
+        if inner.capabilities.prompts.is_none() {
+            inner.capabilities.prompts = Some(PromptsCapability { list_changed: None });
+        }
+        inner.prompt_handlers.insert(name, handler.into_prompt_handler());
+        inner.prompts.push(prompt);
+        self
+    }
+
+    /// Registers a prompt template alongside a typed asynchronous handler and prompt-specific caching directives.
+    pub fn register_prompt_with_cache<TPrompt, H, T>(
+        mut self,
+        prompt: TPrompt,
+        handler: H,
+        ttl_ms: Option<u64>,
+        cache_scope: Option<CacheScope>,
+    ) -> Self
+    where
+        TPrompt: Into<Prompt>,
+        H: IntoPromptHandler<T>,
+        T: 'static,
+    {
+        let prompt = prompt.into();
+        let name = prompt.name.clone();
+        let inner = Arc::make_mut(&mut self.inner);
+        if inner.capabilities.prompts.is_none() {
+            inner.capabilities.prompts = Some(PromptsCapability { list_changed: None });
+        }
+        inner.prompt_handlers.insert(name.clone(), handler.into_prompt_handler());
+        inner.prompt_cache_settings.insert(name, (ttl_ms, cache_scope));
+        inner.prompts.push(prompt);
+        self
+    }
+
+    /// Sets the cache configuration (`ttl_ms` and `cache_scope`) for a specific registered prompt by name.
+    pub fn prompt_cache(
+        mut self,
+        prompt_name: impl Into<String>,
+        ttl_ms: Option<u64>,
+        cache_scope: Option<CacheScope>,
+    ) -> Self {
+        let inner = Arc::make_mut(&mut self.inner);
+        inner.prompt_cache_settings.insert(prompt_name.into(), (ttl_ms, cache_scope));
+        self
+    }
 }
 
 impl McpRouterInner {
@@ -275,6 +378,11 @@ impl McpRouterInner {
             "tools/list" => self.handle_tools_list(peek.id, &body_bytes),
             "tools/call" => {
                 self.handle_tools_call(peek.id, header_name.as_deref(), &body_bytes)
+                    .await
+            }
+            "prompts/list" => self.handle_prompts_list(peek.id, &body_bytes),
+            "prompts/get" => {
+                self.handle_prompts_get(peek.id, header_name.as_deref(), &body_bytes)
                     .await
             }
             unknown_method => {
@@ -409,6 +517,114 @@ impl McpRouterInner {
         let error_response = JsonRpcErrorResponse::method_not_found(
             Some(request.id),
             format!("Method not found: tool '{tool_name}' not found"),
+        );
+        json_response(&error_response)
+    }
+
+    fn handle_prompts_list(
+        &self,
+        req_id: Option<JsonRpcRequestId>,
+        body: &[u8],
+    ) -> Response<ResponseBody> {
+        let request: ListPromptsRequest = match serde_json::from_slice(body) {
+            Ok(r) => r,
+            Err(err) => {
+                tracing::error!(?err, "Failed to parse ListPromptsRequest");
+                let error_response = JsonRpcErrorResponse::invalid_params(
+                    req_id,
+                    format!("Invalid params: {err}"),
+                );
+                return json_response(&error_response);
+            }
+        };
+
+        let response = prompts::list::handle_list_prompts(
+            request,
+            self.prompts.clone(),
+            self.prompts_list_ttl_ms,
+            self.prompts_list_cache_scope.clone(),
+        );
+        json_response_with_caching(
+            &response,
+            response.result.ttl_ms,
+            response.result.cache_scope.as_ref(),
+        )
+    }
+
+    async fn handle_prompts_get(
+        &self,
+        req_id: Option<JsonRpcRequestId>,
+        header_name: Option<&str>,
+        body: &[u8],
+    ) -> Response<ResponseBody> {
+        let request: GetPromptRequest<serde_json::Value> = match serde_json::from_slice(body) {
+            Ok(r) => r,
+            Err(err) => {
+                tracing::error!(?err, "Failed to parse GetPromptRequest");
+                let error_response = JsonRpcErrorResponse::invalid_params(
+                    req_id,
+                    format!("Invalid params: {err}"),
+                );
+                return json_response(&error_response);
+            }
+        };
+
+        let prompt_name = resolve_prompt_name(
+            header_name,
+            request.params.as_ref().map(|p| p.name.as_str()),
+        );
+
+        let Some(prompt_name) = prompt_name else {
+            tracing::debug!("Missing prompt name for prompts/get");
+            let error_response = JsonRpcErrorResponse::invalid_params(
+                Some(request.id),
+                "Invalid params: missing prompt name",
+            );
+            return json_response(&error_response);
+        };
+
+        if prompt_name.is_empty() {
+            tracing::debug!("Empty prompt name for prompts/get");
+            let error_response = JsonRpcErrorResponse::invalid_params(
+                Some(request.id),
+                "Invalid params: empty prompt name",
+            );
+            return json_response(&error_response);
+        }
+
+        if let Some(handler) = self.prompt_handlers.get(prompt_name) {
+            let (prompt_ttl, prompt_scope) = self
+                .prompt_cache_settings
+                .get(prompt_name)
+                .cloned()
+                .unwrap_or((None, None));
+            let req_id = request.id.clone();
+            match handler.call(request).await {
+                Ok(result) => {
+                    let response = GetPromptResultResponse::new(req_id, result);
+                    return json_response_with_caching(&response, prompt_ttl, prompt_scope.as_ref());
+                }
+                Err(PromptError::InvalidParams(err)) => {
+                    let error_response = JsonRpcErrorResponse::invalid_params(
+                        Some(req_id),
+                        format!("Invalid params: {err}"),
+                    );
+                    return json_response(&error_response);
+                }
+                Err(PromptError::Internal(err)) => {
+                    let error_response = JsonRpcErrorResponse::internal_error(
+                        Some(req_id),
+                        format!("Prompt execution failed: {err}"),
+                    );
+                    return json_response(&error_response);
+                }
+            }
+        }
+
+        tracing::debug!(prompt_name, "Prompt not found");
+        let error_response = JsonRpcErrorResponse::method_not_found(
+            Some(request.id),
+            format!("Method not found: prompt '{prompt_name}' not found"),
         );
         json_response(&error_response)
     }

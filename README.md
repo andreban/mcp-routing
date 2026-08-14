@@ -104,18 +104,35 @@ Incoming HTTP JSON-RPC requests are routed using HTTP headers:
 - `Mcp-Method: server/discover` → Calls the server discovery handler.
 - `Mcp-Method: tools/list` → Calls the tool discovery handler.
 - `Mcp-Method: tools/call` and `Mcp-Name: <name>` → Invokes the registered tool `<name>`.
+- `Mcp-Method: prompts/list` → Calls the prompt discovery handler.
+- `Mcp-Method: prompts/get` and `Mcp-Name: <name>` → Invokes the registered prompt `<name>`.
 
-## Typed Tool Handlers
+## Typed Handlers
+
+### Tool Handlers
 
 Tool handlers can accept:
 - **No arguments**: `async fn my_tool() -> Result<String, String>`
 - **Typed deserializable arguments**: `async fn my_tool(params: MyParams) -> Result<String, String>`
 
-Return types can implement `IntoToolResult`:
+Return types can implement [`IntoToolResult`](src/tools/mod.rs):
 - `String`, `&str`
 - `ContentBlock`, `Vec<ContentBlock>`
 - `CallToolResult`
 - `Result<T, E>` where `T: IntoToolResult` and `E: Display`
+
+### Prompt Handlers
+
+Prompt handlers can accept:
+- **No arguments**: `async fn my_prompt() -> Result<Vec<PromptMessage>, String>`
+- **Typed deserializable arguments**: `async fn my_prompt(params: MyPromptParams) -> Result<GetPromptResult, String>`
+
+Return types can implement [`IntoPromptResult`](src/prompts/mod.rs):
+- `String`, `&str`
+- `PromptMessage`, `Vec<PromptMessage>`
+- `ContentBlock`, `Vec<ContentBlock>`
+- `GetPromptResult`
+- `Result<T, E>` where `T: IntoPromptResult` and `E: Display`
 
 ## Running the Examples
 
@@ -129,6 +146,12 @@ Run the caching example (demonstrating discovery and per-tool caching):
 
 ```bash
 cargo run --example caching
+```
+
+Run the prompts example (demonstrating parameterized and multi-turn prompt templates):
+
+```bash
+cargo run --example prompts
 ```
 
 ## Running Tests

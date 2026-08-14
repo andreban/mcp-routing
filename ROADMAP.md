@@ -109,11 +109,11 @@ This roadmap tracks all Model Context Protocol (MCP) features and capabilities f
 
 | Feature | Status | Details | Primary References |
 |---|:---:|---|---|
-| **Prompt Capability Flag** | 🟡 | [`PromptsCapability`](src/types/mcp/mod.rs) type exists with `list_changed` field | [`src/types/mcp/mod.rs`](src/types/mcp/mod.rs) |
-| **Prompt Definitions & Models** | ❌ | `Prompt`, `PromptArgument`, `PromptMessage` data types | Planned for `src/types/mcp/prompts/` |
-| **`prompts/list` Endpoint** | ❌ | Listing available prompt templates with cursor pagination | Planned for `src/prompts/` |
-| **`prompts/get` Endpoint** | ❌ | Retrieving prompt messages with argument substitution | Planned for `src/prompts/` |
-| **Typed Prompt Handlers** | ❌ | `register_prompt` builder API with typed argument deserialization | Planned for [`src/router.rs`](src/router.rs) |
+| **Prompt Capability Flag** | ✅ | [`PromptsCapability`](src/types/mcp/mod.rs) advertised automatically upon registering prompts | [`src/types/mcp/mod.rs`](src/types/mcp/mod.rs), [`src/router.rs`](src/router.rs) |
+| **Prompt Definitions & Models** | ✅ | [`Prompt`](src/types/mcp/prompts/mod.rs), [`PromptArgument`](src/types/mcp/prompts/mod.rs), [`PromptMessage`](src/types/mcp/prompts/mod.rs) data types and builders | [`src/types/mcp/prompts/mod.rs`](src/types/mcp/prompts/mod.rs) |
+| **`prompts/list` Endpoint** | ✅ | Built-in handler in [`handle_list_prompts`](src/prompts/list.rs) returning registered prompts with caching | [`src/prompts/list.rs`](src/prompts/list.rs), [`src/router.rs`](src/router.rs) |
+| **`prompts/get` Endpoint** | ✅ | Retrieving prompt messages with argument substitution, multi-modal content, and caching | [`src/prompts/mod.rs`](src/prompts/mod.rs), [`src/router.rs`](src/router.rs) |
+| **Typed Prompt Handlers** | ✅ | [`IntoPromptHandler`](src/prompts/mod.rs) and [`IntoPromptResult`](src/prompts/mod.rs) for `async fn()` and `async fn(Args)` | [`src/prompts/mod.rs`](src/prompts/mod.rs) |
 
 ---
 
@@ -150,8 +150,8 @@ gantt
     HTTP verb & Content-Type validation:done, p1_4, after p1_3, 2d
     Cache-Control header propagation   :done, p1_5, after p1_4, 2d
     section Phase 2: Core Capabilities
-    Prompts (prompts/list, prompts/get):active, p2_1, after p1_5, 5d
-    Resources (resources/list, read)   :p2_2, after p2_1, 6d
+    Prompts (prompts/list, prompts/get):done, p2_1, after p1_5, 5d
+    Resources (resources/list, read)   :active, p2_2, after p2_1, 6d
     Completions (completion/complete)  :p2_3, after p2_2, 4d
     section Phase 3: Ergonomics & Extensibility
     Session & Context Extractors       :p3_1, after p2_3, 5d

@@ -87,6 +87,36 @@ pub fn sample_tool(name: &str) -> Tool {
     }
 }
 
+/// Returns a fully specified [`Prompt`] definition including arguments, icons, and metadata.
+pub fn sample_prompt(name: &str) -> mcp_routing::types::mcp::prompts::Prompt {
+    use mcp_routing::types::mcp::prompts::{Prompt, PromptArgument};
+    let mut meta = HashMap::new();
+    meta.insert("customPromptMeta".to_string(), json!("promptMetaVal"));
+
+    Prompt {
+        icons: vec![Icon {
+            src: "https://example.com/prompt_icon.png".to_string(),
+            mime_type: Some("image/png".into()),
+            sizes: vec!["48x48".to_string()],
+            theme: Some(IconTheme::Dark),
+        }],
+        name: name.to_string(),
+        title: Some(format!("Title for {}", name)),
+        description: Some(format!("Description for {}", name)),
+        arguments: vec![
+            PromptArgument::new("topic")
+                .title("Topic")
+                .description("The main subject of discussion")
+                .required(true),
+            PromptArgument::new("style")
+                .title("Style")
+                .description("Tone or style")
+                .required(false),
+        ],
+        meta: Some(meta),
+    }
+}
+
 /// Builds an HTTP `POST /` request containing the optional `Mcp-Method` and `Mcp-Name` headers with a JSON body.
 pub fn build_request(
     method_header: Option<&str>,

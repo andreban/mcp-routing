@@ -66,6 +66,7 @@
 //! ```
 
 pub mod body;
+pub mod prompts;
 pub mod router;
 pub mod server;
 pub mod tools;
@@ -76,5 +77,6 @@ pub(crate) mod utils;
 mod test;
 
 pub use body::{BoxError, ResponseBody, compute_etag, format_cache_control};
+pub use prompts::{IntoPromptHandler, IntoPromptResult, PromptError, PromptHandler};
 pub use router::McpRouter;
 pub use tools::{IntoToolHandler, IntoToolResult, ToolHandler};

@@ -20,7 +20,12 @@ use crate::{
     types::{
         jsonrpc::{JsonRpcErrorCode, JsonRpcErrorResponse},
         mcp::{
-            Implementation,
+            CacheScope, Implementation,
+            prompts::{
+                Prompt, PromptArgument,
+                get::GetPromptResultResponse,
+                list::ListPromptsResultResponse,
+            },
             server::discover::ServerDiscoverResultResponse,
             tools::{
                 Tool,
@@ -859,4 +864,129 @@ async fn test_mcp_router_per_tool_caching_headers() {
     assert_eq!(resp3.headers().get("cache-control"), None);
     assert!(resp3.headers().contains_key("etag"));
 }
+
+/// Tests that `prompts/list` returns the registered prompt with its metadata.
+#[tokio::test]
+async fn test_mcp_router_builtin_prompts_list() {
+    let prompt = Prompt::new("test_prompt")
+        .title("Test Prompt")
+        .description("A test prompt template")
+        .argument(PromptArgument::new("arg1").required(true));
+
+    let app = McpRouter::new(test_server_info()).register_prompt(prompt, mock_handler);
+    let request = Request::builder()
+        .method("POST")
+        .uri("/")
+        .header("Mcp-Method", "prompts/list")
+        .header("Content-Type", "application/json")
+        .body(Body::from(
+            json!({"id": 1, "method": "prompts/list"}).to_string(),
+        ))
+        .unwrap();
+
+    let response = app.oneshot(request).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+    let res: ListPromptsResultResponse = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(res.result.prompts.len(), 1);
+    assert_eq!(res.result.prompts[0].name, "test_prompt");
+    assert_eq!(res.result.prompts[0].title.as_deref(), Some("Test Prompt"));
+    assert_eq!(res.result.prompts[0].arguments.len(), 1);
+}
+
+/// Tests that `prompts/get` retrieves prompt messages from a typed handler.
+#[tokio::test]
+async fn test_mcp_router_prompts_get_success() {
+    let app = McpRouter::new(test_server_info())
+        .register_prompt("greeting", || async { "Hello, world!" });
+
+    let request = Request::builder()
+        .method("POST")
+        .uri("/")
+        .header("Mcp-Method", "prompts/get")
+        .header("Mcp-Name", "greeting")
+        .header("Content-Type", "application/json")
+        .body(Body::from(
+            json!({"id": "p-1", "method": "prompts/get"}).to_string(),
+        ))
+        .unwrap();
+
+    let response = app.oneshot(request).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+    let res: GetPromptResultResponse = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(res.id, "p-1".into());
+    assert_eq!(res.result.messages.len(), 1);
+}
+
+/// Tests that `prompts/get` returns error code for unknown prompt.
+#[tokio::test]
+async fn test_mcp_router_prompts_get_unknown() {
+    let app = McpRouter::new(test_server_info());
+
+    let request = Request::builder()
+        .method("POST")
+        .uri("/")
+        .header("Mcp-Method", "prompts/get")
+        .header("Mcp-Name", "unknown_prompt")
+        .header("Content-Type", "application/json")
+        .body(Body::from(
+            json!({"id": 99, "method": "prompts/get"}).to_string(),
+        ))
+        .unwrap();
+
+    let response = app.oneshot(request).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+    let err_resp: JsonRpcErrorResponse = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(err_resp.error.code, JsonRpcErrorCode::MethodNotFound);
+}
+
+/// Tests caching headers for `prompts/list` and `prompts/get`.
+#[tokio::test]
+async fn test_mcp_router_prompts_caching_headers() {
+    let app = McpRouter::new(test_server_info())
+        .prompts_list_ttl(180_000)
+        .register_prompt_with_cache(
+            "cached_p",
+            || async { "Cached prompt text" },
+            Some(60_000),
+            Some(CacheScope::Public),
+        );
+
+    // List cache
+    let req_list = Request::builder()
+        .method("POST")
+        .uri("/")
+        .header("Mcp-Method", "prompts/list")
+        .header("Content-Type", "application/json")
+        .body(Body::from(json!({"id": 1, "method": "prompts/list"}).to_string()))
+        .unwrap();
+
+    let resp_list = app.clone().oneshot(req_list).await.unwrap();
+    assert_eq!(
+        resp_list.headers().get("cache-control").and_then(|h| h.to_str().ok()),
+        Some("public, max-age=180")
+    );
+
+    // Get cache
+    let req_get = Request::builder()
+        .method("POST")
+        .uri("/")
+        .header("Mcp-Method", "prompts/get")
+        .header("Mcp-Name", "cached_p")
+        .header("Content-Type", "application/json")
+        .body(Body::from(json!({"id": 2, "method": "prompts/get"}).to_string()))
+        .unwrap();
+
+    let resp_get = app.oneshot(req_get).await.unwrap();
+    assert_eq!(
+        resp_get.headers().get("cache-control").and_then(|h| h.to_str().ok()),
+        Some("public, max-age=60")
+    );
+}
+
 

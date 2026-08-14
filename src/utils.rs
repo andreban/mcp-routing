@@ -46,8 +46,8 @@ pub(crate) fn extract_method(headers: &HeaderMap, body_method: Option<&str>) -> 
     body_method.map(|m| m.trim_matches('/').to_string())
 }
 
-/// Resolves the tool name for `tools/call`, prioritizing the header over body parameters.
-pub(crate) fn resolve_tool_name<'a>(
+/// Resolves the target name for `tools/call` or `prompts/get`, prioritizing the header over body parameters.
+pub(crate) fn resolve_name<'a>(
     header_name: Option<&'a str>,
     params_name: Option<&'a str>,
 ) -> Option<&'a str> {
@@ -56,6 +56,9 @@ pub(crate) fn resolve_tool_name<'a>(
     }
     params_name.map(|n| n.trim_matches('/'))
 }
+
+pub(crate) use resolve_name as resolve_tool_name;
+pub(crate) use resolve_name as resolve_prompt_name;
 
 #[cfg(test)]
 mod tests {

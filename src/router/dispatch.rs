@@ -6,7 +6,10 @@ use std::sync::Arc;
 use crate::extract::SessionId;
 use crate::router::{DispatchOutcome, McpRouterInner, MethodContext};
 use crate::types::jsonrpc::{JsonRpcErrorResponse, JsonRpcRequestId};
-use crate::utils::{extract_header_name, extract_method};
+use crate::types::mcp::header_mismatch_error;
+use crate::utils::{
+    extract_body_protocol_version, extract_header_name, extract_method, extract_protocol_version,
+};
 
 impl McpRouterInner {
     /// Dispatches a single item within a JSON-RPC batch array.
@@ -57,6 +60,24 @@ impl McpRouterInner {
                 ));
             }
         };
+
+        if self.server.validate_protocol_version
+            && let Some(header_ver) = extract_protocol_version(headers)
+            && let Some(body_ver) = extract_body_protocol_version(&map)
+            && body_ver != header_ver
+        {
+            tracing::debug!(
+                %header_ver,
+                %body_ver,
+                "MCP-Protocol-Version header value does not match body metadata"
+            );
+            return DispatchOutcome::error(header_mismatch_error(
+                req_id,
+                format!(
+                    "Header mismatch: MCP-Protocol-Version header value '{header_ver}' does not match body value '{body_ver}'"
+                ),
+            ));
+        }
 
         if let Some(v) = map.get("jsonrpc")
             && !v.is_string()

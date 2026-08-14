@@ -32,6 +32,7 @@ async fn test_resources_list_empty() {
         .method("POST")
         .uri("/mcp")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(req_body.to_string())
         .unwrap();
 
@@ -80,6 +81,7 @@ async fn test_resources_list_multiple_rich_resources() {
         .method("POST")
         .uri("/mcp")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(req_body.to_string())
         .unwrap();
 
@@ -118,6 +120,7 @@ async fn test_resources_list_via_header_and_body_fallback() {
         .method("POST")
         .uri("/mcp")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .header("Mcp-Method", "resources/list")
         .body(serde_json::json!({ "jsonrpc": "2.0", "id": 1 }).to_string())
         .unwrap();
@@ -134,6 +137,7 @@ async fn test_resources_list_via_header_and_body_fallback() {
         .method("POST")
         .uri("/mcp")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(
             serde_json::json!({
                 "jsonrpc": "2.0",
@@ -162,6 +166,7 @@ async fn test_resources_capability_advertisement_in_discover() {
         .method("POST")
         .uri("/mcp")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .header("Mcp-Method", "server/discover")
         .body(serde_json::json!({ "jsonrpc": "2.0", "id": 1 }).to_string())
         .unwrap();
@@ -185,6 +190,7 @@ async fn test_resources_list_caching_directives() {
         .method("POST")
         .uri("/mcp")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .header("Mcp-Method", "resources/list")
         .body(serde_json::json!({ "jsonrpc": "2.0", "id": 1 }).to_string())
         .unwrap();
@@ -232,6 +238,7 @@ async fn test_resources_list_custom_handler_with_extractors_and_filtering() {
         .method("POST")
         .uri("/mcp")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .header("Mcp-Method", "resources/list")
         .body(serde_json::json!({ "jsonrpc": "2.0", "id": 1 }).to_string())
         .unwrap();
@@ -277,6 +284,7 @@ async fn test_resources_list_custom_handler_with_pagination_cursor() {
         .method("POST")
         .uri("/mcp")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(
             serde_json::json!({
                 "jsonrpc": "2.0",
@@ -299,6 +307,7 @@ async fn test_resources_list_custom_handler_with_pagination_cursor() {
         .method("POST")
         .uri("/mcp")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(
             serde_json::json!({
                 "jsonrpc": "2.0",
@@ -330,6 +339,7 @@ async fn test_resources_list_custom_handler_error_propagation() {
         .method("POST")
         .uri("/mcp")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(
             serde_json::json!({
                 "jsonrpc": "2.0",

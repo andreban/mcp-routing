@@ -57,6 +57,7 @@ async fn test_axum_nested_service_oneshot() {
         .uri("/api/mcp")
         .header("Mcp-Method", "server/discover")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(Body::from(
             json!({
                 "jsonrpc": "2.0",
@@ -82,6 +83,7 @@ async fn test_axum_nested_service_oneshot() {
         .uri("/api/mcp")
         .header("Mcp-Method", "tools/list")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(Body::from(
             json!({
                 "jsonrpc": "2.0",
@@ -106,6 +108,7 @@ async fn test_axum_nested_service_oneshot() {
         .header("Mcp-Method", "tools/call")
         .header("Mcp-Name", "greet")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(Body::from(
             json!({
                 "jsonrpc": "2.0",
@@ -157,6 +160,7 @@ async fn test_axum_multiple_nested_mcp_routers() {
         .header("Mcp-Method", "tools/call")
         .header("Mcp-Name", "v1_tool")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(Body::from(
             json!({
                 "jsonrpc": "2.0",
@@ -185,6 +189,7 @@ async fn test_axum_multiple_nested_mcp_routers() {
         .header("Mcp-Method", "tools/call")
         .header("Mcp-Name", "v2_tool")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(Body::from(
             json!({
                 "jsonrpc": "2.0",
@@ -247,6 +252,7 @@ async fn test_axum_real_tcp_server_e2e() {
         &[
             ("Mcp-Method", "server/discover"),
             ("Content-Type", "application/json"),
+            ("MCP-Protocol-Version", "2026-07-28"),
         ],
         &disc_body,
     )
@@ -286,6 +292,7 @@ async fn test_axum_real_tcp_server_e2e() {
             ("Mcp-Method", "tools/call"),
             ("Mcp-Name", "greet"),
             ("Content-Type", "application/json"),
+            ("MCP-Protocol-Version", "2026-07-28"),
         ],
         &call_body,
     )
@@ -310,6 +317,7 @@ async fn test_axum_real_tcp_server_e2e() {
             ("Mcp-Method", "tools/call"),
             ("Mcp-Name", "unknown"),
             ("Content-Type", "application/json"),
+            ("MCP-Protocol-Version", "2026-07-28"),
         ],
         &json!({
             "jsonrpc": "2.0",

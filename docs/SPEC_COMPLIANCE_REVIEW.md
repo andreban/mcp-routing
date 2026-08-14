@@ -50,9 +50,9 @@ This document itemizes all required changes and recommendations, categorized by 
   - Protocol version validation is only evaluated conditionally inside `server/discover` via `src/server/discover.rs:validate_protocol_version`, and it returns `-32602` (`Invalid params`) inside HTTP `200 OK`.
   - The HTTP header `MCP-Protocol-Version` is neither required nor validated in `src/router/service.rs`.
 - **Action Items**:
-  - [ ] Validate `MCP-Protocol-Version` HTTP header on all incoming POST requests in `src/router/service.rs`.
-  - [ ] Verify consistency between HTTP `MCP-Protocol-Version` header and `params._meta["io.modelcontextprotocol/protocolVersion"]` (returning `-32020` on mismatch).
-  - [ ] Implement `-32022` (`UnsupportedProtocolVersionError`) returning the list of supported server versions in `data.supported` and the client's version in `data.requested`.
+  - [x] Validate `MCP-Protocol-Version` HTTP header on all incoming POST requests in `src/router/service.rs`.
+  - [x] Verify consistency between HTTP `MCP-Protocol-Version` header and `params._meta["io.modelcontextprotocol/protocolVersion"]` (returning `-32020` on mismatch).
+  - [x] Implement `-32022` (`UnsupportedProtocolVersionError`) returning the list of supported server versions in `data.supported` and the client's version in `data.requested`.
 
 ---
 

@@ -161,6 +161,7 @@ async fn test_mcp_session_id_header_propagation_on_discover() {
     let request = Request::builder()
         .method(http::Method::POST)
         .header(http::header::CONTENT_TYPE, "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .header("Mcp-Session-Id", "sess-alpha-123")
         .body(Full::new(Bytes::from(
             serde_json::to_vec(&request_payload).unwrap(),
@@ -193,6 +194,7 @@ async fn test_mcp_session_id_header_propagation_on_tools_list() {
     let request = Request::builder()
         .method(http::Method::POST)
         .header(http::header::CONTENT_TYPE, "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .header("Mcp-Session-Id", "sess-beta-456")
         .body(Full::new(Bytes::from(
             serde_json::to_vec(&request_payload).unwrap(),
@@ -255,6 +257,7 @@ async fn test_mcp_session_id_propagation_on_error_responses() {
     let req_parse_err = Request::builder()
         .method(http::Method::POST)
         .header(http::header::CONTENT_TYPE, "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .header("Mcp-Session-Id", "sess-err-3")
         .body(Full::new(Bytes::from_static(b"not json")))
         .unwrap();
@@ -289,6 +292,7 @@ async fn test_multiple_extractors_with_extensions_and_session() {
     let mut request = Request::builder()
         .method(http::Method::POST)
         .header(http::header::CONTENT_TYPE, "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .header("Mcp-Session-Id", "sess-db-777")
         .body(Full::new(Bytes::from(
             serde_json::to_vec(&request_payload).unwrap(),
@@ -345,6 +349,7 @@ async fn test_missing_extension_returns_extraction_error() {
     let mut request = Request::builder()
         .method(http::Method::POST)
         .header(http::header::CONTENT_TYPE, "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .header("Mcp-Session-Id", "sess-db-777")
         .body(Full::new(Bytes::from(
             serde_json::to_vec(&request_payload).unwrap(),
@@ -382,6 +387,7 @@ async fn test_missing_required_session_id_returns_extraction_error() {
     let request = Request::builder()
         .method(http::Method::POST)
         .header(http::header::CONTENT_TYPE, "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(Full::new(Bytes::from(
             serde_json::to_vec(&request_payload).unwrap(),
         )))
@@ -418,6 +424,7 @@ async fn test_per_request_meta_propagation_in_prompts_get() {
     let request = Request::builder()
         .method(http::Method::POST)
         .header(http::header::CONTENT_TYPE, "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .header("Mcp-Session-Id", "sess-prompt-99")
         .body(Full::new(Bytes::from(
             serde_json::to_vec(&request_payload).unwrap(),
@@ -474,6 +481,7 @@ async fn test_request_context_extractor_comprehensive() {
     let request = Request::builder()
         .method(http::Method::POST)
         .header(http::header::CONTENT_TYPE, "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .header("Mcp-Session-Id", "sess-ctx-1")
         .header("X-Custom-Trace", "trace-xyz")
         .body(Full::new(Bytes::from(
@@ -558,6 +566,7 @@ async fn test_with_state_and_state_extractor() {
     let request = Request::builder()
         .method(http::Method::POST)
         .header(http::header::CONTENT_TYPE, "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(Full::new(Bytes::from(
             serde_json::to_vec(&request_payload).unwrap(),
         )))
@@ -647,6 +656,7 @@ async fn test_axum_shared_state_between_web_and_mcp() {
         .uri("/mcp")
         .method(http::Method::POST)
         .header(http::header::CONTENT_TYPE, "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(axum::body::Body::from(
             serde_json::to_vec(&mcp_payload).unwrap(),
         ))

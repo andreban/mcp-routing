@@ -18,7 +18,8 @@ use crate::body::{
 };
 use crate::router::{McpRouter, McpRouterInner};
 use crate::types::jsonrpc::JsonRpcErrorResponse;
-use crate::utils::{extract_session_id, is_json_content_type};
+use crate::types::mcp::{header_mismatch_error, unsupported_protocol_version_error};
+use crate::utils::{extract_protocol_version, extract_session_id, is_json_content_type};
 
 impl McpRouterInner {
     /// Dispatches an incoming HTTP request into JSON-RPC handling.
@@ -49,6 +50,37 @@ impl McpRouterInner {
         if !is_json_content_type(req.headers()) {
             tracing::debug!("Missing or unsupported Content-Type header");
             return attach_session(unsupported_media_type());
+        }
+
+        if self.server.validate_protocol_version {
+            match extract_protocol_version(req.headers()) {
+                None => {
+                    tracing::debug!("Missing required MCP-Protocol-Version header");
+                    let error_response = header_mismatch_error(
+                        None,
+                        "Header mismatch: missing required MCP-Protocol-Version header",
+                    );
+                    return attach_session(json_response_with_status(
+                        StatusCode::BAD_REQUEST,
+                        &error_response,
+                    ));
+                }
+                Some(req_ver) => {
+                    if !self.server.supported_versions.iter().any(|v| v == req_ver) {
+                        tracing::debug!(%req_ver, "Unsupported MCP-Protocol-Version header");
+                        let error_response = unsupported_protocol_version_error(
+                            None,
+                            format!("Unsupported protocol version '{req_ver}'"),
+                            self.server.supported_versions.clone(),
+                            req_ver,
+                        );
+                        return attach_session(json_response_with_status(
+                            StatusCode::BAD_REQUEST,
+                            &error_response,
+                        ));
+                    }
+                }
+            }
         }
 
         let (mut parts, body) = req.into_parts();

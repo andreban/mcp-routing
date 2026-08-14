@@ -15,6 +15,7 @@ mod common;
 
 use std::collections::HashMap;
 
+use axum::{body::Body, http::Request};
 use http::StatusCode;
 use mcp_routing::{
     McpRouter,
@@ -318,9 +319,51 @@ async fn test_server_discover_protocol_version_negotiation_success() {
     );
 }
 
-/// Tests that a client requesting an unsupported protocol version in `_meta.protocolVersion` is rejected.
+/// Tests that a client requesting an unsupported protocol version in header and body is rejected with -32022.
 #[tokio::test]
 async fn test_server_discover_protocol_version_negotiation_failure() {
+    let server_info = Implementation::new("versioned-server", "1.0.0");
+    let app = McpRouter::new(server_info).supported_versions(vec!["2026-07-28".to_string()]);
+
+    let req = Request::builder()
+        .method("POST")
+        .uri("/")
+        .header("Mcp-Method", "server/discover")
+        .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2024-11-05")
+        .body(Body::from(
+            json!({
+                "jsonrpc": "2.0",
+                "id": "ver-test-2",
+                "method": "server/discover",
+                "params": {
+                    "_meta": {
+                        "io.modelcontextprotocol/protocolVersion": "2024-11-05"
+                    }
+                }
+            })
+            .to_string(),
+        ))
+        .unwrap();
+
+    let (status, _headers, body) = common::execute_request(app, req).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+
+    assert_eq!(body["jsonrpc"], "2.0");
+    assert_eq!(body["error"]["code"], mcp_routing::types::mcp::UNSUPPORTED_PROTOCOL_VERSION);
+    assert!(
+        body["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("Unsupported protocol version '2024-11-05'")
+    );
+    assert_eq!(body["error"]["data"]["supported"][0], "2026-07-28");
+    assert_eq!(body["error"]["data"]["requested"], "2024-11-05");
+}
+
+/// Tests that a mismatch between MCP-Protocol-Version header and body _meta is rejected with -32020.
+#[tokio::test]
+async fn test_server_discover_protocol_version_header_body_mismatch() {
     let server_info = Implementation::new("versioned-server", "1.0.0");
     let app = McpRouter::new(server_info).supported_versions(vec!["2026-07-28".to_string()]);
 
@@ -329,7 +372,7 @@ async fn test_server_discover_protocol_version_negotiation_failure() {
         None,
         json!({
             "jsonrpc": "2.0",
-            "id": "ver-test-2",
+            "id": "ver-mismatch",
             "method": "server/discover",
             "params": {
                 "_meta": {
@@ -340,16 +383,16 @@ async fn test_server_discover_protocol_version_negotiation_failure() {
     );
 
     let (status, _headers, body) = common::execute_request(app, req).await;
-    assert_eq!(status, StatusCode::OK);
+    assert_eq!(status, StatusCode::BAD_REQUEST);
 
     assert_eq!(body["jsonrpc"], "2.0");
-    assert_eq!(body["id"], "ver-test-2");
-    assert_eq!(body["error"]["code"], -32602);
+    assert_eq!(body["id"], "ver-mismatch");
+    assert_eq!(body["error"]["code"], mcp_routing::types::mcp::HEADER_MISMATCH);
     assert!(
         body["error"]["message"]
             .as_str()
             .unwrap()
-            .contains("Unsupported protocol version '2024-11-05'")
+            .contains("MCP-Protocol-Version header value '2026-07-28' does not match body value '2024-11-05'")
     );
 }
 

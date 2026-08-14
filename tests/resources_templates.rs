@@ -31,6 +31,7 @@ async fn test_resource_templates_list_empty() {
         .method("POST")
         .uri("/mcp")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(req_body.to_string())
         .unwrap();
 
@@ -79,6 +80,7 @@ async fn test_resource_templates_list_multiple_rich_templates() {
         .method("POST")
         .uri("/mcp")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(req_body.to_string())
         .unwrap();
 
@@ -126,6 +128,7 @@ async fn test_resource_templates_dynamic_read_dispatching() {
         .method("POST")
         .uri("/mcp")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(req_body.to_string())
         .unwrap();
 
@@ -156,6 +159,7 @@ async fn test_resource_templates_list_caching_directives() {
         .method("POST")
         .uri("/mcp")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .header("Mcp-Method", "resources/templates/list")
         .body(serde_json::json!({ "jsonrpc": "2.0", "id": 1 }).to_string())
         .unwrap();
@@ -199,6 +203,7 @@ async fn test_resource_templates_list_custom_handler_with_extractors() {
         .method("POST")
         .uri("/mcp")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .header("Mcp-Method", "resources/templates/list")
         .body(serde_json::json!({ "jsonrpc": "2.0", "id": 1 }).to_string())
         .unwrap();

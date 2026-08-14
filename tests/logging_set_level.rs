@@ -29,7 +29,9 @@ async fn send_mcp_request(
     headers: Option<Vec<(&'static str, &'static str)>>,
 ) -> (StatusCode, serde_json::Value, HeaderMap) {
     let body_str = serde_json::to_string(&body).unwrap();
-    let mut req_builder = Request::post("/").header("Content-Type", "application/json");
+    let mut req_builder = Request::post("/")
+        .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28");
 
     if let Some(hdrs) = headers {
         for (k, v) in hdrs {

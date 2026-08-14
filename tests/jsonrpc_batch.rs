@@ -108,6 +108,7 @@ async fn test_batch_all_successful_requests() {
         .method("POST")
         .uri("/")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(Body::from(batch_req.to_string()))
         .unwrap();
 
@@ -210,6 +211,7 @@ async fn test_batch_mixed_calls_notifications_and_errors() {
         .method("POST")
         .uri("/")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(Body::from(batch_req.to_string()))
         .unwrap();
 
@@ -265,6 +267,7 @@ async fn test_batch_all_notifications_returns_204() {
         .method("POST")
         .uri("/")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(Body::from(batch_req.to_string()))
         .unwrap();
 
@@ -287,6 +290,7 @@ async fn test_single_notification_returns_202() {
         .method("POST")
         .uri("/")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(Body::from(notif_req.to_string()))
         .unwrap();
 
@@ -308,6 +312,7 @@ async fn test_empty_batch_array_returns_invalid_request() {
         .method("POST")
         .uri("/")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(Body::from("[]"))
         .unwrap();
 
@@ -339,6 +344,7 @@ async fn test_batch_invalid_primitive_elements() {
         .method("POST")
         .uri("/")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(Body::from("[1]"))
         .unwrap();
 
@@ -355,6 +361,7 @@ async fn test_batch_invalid_primitive_elements() {
         .method("POST")
         .uri("/")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(Body::from("[1, 2, 3]"))
         .unwrap();
 
@@ -373,6 +380,7 @@ async fn test_batch_invalid_primitive_elements() {
         .method("POST")
         .uri("/")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(Body::from(
             json!([
                 1,
@@ -412,6 +420,7 @@ async fn test_batch_malformed_json_returns_parse_error() {
         .method("POST")
         .uri("/")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(Body::from(malformed_batch))
         .unwrap();
 
@@ -437,6 +446,7 @@ async fn test_top_level_primitive_returns_invalid_request() {
         .method("POST")
         .uri("/")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(Body::from("12345"))
         .unwrap();
 
@@ -484,6 +494,7 @@ async fn test_batch_session_id_and_state_propagation() {
         .uri("/")
         .header("Mcp-Session-Id", "session-batch-777")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(Body::from(batch_req.to_string()))
         .unwrap();
 
@@ -534,6 +545,7 @@ async fn test_batch_header_fallback() {
         .uri("/")
         .header("Mcp-Name", "echo")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(Body::from(batch_req.to_string()))
         .unwrap();
 

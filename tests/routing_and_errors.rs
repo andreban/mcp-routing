@@ -280,6 +280,7 @@ async fn test_malformed_json_body_returns_parse_error() {
         .uri("/")
         .header("Mcp-Method", "server/discover")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(Body::from("NOT_A_VALID_JSON{"))
         .unwrap();
 
@@ -295,6 +296,7 @@ async fn test_malformed_json_body_returns_parse_error() {
         .uri("/")
         .header("Mcp-Method", "tools/list")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(Body::from("{\"jsonrpc\": \"2.0\", \"id\": "))
         .unwrap();
 
@@ -311,6 +313,7 @@ async fn test_malformed_json_body_returns_parse_error() {
         .header("Mcp-Method", "tools/call")
         .header("Mcp-Name", "echo")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(Body::from("<xml>not json</xml>"))
         .unwrap();
 
@@ -430,6 +433,7 @@ async fn test_valid_json_content_types_accepted() {
             .header("Mcp-Method", "tools/call")
             .header("Mcp-Name", "echo")
             .header("Content-Type", ct)
+            .header("MCP-Protocol-Version", "2026-07-28")
             .body(Body::from(
                 json!({
                     "jsonrpc": "2.0",

@@ -38,6 +38,7 @@ async fn test_resources_read_exact_match_success() {
         .method("POST")
         .uri("/mcp")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(req_body.to_string())
         .unwrap();
 
@@ -70,6 +71,7 @@ async fn test_resources_read_header_routing_with_uri() {
         .method("POST")
         .uri("/mcp")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .header("Mcp-Method", "resources/read")
         .header("Mcp-Uri", "memo://meeting-notes")
         .body(serde_json::json!({ "jsonrpc": "2.0", "id": 42 }).to_string())
@@ -98,6 +100,7 @@ async fn test_resources_read_header_routing_with_name_header_fallback() {
         .method("POST")
         .uri("/mcp")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .header("Mcp-Method", "resources/read")
         .header("Mcp-Name", "memo://system-status")
         .body(serde_json::json!({ "jsonrpc": "2.0", "id": 10 }).to_string())
@@ -129,6 +132,7 @@ async fn test_resources_read_header_uri_precedence_over_body() {
         .method("POST")
         .uri("/mcp")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .header("Mcp-Method", "resources/read")
         .header("Mcp-Uri", "memo://primary")
         .body(
@@ -176,6 +180,7 @@ async fn test_resources_read_blob_content() {
         .method("POST")
         .uri("/mcp")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(
             serde_json::json!({
                 "jsonrpc": "2.0",
@@ -236,6 +241,7 @@ async fn test_resources_read_with_extractors() {
         .method("POST")
         .uri("/mcp")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .header("Mcp-Session-Id", "sess-res-123")
         .header("Authorization", "Bearer my-secret-token")
         .body(
@@ -278,6 +284,7 @@ async fn test_resources_read_with_caching_directives() {
         .method("POST")
         .uri("/mcp")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(
             serde_json::json!({
                 "jsonrpc": "2.0",
@@ -312,6 +319,7 @@ async fn test_resources_read_missing_uri_returns_invalid_params() {
         .method("POST")
         .uri("/mcp")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(
             serde_json::json!({
                 "jsonrpc": "2.0",
@@ -346,6 +354,7 @@ async fn test_resources_read_unknown_resource_returns_invalid_params() {
         .method("POST")
         .uri("/")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(
             serde_json::json!({
                 "jsonrpc": "2.0",
@@ -386,6 +395,7 @@ async fn test_resources_read_business_logic_error_returns_internal_error() {
         .method("POST")
         .uri("/mcp")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(
             serde_json::json!({
                 "jsonrpc": "2.0",

@@ -126,7 +126,8 @@ pub fn build_request(
     let mut builder = Request::builder()
         .method("POST")
         .uri("/")
-        .header("Content-Type", "application/json");
+        .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28");
 
     if let Some(m) = method_header {
         builder = builder.header("Mcp-Method", m);

@@ -64,6 +64,7 @@ async fn test_mcp_router_builtin_tools_list() {
         .uri("/")
         .header("Mcp-Method", "tools/list")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(Body::from(
             json!({"id": 1, "method": "tools/list"}).to_string(),
         ))
@@ -89,6 +90,7 @@ async fn test_mcp_router_builtin_server_discover() {
         .uri("/")
         .header("Mcp-Method", "server/discover")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(Body::from(
             json!({"id": 1, "method": "server/discover"}).to_string(),
         ))
@@ -118,6 +120,7 @@ async fn test_mcp_router_header_routing_with_name() {
         .header("Mcp-Method", "tools/call")
         .header("Mcp-Name", "echo")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(Body::from(
             json!({
                 "id": 1,
@@ -160,6 +163,7 @@ async fn test_mcp_router_body_method_fallback_tools_list() {
         .method("POST")
         .uri("/")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(Body::from(
             json!({"id": 1, "method": "tools/list"}).to_string(),
         ))
@@ -183,6 +187,7 @@ async fn test_mcp_router_body_method_fallback_server_discover() {
         .method("POST")
         .uri("/")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(Body::from(
             json!({"id": 1, "method": "server/discover"}).to_string(),
         ))
@@ -208,6 +213,7 @@ async fn test_mcp_router_body_method_and_tool_name_fallback() {
         .method("POST")
         .uri("/")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(Body::from(
             json!({
                 "id": 1,
@@ -235,6 +241,7 @@ async fn test_mcp_router_tool_name_fallback_with_header_method() {
         .uri("/")
         .header("Mcp-Method", "tools/call")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(Body::from(
             json!({
                 "id": 1,
@@ -260,6 +267,7 @@ async fn test_mcp_router_invalid_method_suffix_returns_not_found() {
         .method("POST")
         .uri("/")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(Body::from(
             json!({
                 "id": 1,
@@ -291,6 +299,7 @@ async fn test_mcp_router_missing_method_in_header_and_body_returns_bad_request()
         .method("POST")
         .uri("/")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(Body::from(json!({"id": 1}).to_string()))
         .unwrap();
 
@@ -312,6 +321,7 @@ async fn test_mcp_router_missing_tool_name_returns_bad_request() {
         .method("POST")
         .uri("/")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(Body::from(
             json!({
                 "id": 1,
@@ -340,6 +350,7 @@ async fn test_mcp_router_unknown_tool_returns_invalid_params() {
         .method("POST")
         .uri("/")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(Body::from(
             json!({
                 "id": 1,
@@ -370,6 +381,7 @@ async fn test_mcp_router_unknown_method_returns_not_found() {
         .method("POST")
         .uri("/")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(Body::from(
             json!({
                 "id": 1,
@@ -401,6 +413,7 @@ async fn test_mcp_router_nested_in_axum() {
         .header("Mcp-Method", "tools/call")
         .header("Mcp-Name", "hello")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(Body::from(
             json!({
                 "id": 1,
@@ -441,6 +454,7 @@ async fn test_mcp_router_typed_tool_handler_success() {
         .header("Mcp-Method", "tools/call")
         .header("Mcp-Name", "add")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(Body::from(
             json!({
                 "id": 42,
@@ -494,6 +508,7 @@ async fn test_mcp_router_typed_tool_handler_error_result() {
         .header("Mcp-Method", "tools/call")
         .header("Mcp-Name", "divide")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(Body::from(
             json!({
                 "id": 43,
@@ -631,6 +646,7 @@ async fn test_mcp_router_accepts_valid_content_types_with_charset() {
         .uri("/")
         .header("Mcp-Method", "server/discover")
         .header("Content-Type", "application/json; charset=utf-8")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(Body::from(
             json!({"id": "charset-test", "method": "server/discover"}).to_string(),
         ))
@@ -657,6 +673,7 @@ async fn test_mcp_router_server_discover_caching_headers_default() {
         .uri("/")
         .header("Mcp-Method", "server/discover")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(Body::from(
             json!({"id": 1, "method": "server/discover"}).to_string(),
         ))
@@ -688,6 +705,7 @@ async fn test_mcp_router_tools_list_caching_headers_default() {
         .uri("/")
         .header("Mcp-Method", "tools/list")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(Body::from(
             json!({"id": 1, "method": "tools/list"}).to_string(),
         ))
@@ -718,6 +736,7 @@ async fn test_mcp_router_server_discover_custom_caching_headers() {
         .uri("/")
         .header("Mcp-Method", "server/discover")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(Body::from(
             json!({"id": 1, "method": "server/discover"}).to_string(),
         ))
@@ -755,6 +774,7 @@ async fn test_mcp_router_tools_list_custom_caching_headers() {
         .uri("/")
         .header("Mcp-Method", "tools/list")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(Body::from(
             json!({"id": 1, "method": "tools/list"}).to_string(),
         ))
@@ -787,6 +807,7 @@ async fn test_mcp_router_disabled_caching_headers() {
         .uri("/")
         .header("Mcp-Method", "server/discover")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(Body::from(
             json!({"id": 1, "method": "server/discover"}).to_string(),
         ))
@@ -826,6 +847,7 @@ async fn test_mcp_router_per_tool_caching_headers() {
         .header("Mcp-Method", "tools/call")
         .header("Mcp-Name", "cached_tool")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(Body::from(
             json!({"id": 1, "method": "tools/call", "params": {"name": "cached_tool"}}).to_string(),
         ))
@@ -849,6 +871,7 @@ async fn test_mcp_router_per_tool_caching_headers() {
         .header("Mcp-Method", "tools/call")
         .header("Mcp-Name", "configured_tool")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(Body::from(
             json!({"id": 2, "method": "tools/call", "params": {"name": "configured_tool"}})
                 .to_string(),
@@ -873,6 +896,7 @@ async fn test_mcp_router_per_tool_caching_headers() {
         .header("Mcp-Method", "tools/call")
         .header("Mcp-Name", "uncached_tool")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(Body::from(
             json!({"id": 3, "method": "tools/call", "params": {"name": "uncached_tool"}})
                 .to_string(),
@@ -899,6 +923,7 @@ async fn test_mcp_router_builtin_prompts_list() {
         .uri("/")
         .header("Mcp-Method", "prompts/list")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(Body::from(
             json!({"id": 1, "method": "prompts/list"}).to_string(),
         ))
@@ -927,6 +952,7 @@ async fn test_mcp_router_prompts_get_success() {
         .header("Mcp-Method", "prompts/get")
         .header("Mcp-Name", "greeting")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(Body::from(
             json!({"id": "p-1", "method": "prompts/get"}).to_string(),
         ))
@@ -952,6 +978,7 @@ async fn test_mcp_router_prompts_get_unknown() {
         .header("Mcp-Method", "prompts/get")
         .header("Mcp-Name", "unknown_prompt")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(Body::from(
             json!({"id": 99, "method": "prompts/get"}).to_string(),
         ))
@@ -983,6 +1010,7 @@ async fn test_mcp_router_prompts_caching_headers() {
         .uri("/")
         .header("Mcp-Method", "prompts/list")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(Body::from(
             json!({"id": 1, "method": "prompts/list"}).to_string(),
         ))
@@ -1004,6 +1032,7 @@ async fn test_mcp_router_prompts_caching_headers() {
         .header("Mcp-Method", "prompts/get")
         .header("Mcp-Name", "cached_p")
         .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
         .body(Body::from(
             json!({"id": 2, "method": "prompts/get"}).to_string(),
         ))
@@ -1017,4 +1046,135 @@ async fn test_mcp_router_prompts_caching_headers() {
             .and_then(|h| h.to_str().ok()),
         Some("public, max-age=60")
     );
+}
+
+/// Tests that omitting `MCP-Protocol-Version` header returns HTTP 400 Bad Request with HeaderMismatch (-32020).
+#[tokio::test]
+async fn test_mcp_router_missing_protocol_version_header_returns_header_mismatch() {
+    let app = McpRouter::new(test_server_info());
+
+    let req = Request::builder()
+        .method("POST")
+        .uri("/")
+        .header("Mcp-Method", "server/discover")
+        .header("Content-Type", "application/json")
+        .body(Body::from(
+            json!({"id": 1, "method": "server/discover"}).to_string(),
+        ))
+        .unwrap();
+
+    let resp = app.oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+
+    let bytes = resp.into_body().collect().await.unwrap().to_bytes();
+    let err_resp: JsonRpcErrorResponse = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(
+        err_resp.error.code.code(),
+        crate::types::mcp::HEADER_MISMATCH
+    );
+    assert!(
+        err_resp
+            .error
+            .message
+            .contains("missing required MCP-Protocol-Version header")
+    );
+}
+
+/// Tests that an unsupported `MCP-Protocol-Version` header returns HTTP 400 Bad Request with UnsupportedProtocolVersion (-32022).
+#[tokio::test]
+async fn test_mcp_router_unsupported_protocol_version_header_returns_unsupported_version() {
+    let app = McpRouter::new(test_server_info());
+
+    let req = Request::builder()
+        .method("POST")
+        .uri("/")
+        .header("Mcp-Method", "server/discover")
+        .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2024-11-05")
+        .body(Body::from(
+            json!({"id": 1, "method": "server/discover"}).to_string(),
+        ))
+        .unwrap();
+
+    let resp = app.oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+
+    let bytes = resp.into_body().collect().await.unwrap().to_bytes();
+    let err_resp: JsonRpcErrorResponse = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(
+        err_resp.error.code.code(),
+        crate::types::mcp::UNSUPPORTED_PROTOCOL_VERSION
+    );
+    assert!(
+        err_resp
+            .error
+            .message
+            .contains("Unsupported protocol version '2024-11-05'")
+    );
+    let data = err_resp.error.data.unwrap();
+    assert_eq!(data["supported"][0], "2026-07-28");
+    assert_eq!(data["requested"], "2024-11-05");
+}
+
+/// Tests that a mismatch between `MCP-Protocol-Version` header and body `_meta` returns HTTP 400 Bad Request with HeaderMismatch (-32020).
+#[tokio::test]
+async fn test_mcp_router_protocol_version_header_body_mismatch_returns_header_mismatch() {
+    let app = McpRouter::new(test_server_info());
+
+    let req = Request::builder()
+        .method("POST")
+        .uri("/")
+        .header("Mcp-Method", "server/discover")
+        .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
+        .body(Body::from(
+            json!({
+                "id": 1,
+                "method": "server/discover",
+                "params": {
+                    "_meta": {
+                        "io.modelcontextprotocol/protocolVersion": "2025-06-18"
+                    }
+                }
+            })
+            .to_string(),
+        ))
+        .unwrap();
+
+    let resp = app.oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+
+    let bytes = resp.into_body().collect().await.unwrap().to_bytes();
+    let err_resp: JsonRpcErrorResponse = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(
+        err_resp.error.code.code(),
+        crate::types::mcp::HEADER_MISMATCH
+    );
+    assert!(
+        err_resp
+            .error
+            .message
+            .contains("MCP-Protocol-Version header value '2026-07-28' does not match body value '2025-06-18'")
+    );
+}
+
+/// Tests that disabling protocol version validation accepts omitted header or custom version strings.
+#[tokio::test]
+async fn test_mcp_router_disabled_protocol_version_validation() {
+    let app = McpRouter::new(test_server_info())
+        .validate_protocol_version(false)
+        .instructions("Bypass validation");
+
+    let req = Request::builder()
+        .method("POST")
+        .uri("/")
+        .header("Mcp-Method", "server/discover")
+        .header("Content-Type", "application/json")
+        .body(Body::from(
+            json!({"id": 1, "method": "server/discover"}).to_string(),
+        ))
+        .unwrap();
+
+    let resp = app.oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
 }

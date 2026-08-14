@@ -51,6 +51,39 @@ pub(crate) fn extract_session_id(headers: &HeaderMap) -> Option<SessionId> {
         .map(SessionId::new)
 }
 
+/// Extracts the MCP protocol version from the `MCP-Protocol-Version` HTTP header.
+pub(crate) fn extract_protocol_version(headers: &HeaderMap) -> Option<&str> {
+    headers
+        .get("MCP-Protocol-Version")
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.trim())
+}
+
+/// Extracts the `protocolVersion` specified in the request body metadata (`params._meta` or `_meta`), if present.
+pub(crate) fn extract_body_protocol_version(
+    map: &serde_json::Map<String, serde_json::Value>,
+) -> Option<&str> {
+    // 1. Check params._meta["io.modelcontextprotocol/protocolVersion"] or params.meta.protocolVersion
+    if let Some(serde_json::Value::Object(params)) = map.get("params")
+        && let Some(serde_json::Value::Object(meta)) =
+            params.get("_meta").or_else(|| params.get("meta"))
+        && let Some(serde_json::Value::String(ver)) = meta
+            .get("io.modelcontextprotocol/protocolVersion")
+            .or_else(|| meta.get("protocolVersion"))
+    {
+        return Some(ver.as_str());
+    }
+    // 2. Check top-level _meta["io.modelcontextprotocol/protocolVersion"] or _meta.protocolVersion
+    if let Some(serde_json::Value::Object(meta)) = map.get("_meta").or_else(|| map.get("meta"))
+        && let Some(serde_json::Value::String(ver)) = meta
+            .get("io.modelcontextprotocol/protocolVersion")
+            .or_else(|| meta.get("protocolVersion"))
+    {
+        return Some(ver.as_str());
+    }
+    None
+}
+
 /// Extracts the MCP method to dispatch, prioritizing `Mcp-Method` header and falling back to the body method.
 ///
 /// Leading and trailing slashes are trimmed for normalization.
@@ -325,5 +358,43 @@ mod tests {
         ));
         assert!(match_uri_template("memo://all", "memo://all"));
         assert!(!match_uri_template("memo://all", "memo://other"));
+    }
+
+    #[test]
+    fn test_extract_protocol_version() {
+        let mut headers = HeaderMap::new();
+        assert_eq!(extract_protocol_version(&headers), None);
+
+        headers.insert("MCP-Protocol-Version", "2026-07-28".parse().unwrap());
+        assert_eq!(extract_protocol_version(&headers), Some("2026-07-28"));
+
+        // Case insensitivity
+        headers.remove("MCP-Protocol-Version");
+        headers.insert("mcp-protocol-version", "2026-07-28".parse().unwrap());
+        assert_eq!(extract_protocol_version(&headers), Some("2026-07-28"));
+    }
+
+    #[test]
+    fn test_extract_body_protocol_version() {
+        let body_with_params_meta: serde_json::Map<String, serde_json::Value> = serde_json::from_value(serde_json::json!({
+            "params": {
+                "_meta": {
+                    "io.modelcontextprotocol/protocolVersion": "2026-07-28"
+                }
+            }
+        })).unwrap();
+        assert_eq!(extract_body_protocol_version(&body_with_params_meta), Some("2026-07-28"));
+
+        let body_with_top_level_meta: serde_json::Map<String, serde_json::Value> = serde_json::from_value(serde_json::json!({
+            "_meta": {
+                "io.modelcontextprotocol/protocolVersion": "2026-07-28"
+            }
+        })).unwrap();
+        assert_eq!(extract_body_protocol_version(&body_with_top_level_meta), Some("2026-07-28"));
+
+        let body_without_meta: serde_json::Map<String, serde_json::Value> = serde_json::from_value(serde_json::json!({
+            "params": {}
+        })).unwrap();
+        assert_eq!(extract_body_protocol_version(&body_without_meta), None);
     }
 }

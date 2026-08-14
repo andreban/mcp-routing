@@ -18,6 +18,7 @@ use crate::types::mcp::{
         ServerDiscoverParams, ServerDiscoverRequest, ServerDiscoverResult,
         ServerDiscoverResultResponse,
     },
+    unsupported_protocol_version_error,
 };
 
 /// Configuration and metadata for an MCP server instance.
@@ -91,18 +92,22 @@ impl ServerConfig {
             },
         };
 
-        if self.validate_protocol_version {
-            let client_version = params
+        if self.validate_protocol_version
+            && let Some(client_ver) = params
                 .meta
                 .as_ref()
-                .and_then(|m| m.protocol_version.as_deref());
-            if let Err(err_msg) =
-                validate_protocol_version(client_version, &self.supported_versions)
-            {
-                return DispatchOutcome::error(JsonRpcErrorResponse::invalid_params(
-                    ctx.req_id, err_msg,
-                ));
-            }
+                .and_then(|m| m.protocol_version.as_deref())
+            && !self.supported_versions.iter().any(|v| v == client_ver)
+        {
+            return DispatchOutcome::error(unsupported_protocol_version_error(
+                ctx.req_id,
+                format!(
+                    "Unsupported protocol version '{client_ver}'. Supported versions: {}",
+                    self.supported_versions.join(", ")
+                ),
+                self.supported_versions.clone(),
+                client_ver,
+            ));
         }
 
         let base_result = ServerDiscoverResult {

@@ -514,3 +514,127 @@ async fn test_mcp_router_typed_tool_handler_error_result() {
         panic!("Expected text block");
     }
 }
+
+/// Tests that non-POST HTTP methods (GET, PUT, DELETE, PATCH, HEAD, OPTIONS) return 405 Method Not Allowed with `Allow: POST`.
+#[tokio::test]
+async fn test_mcp_router_rejects_non_post_methods() {
+    let app = McpRouter::new(test_server_info());
+
+    let methods = [
+        http::Method::GET,
+        http::Method::PUT,
+        http::Method::DELETE,
+        http::Method::PATCH,
+        http::Method::HEAD,
+        http::Method::OPTIONS,
+    ];
+
+    for method in methods {
+        let request = Request::builder()
+            .method(method)
+            .uri("/")
+            .header("Content-Type", "application/json")
+            .body(Body::from(
+                json!({"id": 1, "method": "server/discover"}).to_string(),
+            ))
+            .unwrap();
+
+        let response = app.clone().oneshot(request).await.unwrap();
+        assert_eq!(
+            response.status(),
+            StatusCode::METHOD_NOT_ALLOWED,
+            "Expected 405 Method Not Allowed"
+        );
+        assert_eq!(
+            response.headers().get("allow").and_then(|h| h.to_str().ok()),
+            Some("POST")
+        );
+        let bytes = response.into_body().collect().await.unwrap().to_bytes();
+        assert!(bytes.is_empty());
+    }
+}
+
+/// Tests that requests with missing or unsupported Content-Type return 415 Unsupported Media Type.
+#[tokio::test]
+async fn test_mcp_router_rejects_unsupported_content_types() {
+    let app = McpRouter::new(test_server_info());
+
+    // 1. Missing Content-Type
+    let req_missing = Request::builder()
+        .method("POST")
+        .uri("/")
+        .body(Body::from(
+            json!({"id": 1, "method": "server/discover"}).to_string(),
+        ))
+        .unwrap();
+
+    let resp_missing = app.clone().oneshot(req_missing).await.unwrap();
+    assert_eq!(
+        resp_missing.status(),
+        StatusCode::UNSUPPORTED_MEDIA_TYPE,
+        "Expected 415 for missing Content-Type"
+    );
+    let bytes = resp_missing.into_body().collect().await.unwrap().to_bytes();
+    assert!(bytes.is_empty());
+
+    // 2. text/plain
+    let req_text = Request::builder()
+        .method("POST")
+        .uri("/")
+        .header("Content-Type", "text/plain")
+        .body(Body::from(
+            json!({"id": 2, "method": "server/discover"}).to_string(),
+        ))
+        .unwrap();
+
+    let resp_text = app.clone().oneshot(req_text).await.unwrap();
+    assert_eq!(
+        resp_text.status(),
+        StatusCode::UNSUPPORTED_MEDIA_TYPE,
+        "Expected 415 for text/plain"
+    );
+
+    // 3. application/xml
+    let req_xml = Request::builder()
+        .method("POST")
+        .uri("/")
+        .header("Content-Type", "application/xml")
+        .body(Body::from(
+            json!({"id": 3, "method": "server/discover"}).to_string(),
+        ))
+        .unwrap();
+
+    let resp_xml = app.clone().oneshot(req_xml).await.unwrap();
+    assert_eq!(
+        resp_xml.status(),
+        StatusCode::UNSUPPORTED_MEDIA_TYPE,
+        "Expected 415 for application/xml"
+    );
+}
+
+/// Tests that requests with Content-Type containing charset parameters (e.g. application/json; charset=utf-8) are accepted.
+#[tokio::test]
+async fn test_mcp_router_accepts_valid_content_types_with_charset() {
+    let app = McpRouter::new(test_server_info()).instructions("Valid Content Type");
+
+    let request = Request::builder()
+        .method("POST")
+        .uri("/")
+        .header("Mcp-Method", "server/discover")
+        .header("Content-Type", "application/json; charset=utf-8")
+        .body(Body::from(
+            json!({"id": "charset-test", "method": "server/discover"}).to_string(),
+        ))
+        .unwrap();
+
+    let response = app.oneshot(request).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+    let res: ServerDiscoverResultResponse = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(
+        res.result.instructions.as_deref(),
+        Some("Valid Content Type")
+    );
+}
+

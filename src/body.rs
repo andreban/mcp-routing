@@ -123,6 +123,20 @@ pub(crate) fn bad_request() -> Response<ResponseBody> {
     empty_response(StatusCode::BAD_REQUEST)
 }
 
+/// Helper function to construct an empty 405 Method Not Allowed response with `Allow: POST`.
+pub(crate) fn method_not_allowed() -> Response<ResponseBody> {
+    Response::builder()
+        .status(StatusCode::METHOD_NOT_ALLOWED)
+        .header(header::ALLOW, "POST")
+        .body(ResponseBody::empty())
+        .unwrap()
+}
+
+/// Helper function to construct an empty 415 Unsupported Media Type response.
+pub(crate) fn unsupported_media_type() -> Response<ResponseBody> {
+    empty_response(StatusCode::UNSUPPORTED_MEDIA_TYPE)
+}
+
 /// Helper function to construct a JSON response with status 200 OK.
 pub(crate) fn json_response<T: serde::Serialize>(val: &T) -> Response<ResponseBody> {
     match serde_json::to_vec(val) {
@@ -183,6 +197,19 @@ mod tests {
     async fn test_response_helpers() {
         let resp_bad = bad_request();
         assert_eq!(resp_bad.status(), StatusCode::BAD_REQUEST);
+
+        let resp_not_allowed = method_not_allowed();
+        assert_eq!(resp_not_allowed.status(), StatusCode::METHOD_NOT_ALLOWED);
+        assert_eq!(
+            resp_not_allowed.headers().get(header::ALLOW).unwrap(),
+            "POST"
+        );
+
+        let resp_unsupported = unsupported_media_type();
+        assert_eq!(
+            resp_unsupported.status(),
+            StatusCode::UNSUPPORTED_MEDIA_TYPE
+        );
 
         let resp_json = json_response(&serde_json::json!({"ok": true}));
         assert_eq!(resp_json.status(), StatusCode::OK);

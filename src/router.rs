@@ -14,7 +14,9 @@ use http_body_util::BodyExt;
 use serde::Deserialize;
 use tower::Service;
 
-use crate::body::{BoxError, ResponseBody, bad_request, json_response};
+use crate::body::{
+    BoxError, ResponseBody, bad_request, json_response, method_not_allowed, unsupported_media_type,
+};
 use crate::server;
 use crate::tools::{self, IntoToolHandler, ToolHandler};
 use crate::types::jsonrpc::{JsonRpcErrorResponse, JsonRpcRequestId};
@@ -27,6 +29,7 @@ use crate::types::mcp::{
         list::ListToolsRequest,
     },
 };
+use crate::utils::{extract_header_name, extract_method, is_json_content_type, resolve_tool_name};
 
 /// A [Tower](tower)-native router for the Model Context Protocol (MCP).
 ///
@@ -113,6 +116,16 @@ impl McpRouterInner {
         B: http_body::Body<Data = Bytes> + Send + 'static,
         B::Error: Into<BoxError>,
     {
+        if req.method() != http::Method::POST {
+            tracing::debug!(method = %req.method(), "HTTP method not allowed, only POST is supported");
+            return method_not_allowed();
+        }
+
+        if !is_json_content_type(req.headers()) {
+            tracing::debug!("Missing or unsupported Content-Type header");
+            return unsupported_media_type();
+        }
+
         let (parts, body) = req.into_parts();
 
         let body_bytes = match body.collect().await {
@@ -285,36 +298,6 @@ impl McpRouterInner {
     }
 }
 
-fn extract_header_name(headers: &http::HeaderMap) -> Option<String> {
-    headers
-        .get("Mcp-Name")
-        .and_then(|v| v.to_str().ok())
-        .map(|s| s.trim_matches('/').to_string())
-}
-
-fn extract_method(headers: &http::HeaderMap, body_method: Option<&str>) -> Option<String> {
-    // 1. Prefer Mcp-Method HTTP header
-    if let Some(header_method) = headers
-        .get("Mcp-Method")
-        .and_then(|v| v.to_str().ok())
-    {
-        return Some(header_method.trim_matches('/').to_string());
-    }
-
-    // 2. Fall back to JSON-RPC request body method
-    body_method.map(|m| m.trim_matches('/').to_string())
-}
-
-fn resolve_tool_name<'a>(
-    header_name: Option<&'a str>,
-    params_name: Option<&'a str>,
-) -> Option<&'a str> {
-    if let Some(h) = header_name {
-        return Some(h.trim_matches('/'));
-    }
-    params_name.map(|n| n.trim_matches('/'))
-}
-
 impl<B> Service<Request<B>> for McpRouter
 where
     B: http_body::Body<Data = Bytes> + Send + 'static,
@@ -334,66 +317,3 @@ where
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use http::HeaderMap;
-
-    /// Tests extracting the `Mcp-Name` header and trimming slashes.
-    #[test]
-    fn test_extract_header_name() {
-        let mut headers = HeaderMap::new();
-        assert_eq!(extract_header_name(&headers), None);
-
-        headers.insert("Mcp-Name", "/my_tool/".parse().unwrap());
-        assert_eq!(extract_header_name(&headers), Some("my_tool".to_string()));
-
-        headers.insert("Mcp-Name", "///".parse().unwrap());
-        assert_eq!(extract_header_name(&headers), Some("".to_string()));
-    }
-
-    /// Tests extracting the method from `Mcp-Method` header or JSON body.
-    #[test]
-    fn test_extract_method() {
-        let mut headers = HeaderMap::new();
-
-        // Preference: header over body
-        headers.insert("Mcp-Method", "server/discover".parse().unwrap());
-        assert_eq!(
-            extract_method(&headers, Some("tools/list")),
-            Some("server/discover".to_string())
-        );
-
-        // Fallback to body when header is absent
-        headers.remove("Mcp-Method");
-        assert_eq!(
-            extract_method(&headers, Some("tools/list")),
-            Some("tools/list".to_string())
-        );
-
-        // Slash normalization
-        assert_eq!(
-            extract_method(&headers, Some("/tools/call/")),
-            Some("tools/call".to_string())
-        );
-
-        // Invalid / absent method
-        assert_eq!(extract_method(&headers, None), None);
-    }
-
-    /// Tests resolving tool name between header preference and body parameter fallback.
-    #[test]
-    fn test_resolve_tool_name() {
-        assert_eq!(
-            resolve_tool_name(Some("/header_tool/"), Some("body_tool")),
-            Some("header_tool")
-        );
-        assert_eq!(
-            resolve_tool_name(None, Some("/body_tool/")),
-            Some("body_tool")
-        );
-        assert_eq!(resolve_tool_name(Some(""), Some("body_tool")), Some(""));
-        assert_eq!(resolve_tool_name(None, None), None);
-        assert_eq!(resolve_tool_name(Some("///"), Some("///")), Some(""));
-    }
-}

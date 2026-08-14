@@ -4,6 +4,8 @@
 //! # Routing Edge Cases & Error Handling Integration Tests
 //!
 //! Verifies the error boundaries, JSON-RPC 2.0 error codes, and header normalization of [`McpRouter`](mcp_routing::McpRouter):
+//! - HTTP verb validation (rejecting non-POST methods with `405 Method Not Allowed` and `Allow: POST`)
+//! - Media type validation (rejecting missing/non-JSON `Content-Type` with `415 Unsupported Media Type`)
 //! - Header and body normalization (leading/trailing slash tolerance in `Mcp-Method` and `Mcp-Name`)
 //! - Missing or empty method rejection (`-32600 Invalid Request`)
 //! - Missing or empty tool name rejection for `tools/call` (`-32602 Invalid Params`)
@@ -323,3 +325,124 @@ async fn test_malformed_json_body_returns_parse_error() {
     assert_eq!(body3["id"], serde_json::Value::Null);
     assert_eq!(body3["error"]["code"], PARSE_ERROR_CODE);
 }
+
+/// Tests that non-POST HTTP methods (GET, PUT, DELETE, PATCH, OPTIONS, HEAD) return HTTP 405 Method Not Allowed with `Allow: POST`.
+#[tokio::test]
+async fn test_http_method_not_allowed_returns_405() {
+    let app = McpRouter::new(common::sample_server_info())
+        .register_tool("echo", dummy_tool);
+
+    let methods = [
+        ("GET", http::Method::GET),
+        ("PUT", http::Method::PUT),
+        ("DELETE", http::Method::DELETE),
+        ("PATCH", http::Method::PATCH),
+        ("HEAD", http::Method::HEAD),
+        ("OPTIONS", http::Method::OPTIONS),
+    ];
+
+    for (name, method) in methods {
+        let req = Request::builder()
+            .method(method)
+            .uri("/")
+            .header("Mcp-Method", "server/discover")
+            .header("Content-Type", "application/json")
+            .body(Body::from(json!({"id": 1, "method": "server/discover"}).to_string()))
+            .unwrap();
+
+        let (status, headers, body_bytes) = common::execute_request_raw(app.clone(), req).await;
+        assert_eq!(
+            status,
+            StatusCode::METHOD_NOT_ALLOWED,
+            "Method {name} should return 405 Method Not Allowed"
+        );
+        assert_eq!(
+            headers.get("allow").and_then(|h| h.to_str().ok()),
+            Some("POST"),
+            "Method {name} should include Allow: POST header"
+        );
+        assert!(body_bytes.is_empty(), "405 response should have empty body");
+    }
+}
+
+/// Tests that missing or non-JSON Content-Type headers return HTTP 415 Unsupported Media Type.
+#[tokio::test]
+async fn test_unsupported_media_type_returns_415() {
+    let app = McpRouter::new(common::sample_server_info())
+        .register_tool("echo", dummy_tool);
+
+    // 1. Missing Content-Type header
+    let req_missing = Request::builder()
+        .method("POST")
+        .uri("/")
+        .header("Mcp-Method", "server/discover")
+        .body(Body::from(json!({"id": 1, "method": "server/discover"}).to_string()))
+        .unwrap();
+
+    let (status1, _, body1) = common::execute_request_raw(app.clone(), req_missing).await;
+    assert_eq!(status1, StatusCode::UNSUPPORTED_MEDIA_TYPE);
+    assert!(body1.is_empty());
+
+    // 2. text/plain
+    let req_text = Request::builder()
+        .method("POST")
+        .uri("/")
+        .header("Mcp-Method", "server/discover")
+        .header("Content-Type", "text/plain")
+        .body(Body::from(json!({"id": 2, "method": "server/discover"}).to_string()))
+        .unwrap();
+
+    let (status2, _, body2) = common::execute_request_raw(app.clone(), req_text).await;
+    assert_eq!(status2, StatusCode::UNSUPPORTED_MEDIA_TYPE);
+    assert!(body2.is_empty());
+
+    // 3. application/xml
+    let req_xml = Request::builder()
+        .method("POST")
+        .uri("/")
+        .header("Mcp-Method", "tools/call")
+        .header("Mcp-Name", "echo")
+        .header("Content-Type", "application/xml")
+        .body(Body::from("<request></request>"))
+        .unwrap();
+
+    let (status3, _, body3) = common::execute_request_raw(app.clone(), req_xml).await;
+    assert_eq!(status3, StatusCode::UNSUPPORTED_MEDIA_TYPE);
+    assert!(body3.is_empty());
+}
+
+/// Tests that valid JSON content types with parameters (e.g. charset) or different casing are accepted.
+#[tokio::test]
+async fn test_valid_json_content_types_accepted() {
+    let app = McpRouter::new(common::sample_server_info())
+        .register_tool("echo", dummy_tool);
+
+    let content_types = [
+        "application/json",
+        "application/json; charset=utf-8",
+        "application/json; charset=UTF-8",
+        "APPLICATION/JSON",
+        " application/json; boundary=something ",
+    ];
+
+    for ct in content_types {
+        let req = Request::builder()
+            .method("POST")
+            .uri("/")
+            .header("Mcp-Method", "tools/call")
+            .header("Mcp-Name", "echo")
+            .header("Content-Type", ct)
+            .body(Body::from(json!({
+                "jsonrpc": "2.0",
+                "id": ct,
+                "method": "tools/call",
+                "params": { "name": "echo" }
+            }).to_string()))
+            .unwrap();
+
+        let (status, _, body) = common::execute_request(app.clone(), req).await;
+        assert_eq!(status, StatusCode::OK, "Content-Type '{ct}' should be accepted");
+        assert_eq!(body["result"]["content"][0]["text"], "success");
+    }
+}
+

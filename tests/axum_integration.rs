@@ -327,4 +327,33 @@ async fn test_axum_real_tcp_server_e2e() {
         err_res.error.code.code(),
         mcp_routing::types::jsonrpc::METHOD_NOT_FOUND_CODE
     );
+
+    // 4. Test HTTP 405 Method Not Allowed on non-POST methods over real TCP
+    let (status_get, headers_get, body_get) = common::send_raw_http_request(
+        addr,
+        "GET",
+        "/mcp",
+        &[("Content-Type", "application/json")],
+        "",
+    )
+    .await;
+    assert_eq!(status_get, StatusCode::METHOD_NOT_ALLOWED);
+    assert_eq!(
+        headers_get.get("allow").and_then(|h| h.to_str().ok()),
+        Some("POST")
+    );
+    assert!(body_get.is_empty());
+
+    // 5. Test HTTP 415 Unsupported Media Type on unsupported Content-Type over real TCP
+    let (status_ct, _headers_ct, body_ct) = common::send_raw_http_request(
+        addr,
+        "POST",
+        "/mcp",
+        &[("Content-Type", "text/plain")],
+        "hello",
+    )
+    .await;
+    assert_eq!(status_ct, StatusCode::UNSUPPORTED_MEDIA_TYPE);
+    assert!(body_ct.is_empty());
 }
+

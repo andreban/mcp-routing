@@ -19,7 +19,10 @@ use mcp_routing::{
     McpRouter,
     types::mcp::{
         ContentBlock,
-        tools::call::{CallToolResult, CallToolResultResponse},
+        tools::{
+            Tool,
+            call::{CallToolResult, CallToolResultResponse},
+        },
     },
 };
 use serde::{Deserialize, Serialize};
@@ -554,4 +557,256 @@ async fn test_tools_call_with_tool_caching_directives() {
     assert_eq!(status2, StatusCode::OK);
     assert_eq!(headers2.get("cache-control"), None);
     assert!(headers2.contains_key("etag"));
+}
+
+/// Tests that valid arguments matching a complex JSON Schema pass pre-validation and execute the handler.
+#[tokio::test]
+async fn test_tools_call_schema_pre_validation_success() {
+    let schema_tool = Tool {
+        name: "create_user".into(),
+        title: Some("Create User".into()),
+        description: Some("Creates a new user profile".into()),
+        input_schema: json!({
+            "type": "object",
+            "properties": {
+                "username": { "type": "string", "pattern": "^[a-z0-9_]{3,16}$" },
+                "age": { "type": "integer", "minimum": 18, "maximum": 120 },
+                "role": { "type": "string", "enum": ["admin", "editor", "viewer"] }
+            },
+            "required": ["username", "age", "role"],
+            "additionalProperties": false
+        }),
+        output_schema: None,
+        annotations: None,
+        meta: None,
+        icons: Vec::new(),
+    };
+
+    #[derive(Deserialize)]
+    struct CreateUserArgs {
+        username: String,
+        age: u32,
+        role: String,
+    }
+
+    let app = McpRouter::new(common::sample_server_info()).register_tool(
+        schema_tool,
+        |args: CreateUserArgs| async move {
+            format!("Created user {} ({}) with role {}", args.username, args.age, args.role)
+        },
+    );
+
+    let req = common::build_request(
+        Some("tools/call"),
+        Some("create_user"),
+        json!({
+            "jsonrpc": "2.0",
+            "id": "val-success-1",
+            "method": "tools/call",
+            "params": {
+                "name": "create_user",
+                "arguments": {
+                    "username": "alice_99",
+                    "age": 25,
+                    "role": "admin"
+                }
+            }
+        }),
+    );
+
+    let (status, _, body) = common::execute_request(app, req).await;
+    assert_eq!(status, StatusCode::OK);
+
+    let res: CallToolResultResponse = serde_json::from_value(body).unwrap();
+    assert_eq!(res.result.is_error, Some(false));
+    if let ContentBlock::Text(ref t) = res.result.content[0] {
+        assert_eq!(t.text, "Created user alice_99 (25) with role admin");
+    }
+}
+
+/// Tests that invalid arguments violating JSON Schema constraints are rejected before invoking the handler.
+#[tokio::test]
+async fn test_tools_call_schema_pre_validation_failures() {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::Arc;
+
+    let handler_called = Arc::new(AtomicBool::new(false));
+    let handler_called_clone = Arc::clone(&handler_called);
+
+    let schema_tool = Tool {
+        name: "create_user".into(),
+        title: Some("Create User".into()),
+        description: Some("Creates a new user profile".into()),
+        input_schema: json!({
+            "type": "object",
+            "properties": {
+                "username": { "type": "string", "pattern": "^[a-z0-9_]{3,16}$" },
+                "age": { "type": "integer", "minimum": 18, "maximum": 120 },
+                "role": { "type": "string", "enum": ["admin", "editor", "viewer"] }
+            },
+            "required": ["username", "age", "role"],
+            "additionalProperties": false
+        }),
+        output_schema: None,
+        annotations: None,
+        meta: None,
+        icons: Vec::new(),
+    };
+
+    #[allow(dead_code)]
+    #[derive(Deserialize)]
+    struct CreateUserArgs {
+        username: String,
+        age: u32,
+        role: String,
+    }
+
+    let app = McpRouter::new(common::sample_server_info()).register_tool(
+        schema_tool,
+        move |_args: CreateUserArgs| {
+            let flag = Arc::clone(&handler_called_clone);
+            async move {
+                flag.store(true, Ordering::SeqCst);
+                "should never reach here"
+            }
+        },
+    );
+
+    // 1. Missing required field "role"
+    let req1 = common::build_request(
+        Some("tools/call"),
+        Some("create_user"),
+        json!({
+            "jsonrpc": "2.0",
+            "id": "val-fail-1",
+            "method": "tools/call",
+            "params": {
+                "name": "create_user",
+                "arguments": {
+                    "username": "alice",
+                    "age": 30
+                }
+            }
+        }),
+    );
+    let (status1, _, body1) = common::execute_request(app.clone(), req1).await;
+    assert_eq!(status1, StatusCode::OK);
+    let res1: CallToolResultResponse = serde_json::from_value(body1).unwrap();
+    assert_eq!(res1.result.is_error, Some(true));
+    if let ContentBlock::Text(ref t) = res1.result.content[0] {
+        assert!(t.text.starts_with("Input schema validation failed:"));
+        assert!(t.text.contains("role"));
+    }
+    assert!(!handler_called.load(Ordering::SeqCst));
+
+    // 2. Out-of-range "age" (below minimum 18)
+    let req2 = common::build_request(
+        Some("tools/call"),
+        Some("create_user"),
+        json!({
+            "jsonrpc": "2.0",
+            "id": "val-fail-2",
+            "method": "tools/call",
+            "params": {
+                "name": "create_user",
+                "arguments": {
+                    "username": "bob_underage",
+                    "age": 12,
+                    "role": "editor"
+                }
+            }
+        }),
+    );
+    let (status2, _, body2) = common::execute_request(app.clone(), req2).await;
+    assert_eq!(status2, StatusCode::OK);
+    let res2: CallToolResultResponse = serde_json::from_value(body2).unwrap();
+    assert_eq!(res2.result.is_error, Some(true));
+    if let ContentBlock::Text(ref t) = res2.result.content[0] {
+        assert!(t.text.starts_with("Input schema validation failed:"));
+        assert!(t.text.contains("18"));
+    }
+    assert!(!handler_called.load(Ordering::SeqCst));
+
+    // 3. Invalid enum value for "role"
+    let req3 = common::build_request(
+        Some("tools/call"),
+        Some("create_user"),
+        json!({
+            "jsonrpc": "2.0",
+            "id": "val-fail-3",
+            "method": "tools/call",
+            "params": {
+                "name": "create_user",
+                "arguments": {
+                    "username": "charlie",
+                    "age": 40,
+                    "role": "superadmin"
+                }
+            }
+        }),
+    );
+    let (status3, _, body3) = common::execute_request(app.clone(), req3).await;
+    assert_eq!(status3, StatusCode::OK);
+    let res3: CallToolResultResponse = serde_json::from_value(body3).unwrap();
+    assert_eq!(res3.result.is_error, Some(true));
+    if let ContentBlock::Text(ref t) = res3.result.content[0] {
+        assert!(t.text.starts_with("Input schema validation failed:"));
+    }
+    assert!(!handler_called.load(Ordering::SeqCst));
+
+    // 4. Invalid pattern for "username"
+    let req4 = common::build_request(
+        Some("tools/call"),
+        Some("create_user"),
+        json!({
+            "jsonrpc": "2.0",
+            "id": "val-fail-4",
+            "method": "tools/call",
+            "params": {
+                "name": "create_user",
+                "arguments": {
+                    "username": "INVALID USERNAME WITH SPACES!",
+                    "age": 25,
+                    "role": "viewer"
+                }
+            }
+        }),
+    );
+    let (status4, _, body4) = common::execute_request(app.clone(), req4).await;
+    assert_eq!(status4, StatusCode::OK);
+    let res4: CallToolResultResponse = serde_json::from_value(body4).unwrap();
+    assert_eq!(res4.result.is_error, Some(true));
+    if let ContentBlock::Text(ref t) = res4.result.content[0] {
+        assert!(t.text.starts_with("Input schema validation failed:"));
+    }
+    assert!(!handler_called.load(Ordering::SeqCst));
+
+    // 5. Additional disallowed property
+    let req5 = common::build_request(
+        Some("tools/call"),
+        Some("create_user"),
+        json!({
+            "jsonrpc": "2.0",
+            "id": "val-fail-5",
+            "method": "tools/call",
+            "params": {
+                "name": "create_user",
+                "arguments": {
+                    "username": "dave_ok",
+                    "age": 35,
+                    "role": "viewer",
+                    "unauthorized_extra_field": true
+                }
+            }
+        }),
+    );
+    let (status5, _, body5) = common::execute_request(app.clone(), req5).await;
+    assert_eq!(status5, StatusCode::OK);
+    let res5: CallToolResultResponse = serde_json::from_value(body5).unwrap();
+    assert_eq!(res5.result.is_error, Some(true));
+    if let ContentBlock::Text(ref t) = res5.result.content[0] {
+        assert!(t.text.starts_with("Input schema validation failed:"));
+        assert!(t.text.contains("unauthorized_extra_field"));
+    }
+    assert!(!handler_called.load(Ordering::SeqCst));
 }

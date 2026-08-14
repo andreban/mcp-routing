@@ -17,7 +17,7 @@ use crate::types::mcp::{
     CacheScope,
     tools::{
         Tool,
-        call::{CallToolParams, CallToolRequest, CallToolResultResponse},
+        call::{CallToolParams, CallToolRequest, CallToolResult, CallToolResultResponse},
         list::{ListToolsParams, ListToolsRequest, ListToolsResultResponse},
     },
 };
@@ -29,6 +29,7 @@ pub struct ToolRegistry {
     pub(crate) tools: Vec<Tool>,
     pub(crate) tool_handlers: HashMap<String, Arc<dyn ToolHandler>>,
     pub(crate) tool_cache_settings: HashMap<String, (Option<u64>, Option<CacheScope>)>,
+    pub(crate) tool_validators: HashMap<String, Arc<jsonschema::Validator>>,
     pub(crate) list_ttl_ms: Option<u64>,
     pub(crate) list_cache_scope: Option<CacheScope>,
     pub(crate) list_handler: Option<Arc<dyn ToolsListHandler>>,
@@ -47,6 +48,7 @@ impl ToolRegistry {
             tools: Vec::new(),
             tool_handlers: HashMap::new(),
             tool_cache_settings: HashMap::new(),
+            tool_validators: HashMap::new(),
             list_ttl_ms: Some(0),
             list_cache_scope: Some(CacheScope::Public),
             list_handler: None,
@@ -71,6 +73,19 @@ impl ToolRegistry {
     {
         let tool = tool.into();
         let name = tool.name.clone();
+        match jsonschema::validator_for(&tool.input_schema) {
+            Ok(validator) => {
+                self.tool_validators
+                    .insert(name.clone(), Arc::new(validator));
+            }
+            Err(err) => {
+                tracing::warn!(
+                    tool_name = %name,
+                    %err,
+                    "Failed to compile input schema validator for tool"
+                );
+            }
+        }
         self.tool_handlers.insert(name, handler.into_tool_handler());
         self.tools.push(tool);
     }
@@ -89,6 +104,19 @@ impl ToolRegistry {
     {
         let tool = tool.into();
         let name = tool.name.clone();
+        match jsonschema::validator_for(&tool.input_schema) {
+            Ok(validator) => {
+                self.tool_validators
+                    .insert(name.clone(), Arc::new(validator));
+            }
+            Err(err) => {
+                tracing::warn!(
+                    tool_name = %name,
+                    %err,
+                    "Failed to compile input schema validator for tool"
+                );
+            }
+        }
         self.tool_handlers
             .insert(name.clone(), handler.into_tool_handler());
         self.tool_cache_settings.insert(name, (ttl_ms, cache_scope));
@@ -232,8 +260,11 @@ impl ToolRegistry {
             None => None,
         };
 
-        let tool_name =
-            resolve_tool_name(ctx.header_name, params.as_ref().map(|p| p.name.as_str()));
+        let tool_name = resolve_tool_name(
+            ctx.header_name,
+            params.as_ref().map(|p| p.name.as_str()),
+        )
+        .map(String::from);
 
         let Some(tool_name) = tool_name else {
             tracing::debug!("Missing tool name for tools/call");
@@ -259,7 +290,7 @@ impl ToolRegistry {
             };
         }
 
-        let Some(handler) = self.tool_handlers.get(tool_name) else {
+        let Some(handler) = self.tool_handlers.get(&tool_name) else {
             tracing::debug!(tool_name, "Tool not found");
             return if ctx.is_notification {
                 DispatchOutcome::notification()
@@ -273,13 +304,34 @@ impl ToolRegistry {
 
         let (tool_ttl, tool_scope) = self
             .tool_cache_settings
-            .get(tool_name)
+            .get(&tool_name)
             .cloned()
             .unwrap_or((None, None));
         let (meta, arguments) = match params {
             Some(p) => (p.meta, p.arguments),
             None => (None, None),
         };
+
+        if let Some(validator) = self.tool_validators.get(&tool_name)
+            && let Err(err_msg) = validate_tool_arguments(validator, arguments.as_ref())
+        {
+            if ctx.is_notification {
+                return DispatchOutcome::notification();
+            } else {
+                let response = CallToolResultResponse::new(
+                    ctx.req_id.clone().unwrap_or_else(|| "".into()),
+                    CallToolResult::<serde_json::Value>::error(err_msg),
+                );
+                return match serde_json::to_value(response) {
+                    Ok(v) => DispatchOutcome::response_with_cache(v, tool_ttl, tool_scope),
+                    Err(err) => DispatchOutcome::error(JsonRpcErrorResponse::internal_error(
+                        ctx.req_id,
+                        format!("Failed to serialize response: {err}"),
+                    )),
+                };
+            }
+        }
+
         let request_ctx =
             RequestContext::new(ctx.session_id, meta, ctx.headers.clone(), ctx.extensions);
         let result = handler.call(request_ctx, arguments).await;
@@ -352,7 +404,8 @@ impl ToolRegistry {
         let tool_name = resolve_tool_name(
             header_name,
             request.params.as_ref().map(|p| p.name.as_str()),
-        );
+        )
+        .map(String::from);
 
         let Some(tool_name) = tool_name else {
             tracing::debug!("Missing tool name for tools/call");
@@ -372,16 +425,29 @@ impl ToolRegistry {
             return json_response(&error_response);
         }
 
-        if let Some(handler) = self.tool_handlers.get(tool_name) {
+        if let Some(handler) = self.tool_handlers.get(&tool_name) {
             let (tool_ttl, tool_scope) = self
                 .tool_cache_settings
-                .get(tool_name)
+                .get(&tool_name)
                 .cloned()
                 .unwrap_or((None, None));
             let req_id = request.id.clone();
-            let meta = request.params.as_ref().and_then(|p| p.meta.clone());
+            let (meta, raw_args) = match request.params {
+                Some(p) => (p.meta, p.arguments),
+                None => (None, None),
+            };
+
+            if let Some(validator) = self.tool_validators.get(&tool_name)
+                && let Err(err_msg) = validate_tool_arguments(validator, raw_args.as_ref())
+            {
+                let response = CallToolResultResponse::new(
+                    req_id,
+                    CallToolResult::<serde_json::Value>::error(err_msg),
+                );
+                return json_response_with_caching(&response, tool_ttl, tool_scope.as_ref());
+            }
+
             let ctx = RequestContext::new(session_id, meta, headers.clone(), extensions);
-            let raw_args = request.params.and_then(|p| p.arguments);
             let result = handler.call(ctx, raw_args).await;
             let response = CallToolResultResponse::new(req_id, result);
             return json_response_with_caching(&response, tool_ttl, tool_scope.as_ref());
@@ -393,5 +459,31 @@ impl ToolRegistry {
             format!("Method not found: tool '{tool_name}' not found"),
         );
         json_response(&error_response)
+    }
+}
+
+/// Validates raw JSON tool arguments against the compiled JSON Schema validator.
+fn validate_tool_arguments(
+    validator: &jsonschema::Validator,
+    arguments: Option<&serde_json::Value>,
+) -> Result<(), String> {
+    let empty_obj = serde_json::Value::Object(serde_json::Map::new());
+    let raw_to_validate = arguments.unwrap_or(&empty_obj);
+    let mut errors = Vec::new();
+    for error in validator.iter_errors(raw_to_validate) {
+        let path = error.instance_path().to_string();
+        if path.is_empty() || path == "/" {
+            errors.push(error.to_string());
+        } else {
+            errors.push(format!("at `{path}`: {error}"));
+        }
+    }
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(format!(
+            "Input schema validation failed: {}",
+            errors.join("; ")
+        ))
     }
 }

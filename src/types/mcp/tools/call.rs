@@ -111,7 +111,7 @@ mod tests {
         let json_data = serde_json::json!({
             "jsonrpc": "2.0",
             "id": 1,
-            "method": "tools/call/echo",
+            "method": "tools/call",
             "params": {
                 "name": "echo",
                 "arguments": {
@@ -121,7 +121,7 @@ mod tests {
         });
 
         let req: CallToolRequest = serde_json::from_value(json_data).unwrap();
-        assert_eq!(req.method, "tools/call/echo");
+        assert_eq!(req.method, "tools/call");
         let params = req.params.unwrap();
         assert_eq!(params.name, "echo");
         assert_eq!(params.arguments.unwrap()["value"], "hello");

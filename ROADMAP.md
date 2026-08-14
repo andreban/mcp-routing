@@ -22,8 +22,8 @@ This roadmap tracks all Model Context Protocol (MCP) features and capabilities f
 | **Streaming `ResponseBody`** | ✅ | Custom box-body [`ResponseBody`](src/body.rs) supporting `Bytes`, `Vec<u8>`, `String`, and conversions | [`src/body.rs`](src/body.rs) |
 | **Header-Based Method Routing** | ✅ | Dispatches via `Mcp-Method` header (`server/discover`, `tools/list`, `tools/call`) | [`src/router.rs`](src/router.rs) |
 | **Header-Based Tool Target Routing** | ✅ | Routes tool calls via `Mcp-Name: <name>` header | [`src/router.rs`](src/router.rs) |
-| **Body-Based Method Dispatch Fallback** | ❌ | Fall back to `request.method` inside JSON-RPC body when `Mcp-Method` header is omitted | Planned for [`src/router.rs`](src/router.rs) |
-| **Body-Based Tool Name Fallback** | ❌ | Fall back to `params.name` in [`CallToolParams`](src/types/mcp/tools/call.rs) when `Mcp-Name` header is omitted | Planned for [`src/router.rs`](src/router.rs) |
+| **Body-Based Method Dispatch Fallback** | ✅ | Fall back to `request.method` inside JSON-RPC body when `Mcp-Method` header is omitted | [`src/router.rs`](src/router.rs) |
+| **Body-Based Tool Name Fallback** | ✅ | Fall back to `params.name` in [`CallToolParams`](src/types/mcp/tools/call.rs) when `Mcp-Name` header is omitted | [`src/router.rs`](src/router.rs) |
 | **HTTP Verb & Media Type Negotiation** | ❌ | Validate `POST` method (return `405 Method Not Allowed`) and `Content-Type: application/json` (return `415 Unsupported Media Type`) | Planned for [`src/router.rs`](src/router.rs) |
 | **HTTP Caching Headers Propagation** | ❌ | Set HTTP `Cache-Control` (`public`/`private`, `max-age`) and `ETag` headers matching `ttl_ms` and `cache_scope` | Planned for [`src/body.rs`](src/body.rs) |
 | **`Mcp-Session-Id` Header Handling** | ❌ | Extract, validate, and propagate `Mcp-Session-Id` correlation header to handlers for stateful workflows | Planned for [`src/router.rs`](src/router.rs) |
@@ -144,9 +144,9 @@ gantt
     title Phased Implementation Plan
     dateFormat  YYYY-MM-DD
     section Phase 1: Robustness & Spec Errors
-    Body-based method fallback         :active, p1_1, 2026-08-15, 3d
-    Tool name param fallback           :active, p1_2, after p1_1, 2d
-    JSON-RPC error code responses      :p1_3, after p1_2, 3d
+    Body-based method fallback         :done, p1_1, 2026-08-15, 3d
+    Tool name param fallback           :done, p1_2, after p1_1, 2d
+    JSON-RPC error code responses      :active, p1_3, after p1_2, 3d
     HTTP verb & Content-Type validation:p1_4, after p1_3, 2d
     Cache-Control header propagation   :p1_5, after p1_4, 2d
     section Phase 2: Core Capabilities

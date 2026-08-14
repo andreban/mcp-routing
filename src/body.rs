@@ -110,6 +110,24 @@ impl Default for ResponseBody {
     }
 }
 
+/// Helper function to construct an empty response with the specified status code.
+pub(crate) fn empty_response(status: StatusCode) -> Response<ResponseBody> {
+    Response::builder()
+        .status(status)
+        .body(ResponseBody::empty())
+        .unwrap()
+}
+
+/// Helper function to construct an empty 400 Bad Request response.
+pub(crate) fn bad_request() -> Response<ResponseBody> {
+    empty_response(StatusCode::BAD_REQUEST)
+}
+
+/// Helper function to construct an empty 404 Not Found response.
+pub(crate) fn not_found() -> Response<ResponseBody> {
+    empty_response(StatusCode::NOT_FOUND)
+}
+
 /// Helper function to construct a JSON response with status 200 OK.
 pub(crate) fn json_response<T: serde::Serialize>(val: &T) -> Response<ResponseBody> {
     match serde_json::to_vec(val) {
@@ -120,10 +138,7 @@ pub(crate) fn json_response<T: serde::Serialize>(val: &T) -> Response<ResponseBo
             .unwrap(),
         Err(err) => {
             tracing::error!(?err, "Failed to serialize JSON response");
-            Response::builder()
-                .status(StatusCode::INTERNAL_SERVER_ERROR)
-                .body(ResponseBody::empty())
-                .unwrap()
+            empty_response(StatusCode::INTERNAL_SERVER_ERROR)
         }
     }
 }

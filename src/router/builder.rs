@@ -4,6 +4,7 @@
 use std::sync::Arc;
 
 use crate::completion::{CompletionRegistry, IntoCompletionHandler};
+use crate::logging::{IntoSetLevelHandler, LoggingRegistry};
 use crate::prompts::{IntoPromptHandler, IntoPromptsListHandler, PromptRegistry};
 use crate::resources::{
     IntoResourceHandler, IntoResourcesListHandler, IntoResourceTemplatesListHandler,
@@ -13,8 +14,8 @@ use crate::router::{McpRouter, McpRouterInner, StateInjector};
 use crate::server::{IntoServerDiscoveryHandler, ServerConfig};
 use crate::tools::{IntoToolHandler, IntoToolsListHandler, ToolRegistry};
 use crate::types::mcp::{
-    CacheScope, CompletionsCapability, Implementation, PromptsCapability, ResourcesCapability,
-    ServerCapabilities,
+    CacheScope, CompletionsCapability, Implementation, LoggingCapability, LoggingLevel,
+    PromptsCapability, ResourcesCapability, ServerCapabilities,
     prompts::Prompt,
     resources::{Resource, ResourceTemplate},
     tools::Tool,
@@ -30,6 +31,7 @@ impl McpRouter {
                 prompts: PromptRegistry::new(),
                 resources: ResourceRegistry::new(),
                 completion: CompletionRegistry::new(),
+                logging: LoggingRegistry::new(),
                 state_injectors: Vec::new(),
             }),
         }
@@ -638,6 +640,79 @@ impl McpRouter {
             .completion
             .register_resource_arg(uri_or_template, arg_name, handler);
         self
+    }
+
+    /// Sets the initial logging level and advertises the logging capability in `server/discover`.
+    pub fn logging_level(mut self, level: LoggingLevel) -> Self {
+        let inner = Arc::make_mut(&mut self.inner);
+        if inner.server.capabilities.logging.is_none() {
+            inner.server.capabilities.logging = Some(LoggingCapability {});
+        }
+        inner.logging.set_current_level(level);
+        self
+    }
+
+    /// Registers a custom asynchronous handler for `logging/setLevel` requests.
+    ///
+    /// Automatically enables the logging capability on the server.
+    pub fn logging_handler<H, T>(mut self, handler: H) -> Self
+    where
+        H: IntoSetLevelHandler<T>,
+        T: 'static,
+    {
+        let inner = Arc::make_mut(&mut self.inner);
+        if inner.server.capabilities.logging.is_none() {
+            inner.server.capabilities.logging = Some(LoggingCapability {});
+        }
+        inner.logging.set_handler(handler);
+        self
+    }
+
+    /// Alias for [`logging_handler`](Self::logging_handler).
+    pub fn set_logging_level<H, T>(self, handler: H) -> Self
+    where
+        H: IntoSetLevelHandler<T>,
+        T: 'static,
+    {
+        self.logging_handler(handler)
+    }
+
+    /// Alias for [`logging_handler`](Self::logging_handler).
+    pub fn logging_set_level<H, T>(self, handler: H) -> Self
+    where
+        H: IntoSetLevelHandler<T>,
+        T: 'static,
+    {
+        self.logging_handler(handler)
+    }
+
+    /// Sets the time-to-live (`ttl_ms`) and cache scope for `logging/setLevel` responses.
+    pub fn logging_cache(
+        mut self,
+        ttl_ms: Option<u64>,
+        cache_scope: Option<CacheScope>,
+    ) -> Self {
+        Arc::make_mut(&mut self.inner)
+            .logging
+            .set_cache(ttl_ms, cache_scope);
+        self
+    }
+
+    /// Sets the time-to-live (`ttl_ms`) in milliseconds for `logging/setLevel` responses.
+    pub fn logging_ttl(mut self, ttl_ms: u64) -> Self {
+        Arc::make_mut(&mut self.inner).logging.cache_ttl_ms = Some(ttl_ms);
+        self
+    }
+
+    /// Sets the cache scope for `logging/setLevel` responses.
+    pub fn logging_cache_scope(mut self, cache_scope: CacheScope) -> Self {
+        Arc::make_mut(&mut self.inner).logging.cache_scope = Some(cache_scope);
+        self
+    }
+
+    /// Returns the server's current dynamic logging level.
+    pub fn current_logging_level(&self) -> LoggingLevel {
+        self.inner.logging.current_level()
     }
 }
 

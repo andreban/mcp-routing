@@ -97,6 +97,22 @@ impl RequestContext {
         self.meta.as_ref().and_then(|m| m.log_level.as_ref())
     }
 
+    /// Returns the current dynamic server log level stored in request extensions, or defaults to [`LoggingLevel::Info`].
+    pub fn current_log_level(&self) -> LoggingLevel {
+        self.extension::<crate::extract::logging::CurrentLoggingLevel>()
+            .map(|c| c.0)
+            .unwrap_or(LoggingLevel::Info)
+    }
+
+    /// Checks whether a log message at `message_level` severity should be logged for this request.
+    ///
+    /// If the request specifies a `log_level` in `_meta`, that threshold is used; otherwise,
+    /// the server's current dynamic log level is used.
+    pub fn should_log(&self, message_level: LoggingLevel) -> bool {
+        let threshold = self.log_level().copied().unwrap_or_else(|| self.current_log_level());
+        message_level.is_at_least(threshold)
+    }
+
     /// Returns the raw HTTP `Authorization` header value, if present.
     pub fn authorization(&self) -> Option<&str> {
         self.headers

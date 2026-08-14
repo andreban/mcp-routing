@@ -15,6 +15,7 @@
 //! - Built-in `resources/templates/list` resource template discovery endpoint
 //! - `resources/read` resource content retrieval endpoints (delegating to typed handlers)
 //! - `completion/complete` autocompletion endpoints (delegating to typed handlers)
+//! - `logging/setLevel` logging level configuration endpoints (delegating to dynamic state and typed handlers)
 //! - JSON-RPC 2.0 batch requests and notifications
 
 mod builder;
@@ -27,6 +28,7 @@ use std::sync::Arc;
 pub(crate) use outcome::{DispatchOutcome, MethodContext};
 
 use crate::completion::CompletionRegistry;
+use crate::logging::LoggingRegistry;
 use crate::prompts::PromptRegistry;
 use crate::resources::ResourceRegistry;
 use crate::server::ServerConfig;
@@ -47,6 +49,7 @@ pub(crate) struct McpRouterInner {
     pub(crate) prompts: PromptRegistry,
     pub(crate) resources: ResourceRegistry,
     pub(crate) completion: CompletionRegistry,
+    pub(crate) logging: LoggingRegistry,
     pub(crate) state_injectors: Vec<StateInjector>,
 }
 

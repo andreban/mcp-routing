@@ -278,6 +278,7 @@ mod tests {
                 resources: None,
                 prompts: None,
                 completions: None,
+                logging: None,
                 experimental: None,
             })
         }

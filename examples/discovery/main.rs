@@ -104,6 +104,7 @@ async fn server_discover_handler(
             None
         },
         completions: None,
+        logging: None,
         experimental: None,
     };
 

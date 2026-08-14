@@ -44,6 +44,7 @@ impl ServerConfig {
                 resources: None,
                 prompts: None,
                 completions: None,
+                logging: None,
                 experimental: None,
             },
             supported_versions: vec!["2026-07-28".to_string()],

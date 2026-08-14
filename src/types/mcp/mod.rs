@@ -4,6 +4,7 @@
 pub mod completion;
 pub mod content;
 pub mod core;
+pub mod logging;
 pub mod prompts;
 pub mod resources;
 pub mod server;
@@ -12,6 +13,7 @@ pub mod tools;
 pub use completion::*;
 pub use content::*;
 pub use core::*;
+pub use logging::*;
 pub use resources::*;
 
 pub use crate::extract::SessionId;

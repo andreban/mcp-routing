@@ -26,7 +26,7 @@ pub enum ProgressToken {
 /// Maps to RFC-5424 syslog severities.
 ///
 /// See <https://modelcontextprotocol.io/specification/2026-07-28/schema#logginglevel>
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum LoggingLevel {
     /// Detailed debugging information.
@@ -45,6 +45,83 @@ pub enum LoggingLevel {
     Alert,
     /// System is unusable.
     Emergency,
+}
+
+impl LoggingLevel {
+    /// Returns the RFC-5424 numerical severity code (0 = Emergency, 7 = Debug).
+    pub const fn severity_code(&self) -> u8 {
+        match self {
+            LoggingLevel::Emergency => 0,
+            LoggingLevel::Alert => 1,
+            LoggingLevel::Critical => 2,
+            LoggingLevel::Error => 3,
+            LoggingLevel::Warning => 4,
+            LoggingLevel::Notice => 5,
+            LoggingLevel::Info => 6,
+            LoggingLevel::Debug => 7,
+        }
+    }
+
+    /// Returns the severity rank (0 = Debug, 7 = Emergency) where higher values denote higher severity.
+    pub const fn severity_rank(&self) -> u8 {
+        7 - self.severity_code()
+    }
+
+    /// Checks if this log level meets or exceeds the specified threshold level.
+    pub fn is_at_least(&self, threshold: LoggingLevel) -> bool {
+        self.severity_code() <= threshold.severity_code()
+    }
+
+    /// Converts this [`LoggingLevel`] to the corresponding [`tracing::Level`].
+    pub fn as_tracing_level(&self) -> tracing::Level {
+        match self {
+            LoggingLevel::Emergency
+            | LoggingLevel::Alert
+            | LoggingLevel::Critical
+            | LoggingLevel::Error => tracing::Level::ERROR,
+            LoggingLevel::Warning => tracing::Level::WARN,
+            LoggingLevel::Notice | LoggingLevel::Info => tracing::Level::INFO,
+            LoggingLevel::Debug => tracing::Level::DEBUG,
+        }
+    }
+
+    /// Returns the string representation matching the MCP specification.
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            LoggingLevel::Debug => "debug",
+            LoggingLevel::Info => "info",
+            LoggingLevel::Notice => "notice",
+            LoggingLevel::Warning => "warning",
+            LoggingLevel::Error => "error",
+            LoggingLevel::Critical => "critical",
+            LoggingLevel::Alert => "alert",
+            LoggingLevel::Emergency => "emergency",
+        }
+    }
+}
+
+impl std::fmt::Display for LoggingLevel {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
+}
+
+impl std::str::FromStr for LoggingLevel {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.trim().to_ascii_lowercase().as_str() {
+            "debug" => Ok(LoggingLevel::Debug),
+            "info" => Ok(LoggingLevel::Info),
+            "notice" => Ok(LoggingLevel::Notice),
+            "warning" | "warn" => Ok(LoggingLevel::Warning),
+            "error" | "err" => Ok(LoggingLevel::Error),
+            "critical" | "crit" => Ok(LoggingLevel::Critical),
+            "alert" => Ok(LoggingLevel::Alert),
+            "emergency" | "emerg" => Ok(LoggingLevel::Emergency),
+            other => Err(format!("Unknown logging level: '{other}'")),
+        }
+    }
 }
 
 /// Additional metadata associated with a request or entity.
@@ -181,5 +258,38 @@ mod tests {
         let str_token: ProgressToken =
             serde_json::from_value(serde_json::json!("tok-123")).unwrap();
         assert!(matches!(str_token, ProgressToken::String(s) if s == "tok-123"));
+    }
+
+    /// Tests [`LoggingLevel`] methods, RFC-5424 ordering, Display, and FromStr.
+    #[test]
+    fn test_logging_level_methods_and_parsing() {
+        assert_eq!(LoggingLevel::Emergency.severity_code(), 0);
+        assert_eq!(LoggingLevel::Debug.severity_code(), 7);
+        assert_eq!(LoggingLevel::Emergency.severity_rank(), 7);
+        assert_eq!(LoggingLevel::Debug.severity_rank(), 0);
+
+        assert!(LoggingLevel::Emergency.is_at_least(LoggingLevel::Error));
+        assert!(LoggingLevel::Error.is_at_least(LoggingLevel::Error));
+        assert!(LoggingLevel::Error.is_at_least(LoggingLevel::Info));
+        assert!(!LoggingLevel::Info.is_at_least(LoggingLevel::Warning));
+        assert!(!LoggingLevel::Debug.is_at_least(LoggingLevel::Info));
+
+        assert_eq!(LoggingLevel::Debug.to_string(), "debug");
+        assert_eq!(LoggingLevel::Emergency.to_string(), "emergency");
+
+        assert_eq!("debug".parse::<LoggingLevel>().unwrap(), LoggingLevel::Debug);
+        assert_eq!("WARN".parse::<LoggingLevel>().unwrap(), LoggingLevel::Warning);
+        assert_eq!("Error".parse::<LoggingLevel>().unwrap(), LoggingLevel::Error);
+        assert_eq!("emerg".parse::<LoggingLevel>().unwrap(), LoggingLevel::Emergency);
+        assert!("invalid".parse::<LoggingLevel>().is_err());
+
+        assert_eq!(LoggingLevel::Debug.as_tracing_level(), tracing::Level::DEBUG);
+        assert_eq!(LoggingLevel::Info.as_tracing_level(), tracing::Level::INFO);
+        assert_eq!(LoggingLevel::Notice.as_tracing_level(), tracing::Level::INFO);
+        assert_eq!(LoggingLevel::Warning.as_tracing_level(), tracing::Level::WARN);
+        assert_eq!(LoggingLevel::Error.as_tracing_level(), tracing::Level::ERROR);
+        assert_eq!(LoggingLevel::Critical.as_tracing_level(), tracing::Level::ERROR);
+        assert_eq!(LoggingLevel::Alert.as_tracing_level(), tracing::Level::ERROR);
+        assert_eq!(LoggingLevel::Emergency.as_tracing_level(), tracing::Level::ERROR);
     }
 }

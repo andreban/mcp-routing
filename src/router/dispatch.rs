@@ -119,6 +119,7 @@ impl McpRouterInner {
                 self.resources.dispatch_templates_list(ctx, params_val).await
             }
             "completion/complete" => self.completion.dispatch_complete(ctx, params_val).await,
+            "logging/setLevel" => self.logging.dispatch_set_level(ctx, params_val).await,
             unknown_method => {
                 tracing::debug!(%unknown_method, "Method not found");
                 if ctx.is_notification {

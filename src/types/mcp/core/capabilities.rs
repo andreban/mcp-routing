@@ -57,6 +57,9 @@ pub struct ServerCapabilities {
     /// Present if the server supports argument/value completion.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub completions: Option<CompletionsCapability>,
+    /// Present if the server supports logging operations.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub logging: Option<LoggingCapability>,
     /// Experimental, non-standard capabilities that the server supports.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub experimental: Option<HashMap<String, Value>>,
@@ -76,6 +79,7 @@ impl ServerCapabilities {
             resources: None,
             prompts: None,
             completions: None,
+            logging: None,
             experimental: None,
         }
     }
@@ -104,6 +108,12 @@ impl ServerCapabilities {
     /// Enables completions capability.
     pub fn with_completions(mut self) -> Self {
         self.completions = Some(CompletionsCapability {});
+        self
+    }
+
+    /// Enables logging capability.
+    pub fn with_logging(mut self) -> Self {
+        self.logging = Some(LoggingCapability {});
         self
     }
 
@@ -153,9 +163,16 @@ pub struct PromptsCapability {
 /// Capability configuration for completion operations.
 ///
 /// See <https://modelcontextprotocol.io/specification/2026-07-28/schema#servercapabilities>
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct CompletionsCapability {}
+
+/// Capability configuration for logging operations.
+///
+/// See <https://modelcontextprotocol.io/specification/2026-07-28/schema#servercapabilities>
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct LoggingCapability {}
 
 #[cfg(test)]
 mod tests {
@@ -199,6 +216,7 @@ mod tests {
                 list_changed: Some(true),
             }),
             completions: Some(CompletionsCapability {}),
+            logging: Some(LoggingCapability {}),
             experimental: Some(exp),
         };
         let s_val = serde_json::to_value(&server_caps).unwrap();
@@ -207,5 +225,6 @@ mod tests {
         assert_eq!(s_val["resources"]["listChanged"], false);
         assert_eq!(s_val["prompts"]["listChanged"], true);
         assert!(s_val.get("completions").is_some());
+        assert!(s_val.get("logging").is_some());
     }
 }

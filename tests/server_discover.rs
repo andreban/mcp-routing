@@ -163,6 +163,7 @@ async fn test_server_discover_custom_capabilities_and_versions() {
             list_changed: Some(true),
         }),
         completions: Some(CompletionsCapability {}),
+        logging: None,
         experimental: Some(experimental),
     };
 
@@ -417,6 +418,7 @@ async fn test_server_discover_dynamic_provider_with_extractors() {
             }),
             prompts: Some(PromptsCapability { list_changed: None }),
             completions: None,
+            logging: None,
             experimental: None,
         };
 
@@ -483,6 +485,7 @@ async fn test_server_discover_dynamic_provider_returning_result_with_cache() {
                 resources: None,
                 prompts: None,
                 completions: Some(CompletionsCapability {}),
+                logging: None,
                 experimental: None,
             },
             vec!["2026-07-28".to_string()],

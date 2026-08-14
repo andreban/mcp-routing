@@ -133,26 +133,12 @@ where
 }
 
 fn extract_mcp_target<B>(req: &Request<B>) -> Option<(String, Option<String>)> {
-    let path = req.uri().path().trim_matches('/');
-
-    let header_method = req.headers().get("Mcp-Method").and_then(|v| v.to_str().ok());
-    let header_name = req.headers().get("Mcp-Name").and_then(|v| v.to_str().ok());
-
-    if let Some(method) = header_method {
-        let method = method.trim_matches('/').to_string();
-        let name = header_name.map(|n| n.trim_matches('/').to_string());
-        return Some((method, name));
-    }
-
-    if path.is_empty() {
-        return None;
-    }
-
-    if let Some(tool_name) = path.strip_prefix("tools/call/") {
-        return Some(("tools/call".to_string(), Some(tool_name.to_string())));
-    }
-
-    Some((path.to_string(), None))
+    let method = req.headers().get("Mcp-Method")?.to_str().ok()?;
+    let name = req.headers().get("Mcp-Name").and_then(|v| v.to_str().ok());
+    Some((
+        method.trim_matches('/').to_string(),
+        name.map(|n| n.trim_matches('/').to_string()),
+    ))
 }
 
 impl<B> Service<Request<B>> for McpRouter

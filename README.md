@@ -10,7 +10,7 @@ A [Tower](https://crates.io/crates/tower)-native routing library for building [M
 
 - **Stateless Protocol**: Built specifically for the [2026-07-28 MCP specification](https://modelcontextprotocol.io/docs/2026-07-28/), featuring `server/discover` and stateless HTTP request routing.
 - **Tower-Native**: Implements `tower::Service` for any HTTP request body implementing `http_body::Body`.
-- **Flexible Routing**: Supports both header-based routing (`Mcp-Method`, `Mcp-Name`) and path-based routing (`/tools/call/<tool_name>`).
+- **Header-Based Routing**: Dispatches requests via standard `Mcp-Method` and `Mcp-Name` headers per the MCP HTTP spec.
 - **Typed Tool Handlers**: Register async Rust functions as MCP tools with automatic JSON-RPC argument deserialization and result wrapping.
 - **Zero Framework Lock-in**: No hard dependency on Axum—use it with any Tower-compatible server stack.
 
@@ -94,17 +94,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
 `mcp-routing` targets the stateless [`2026-07-28` specification](https://modelcontextprotocol.io/docs/2026-07-28/) of the Model Context Protocol. Rather than establishing a persistent session via stateful initialization handshakes, each HTTP request is self-contained.
 
-Incoming HTTP JSON-RPC requests are routed using either of two strategies:
-
-1. **Header-Based Routing**:
-   - `Mcp-Method: server/discover` → Calls the server discovery handler.
-   - `Mcp-Method: tools/list` → Calls the tool discovery handler.
-   - `Mcp-Method: tools/call` and `Mcp-Name: <name>` → Invokes the tool `<name>`.
-
-2. **Path-Based Routing**:
-   - `/server/discover` → Server discovery.
-   - `/tools/list` → Tool listing.
-   - `/tools/call/<name>` → Invokes the tool `<name>`.
+Incoming HTTP JSON-RPC requests are routed using HTTP headers:
+- `Mcp-Method: server/discover` → Calls the server discovery handler.
+- `Mcp-Method: tools/list` → Calls the tool discovery handler.
+- `Mcp-Method: tools/call` and `Mcp-Name: <name>` → Invokes the registered tool `<name>`.
 
 ## Typed Tool Handlers
 

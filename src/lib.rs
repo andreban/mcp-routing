@@ -18,8 +18,7 @@
 //!
 //! - **Stateless MCP (`2026-07-28`)**: Implements `server/discover` and stateless JSON-RPC request handling.
 //! - **Tower-Native**: Implements [`tower::Service`] for any request body implementing [`http_body::Body`].
-//! - **Flexible Routing**: Supports both header-based routing (`Mcp-Method: tools/call`, `Mcp-Name: echo`)
-//!   and path-based routing (`/tools/call/echo`).
+//! - **Header-Based Routing**: Dispatches requests based on `Mcp-Method` and `Mcp-Name` headers per the MCP HTTP spec.
 //! - **Typed Tool Handlers**: Register async functions directly as tools with automatic JSON deserialization
 //!   of arguments and serialization of results.
 //! - **Zero Framework Lock-in**: No hard dependency on Axum in the core library—use it with any Tower-compatible server.

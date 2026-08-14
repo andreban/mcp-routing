@@ -42,7 +42,6 @@ pub struct Icon {
 /// See https://modelcontextprotocol.io/specification/2026-07-28/schema#icontheme
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[serde(untagged)]
 pub enum IconTheme {
     /// Designed for light background themes.
     Light,
@@ -57,7 +56,6 @@ pub enum IconTheme {
 /// See https://modelcontextprotocol.io/specification/2026-07-28/schema#logginglevel
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[serde(untagged)]
 pub enum LoggingLevel {
     /// Detailed debugging information.
     Debug,
@@ -509,5 +507,21 @@ mod tests {
             "test-server"
         );
         assert_eq!(reserialized["custom/meta"], "value");
+    }
+
+    #[test]
+    fn test_request_meta_object_with_log_level() {
+        let json_data = serde_json::json!({
+            "io.modelcontextprotocol/logLevel": "debug"
+        });
+
+        let meta: RequestMetaObject = serde_json::from_value(json_data).unwrap();
+        assert!(matches!(meta.log_level, Some(LoggingLevel::Debug)));
+
+        let reserialized = serde_json::to_value(&meta).unwrap();
+        assert_eq!(
+            reserialized["io.modelcontextprotocol/logLevel"],
+            "debug"
+        );
     }
 }

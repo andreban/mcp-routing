@@ -28,7 +28,7 @@ This roadmap tracks all Model Context Protocol (MCP) features and capabilities f
 | **HTTP Caching Headers Propagation** | ✅ | Set HTTP `Cache-Control` (`public`/`private`, `max-age`) and `ETag` headers matching `ttl_ms` and `cache_scope` | [`src/body.rs`](src/body.rs), [`src/router.rs`](src/router.rs) |
 | **`Mcp-Session-Id` Header Handling** | ✅ | Extract, validate, and propagate `Mcp-Session-Id` correlation header to handlers and outgoing responses | [`src/router.rs`](src/router.rs), [`src/extract.rs`](src/extract.rs) |
 | **Per-Request `_meta` Propagation** | ✅ | Extract and pass [`RequestMetaObject`](src/types/mcp/mod.rs) (`clientInfo`, `protocolVersion`, `progressToken`) via [`Meta`](src/extract.rs) and [`RequestContext`](src/extract.rs) | [`src/extract.rs`](src/extract.rs), [`src/tools/mod.rs`](src/tools/mod.rs), [`src/prompts/mod.rs`](src/prompts/mod.rs) |
-| **Session & Context Extractors** | ✅ | Support [`SessionId`](src/extract.rs), [`RequestContext`](src/extract.rs), [`Meta`](src/extract.rs), and Tower extractors ([`Extension<T>`](src/extract.rs), [`HeaderMap`](https://docs.rs/http/latest/http/header/struct.HeaderMap.html)) in handler signatures | [`src/extract.rs`](src/extract.rs), [`src/tools/mod.rs`](src/tools/mod.rs), [`src/prompts/mod.rs`](src/prompts/mod.rs) |
+| **Session & Context Extractors** | ✅ | Support [`SessionId`](src/extract.rs), [`Authorization`](src/extract.rs), [`BearerAuth`](src/extract.rs), [`RequestContext`](src/extract.rs), [`Meta`](src/extract.rs), and Tower extractors ([`State<T>`](src/extract.rs), [`Extension<T>`](src/extract.rs), [`HeaderMap`](https://docs.rs/http/latest/http/header/struct.HeaderMap.html)) in handler signatures | [`src/extract.rs`](src/extract.rs), [`src/tools/mod.rs`](src/tools/mod.rs), [`src/prompts/mod.rs`](src/prompts/mod.rs) |
 
 ---
 
@@ -55,8 +55,8 @@ This roadmap tracks all Model Context Protocol (MCP) features and capabilities f
 | **Server Capabilities Advertisement** | ✅ | [`ServerCapabilities`](src/types/mcp/mod.rs) advertising tools, resources, prompts, completions, and experimental | [`src/types/mcp/mod.rs`](src/types/mcp/mod.rs) |
 | **Human-Readable Instructions** | ✅ | Router builder method [`.instructions()`](src/router.rs) serialized into discovery response | [`src/router.rs`](src/router.rs) |
 | **Supported Versions Configuration** | ✅ | Configurable supported protocol versions (defaults to `["2026-07-28"]`) | [`src/router.rs`](src/router.rs) |
-| **Protocol Version Negotiation** | ❌ | Validate client `protocolVersion` in [`RequestMetaObject`](src/types/mcp/mod.rs) against server `supported_versions` | Planned for [`src/server/discover.rs`](src/server/discover.rs) |
-| **Dynamic Discovery Provider** | ❌ | Dynamic async hook to generate capabilities/instructions on per-request basis | Planned for [`src/router.rs`](src/router.rs) |
+| **Protocol Version Negotiation** | ✅ | Validate client `protocolVersion` in [`RequestMetaObject`](src/types/mcp/mod.rs) against server `supported_versions` with configurable enforcement via [`.validate_protocol_version()`](src/router/builder.rs) | [`src/server/discover.rs`](src/server/discover.rs), [`src/server/config.rs`](src/server/config.rs), [`src/router/builder.rs`](src/router/builder.rs) |
+| **First-Class Discovery Handler** | ✅ | Unified handler via [`.discover()`](src/router/builder.rs) supporting typed extractors ([`RequestContext`](src/extract.rs), [`SessionId`](src/extract.rs), [`BearerAuth`](src/extract.rs), [`Meta`](src/extract.rs), [`Extension`](src/extract.rs), [`State`](src/extract.rs)) and flexible return conversions | [`src/server/provider.rs`](src/server/provider.rs), [`src/server/config.rs`](src/server/config.rs), [`src/router/builder.rs`](src/router/builder.rs) |
 
 ---
 
@@ -64,16 +64,16 @@ This roadmap tracks all Model Context Protocol (MCP) features and capabilities f
 
 | Feature | Status | Details | Primary References |
 |---|:---:|---|---|
-| **`tools/list` Endpoint** | ✅ | Built-in handler in [`handle_list_tools`](src/tools/list.rs) returning registered tools | [`src/tools/list.rs`](src/tools/list.rs) |
-| **Tool Definition Schema** | ✅ | [`Tool`](src/types/mcp/tools/mod.rs) with `name`, `title`, `description`, `input_schema`, `output_schema`, `icons`, `annotations`, `_meta` | [`src/types/mcp/tools/mod.rs`](src/types/mcp/tools/mod.rs) |
-| **Tool Behavioral Annotations** | ✅ | [`ToolAnnotations`](src/types/mcp/tools/mod.rs) (`read_only_hint`, `destructive_hint`, `idempotent_hint`, `open_world_hint`, `title`) | [`src/types/mcp/tools/mod.rs`](src/types/mcp/tools/mod.rs) |
+| **Tools Capability Flag** | ✅ | [`ToolsCapability`](src/types/mcp/mod.rs) advertising `list_changed` support | [`src/types/mcp/mod.rs`](src/types/mcp/mod.rs) |
+| **Tool Definitions & Models** | ✅ | [`Tool`](src/types/mcp/mod.rs) with schema, icons, titles, and [`ToolAnnotations`](src/types/mcp/mod.rs) (`read_only_hint`, `destructive_hint`, `idempotent_hint`, `open_world_hint`) | [`src/types/mcp/mod.rs`](src/types/mcp/mod.rs) |
+| **`tools/list` Endpoint** | ✅ | Built-in list handler in [`handle_list_tools`](src/tools/list.rs) and custom handler support via [`.tools_list()`](src/router/builder.rs) with caching and pagination | [`src/tools/list.rs`](src/tools/list.rs), [`src/tools/registry.rs`](src/tools/registry.rs) |
 | **`tools/call` Endpoint** | ✅ | Dispatches tool invocation to registered handlers in [`router.rs`](src/router.rs) | [`src/router.rs`](src/router.rs) |
 | **Typed Asynchronous Handlers** | ✅ | [`IntoToolHandler`](src/tools/mod.rs) for `async fn()` and `async fn(Args)` with Serde JSON deserialization | [`src/tools/mod.rs`](src/tools/mod.rs) |
 | **Flexible Result Conversions** | ✅ | [`IntoToolResult`](src/tools/mod.rs) for `String`, `&str`, `ContentBlock`, `Vec<ContentBlock>`, `CallToolResult`, and `Result<T, E>` | [`src/tools/mod.rs`](src/tools/mod.rs) |
-| **Tool Pagination (`cursor`)** | 🟡 | [`ListToolsParams`](src/types/mcp/tools/list.rs) has `cursor` and `next_cursor`, but [`handle_list_tools`](src/tools/list.rs) returns static vector with `next_cursor: None` | [`src/tools/list.rs`](src/tools/list.rs) |
+| **Tool Pagination (`cursor`)** | ✅ | Full pagination support via [`ListToolsParams`](src/types/mcp/tools/list.rs) and custom [`.tools_list()`](src/router/builder.rs) handlers returning [`ListToolsResult::with_next_cursor()`](src/types/mcp/tools/list.rs) | [`src/types/mcp/tools/list.rs`](src/types/mcp/tools/list.rs), [`src/tools/list.rs`](src/tools/list.rs) |
 | **Input JSON Schema Pre-Validation** | ❌ | Validate raw JSON arguments against `tool.input_schema` prior to deserialization | Planned for [`src/tools/mod.rs`](src/tools/mod.rs) |
 | **Structured Output Helpers** | 🟡 | [`CallToolResult.structured_content`](src/types/mcp/tools/call.rs) exists in types; ergonomic builder helpers missing | [`src/types/mcp/tools/call.rs`](src/types/mcp/tools/call.rs) |
-| **Dynamic Tool Provider** | ❌ | Register a dynamic async provider for listing/calling tools generated at runtime | Planned for [`src/router.rs`](src/router.rs) |
+| **First-Class Tools List Handler** | ✅ | Register custom async provider for listing tools generated or filtered per-request via [`.tools_list()`](src/router/builder.rs) / [`.list_tools()`](src/router/builder.rs) | [`src/tools/list.rs`](src/tools/list.rs), [`src/tools/registry.rs`](src/tools/registry.rs), [`src/router/builder.rs`](src/router/builder.rs) |
 
 ---
 
@@ -111,9 +111,10 @@ This roadmap tracks all Model Context Protocol (MCP) features and capabilities f
 |---|:---:|---|---|
 | **Prompt Capability Flag** | ✅ | [`PromptsCapability`](src/types/mcp/mod.rs) advertised automatically upon registering prompts | [`src/types/mcp/mod.rs`](src/types/mcp/mod.rs), [`src/router.rs`](src/router.rs) |
 | **Prompt Definitions & Models** | ✅ | [`Prompt`](src/types/mcp/prompts/mod.rs), [`PromptArgument`](src/types/mcp/prompts/mod.rs), [`PromptMessage`](src/types/mcp/prompts/mod.rs) data types and builders | [`src/types/mcp/prompts/mod.rs`](src/types/mcp/prompts/mod.rs) |
-| **`prompts/list` Endpoint** | ✅ | Built-in handler in [`handle_list_prompts`](src/prompts/list.rs) returning registered prompts with caching | [`src/prompts/list.rs`](src/prompts/list.rs), [`src/router.rs`](src/router.rs) |
+| **`prompts/list` Endpoint** | ✅ | Built-in handler in [`handle_list_prompts`](src/prompts/list.rs) and custom handler support via [`.prompts_list()`](src/router/builder.rs) with caching | [`src/prompts/list.rs`](src/prompts/list.rs), [`src/prompts/registry.rs`](src/prompts/registry.rs) |
 | **`prompts/get` Endpoint** | ✅ | Retrieving prompt messages with argument substitution, multi-modal content, and caching | [`src/prompts/mod.rs`](src/prompts/mod.rs), [`src/router.rs`](src/router.rs) |
 | **Typed Prompt Handlers** | ✅ | [`IntoPromptHandler`](src/prompts/mod.rs) and [`IntoPromptResult`](src/prompts/mod.rs) for `async fn()` and `async fn(Args)` | [`src/prompts/mod.rs`](src/prompts/mod.rs) |
+| **First-Class Prompts List Handler** | ✅ | Register custom async provider for listing prompts generated or filtered per-request via [`.prompts_list()`](src/router/builder.rs) / [`.list_prompts()`](src/router/builder.rs) | [`src/prompts/list.rs`](src/prompts/list.rs), [`src/prompts/registry.rs`](src/prompts/registry.rs), [`src/router/builder.rs`](src/router/builder.rs) |
 
 ---
 

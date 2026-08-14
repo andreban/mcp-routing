@@ -116,8 +116,7 @@ async fn handle_empty_params(_params: EmptyParams) -> &'static str {
 /// - Result is formatted as a JSON-RPC success response with `is_error: false`
 #[tokio::test]
 async fn test_tools_call_header_routing_with_name() {
-    let app = McpRouter::new(common::sample_server_info())
-        .register_tool("echo", handle_echo);
+    let app = McpRouter::new(common::sample_server_info()).register_tool("echo", handle_echo);
 
     let req = common::build_request(
         Some("tools/call"),
@@ -163,8 +162,7 @@ async fn test_tools_call_header_routing_with_name() {
 /// - Handler executes and returns the expected result
 #[tokio::test]
 async fn test_tools_call_header_method_body_tool_name_fallback() {
-    let app = McpRouter::new(common::sample_server_info())
-        .register_tool("echo", handle_echo);
+    let app = McpRouter::new(common::sample_server_info()).register_tool("echo", handle_echo);
 
     // Mcp-Method header is present, but Mcp-Name header is OMITTED
     let req = common::build_request(
@@ -205,8 +203,8 @@ async fn test_tools_call_header_method_body_tool_name_fallback() {
 /// - Arithmetic handler executes and returns correct calculation output
 #[tokio::test]
 async fn test_tools_call_body_method_and_body_name_fallback() {
-    let app = McpRouter::new(common::sample_server_info())
-        .register_tool("calculator", handle_calculator);
+    let app =
+        McpRouter::new(common::sample_server_info()).register_tool("calculator", handle_calculator);
 
     // Both Mcp-Method and Mcp-Name headers are OMITTED
     let req = common::build_request(
@@ -318,8 +316,8 @@ async fn test_tools_call_no_args_handlers() {
 /// - According to MCP spec, tool-level runtime execution errors return standard tool results with `is_error: Some(true)`
 #[tokio::test]
 async fn test_tools_call_handler_business_logic_error() {
-    let app = McpRouter::new(common::sample_server_info())
-        .register_tool("calculator", handle_calculator);
+    let app =
+        McpRouter::new(common::sample_server_info()).register_tool("calculator", handle_calculator);
 
     let req = common::build_request(
         Some("tools/call"),
@@ -359,8 +357,8 @@ async fn test_tools_call_handler_business_logic_error() {
 /// - Response status is `200 OK` with `is_error: true` and text starting with `"Invalid arguments:"`
 #[tokio::test]
 async fn test_tools_call_invalid_argument_types_returns_tool_error() {
-    let app = McpRouter::new(common::sample_server_info())
-        .register_tool("calculator", handle_calculator);
+    let app =
+        McpRouter::new(common::sample_server_info()).register_tool("calculator", handle_calculator);
 
     // Pass invalid type for "a" (string instead of integer)
     let req = common::build_request(

@@ -19,7 +19,7 @@ pub type CallToolResultResponse<S = Value> = JsonRpcResultResponse<CallToolResul
 /// See <https://modelcontextprotocol.io/specification/2026-07-28/schema#calltoolrequest>
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct CallToolParams<A = Value>  {
+pub struct CallToolParams<A = Value> {
     /// Protocol-level request metadata.
     #[serde(rename = "_meta", skip_serializing_if = "Option::is_none")]
     pub meta: Option<RequestMetaObject>,

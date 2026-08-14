@@ -154,6 +154,18 @@ Run the prompts example (demonstrating parameterized and multi-turn prompt templ
 cargo run --example prompts
 ```
 
+Run the extractors example (demonstrating sharing application state and request correlation):
+
+```bash
+cargo run --example extractors
+```
+
+Run the discovery example (demonstrating dynamic capability advertisement and per-request instructions):
+
+```bash
+cargo run --example discovery
+```
+
 ## Running Tests
 
 ```bash

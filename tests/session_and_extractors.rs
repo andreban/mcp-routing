@@ -162,13 +162,20 @@ async fn test_mcp_session_id_header_propagation_on_discover() {
         .method(http::Method::POST)
         .header(http::header::CONTENT_TYPE, "application/json")
         .header("Mcp-Session-Id", "sess-alpha-123")
-        .body(Full::new(Bytes::from(serde_json::to_vec(&request_payload).unwrap())))
+        .body(Full::new(Bytes::from(
+            serde_json::to_vec(&request_payload).unwrap(),
+        )))
         .unwrap();
 
     let response = router.call(request).await.unwrap();
     assert_eq!(response.status(), StatusCode::OK);
     assert_eq!(
-        response.headers().get("Mcp-Session-Id").unwrap().to_str().unwrap(),
+        response
+            .headers()
+            .get("Mcp-Session-Id")
+            .unwrap()
+            .to_str()
+            .unwrap(),
         "sess-alpha-123"
     );
 }
@@ -187,13 +194,20 @@ async fn test_mcp_session_id_header_propagation_on_tools_list() {
         .method(http::Method::POST)
         .header(http::header::CONTENT_TYPE, "application/json")
         .header("Mcp-Session-Id", "sess-beta-456")
-        .body(Full::new(Bytes::from(serde_json::to_vec(&request_payload).unwrap())))
+        .body(Full::new(Bytes::from(
+            serde_json::to_vec(&request_payload).unwrap(),
+        )))
         .unwrap();
 
     let response = router.call(request).await.unwrap();
     assert_eq!(response.status(), StatusCode::OK);
     assert_eq!(
-        response.headers().get("Mcp-Session-Id").unwrap().to_str().unwrap(),
+        response
+            .headers()
+            .get("Mcp-Session-Id")
+            .unwrap()
+            .to_str()
+            .unwrap(),
         "sess-beta-456"
     );
 }
@@ -211,7 +225,11 @@ async fn test_mcp_session_id_propagation_on_error_responses() {
     let resp = router.call(req_get).await.unwrap();
     assert_eq!(resp.status(), StatusCode::METHOD_NOT_ALLOWED);
     assert_eq!(
-        resp.headers().get("Mcp-Session-Id").unwrap().to_str().unwrap(),
+        resp.headers()
+            .get("Mcp-Session-Id")
+            .unwrap()
+            .to_str()
+            .unwrap(),
         "sess-err-1"
     );
 
@@ -225,7 +243,11 @@ async fn test_mcp_session_id_propagation_on_error_responses() {
     let resp = router.call(req_unsupported).await.unwrap();
     assert_eq!(resp.status(), StatusCode::UNSUPPORTED_MEDIA_TYPE);
     assert_eq!(
-        resp.headers().get("Mcp-Session-Id").unwrap().to_str().unwrap(),
+        resp.headers()
+            .get("Mcp-Session-Id")
+            .unwrap()
+            .to_str()
+            .unwrap(),
         "sess-err-2"
     );
 
@@ -239,7 +261,11 @@ async fn test_mcp_session_id_propagation_on_error_responses() {
     let resp = router.call(req_parse_err).await.unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
     assert_eq!(
-        resp.headers().get("Mcp-Session-Id").unwrap().to_str().unwrap(),
+        resp.headers()
+            .get("Mcp-Session-Id")
+            .unwrap()
+            .to_str()
+            .unwrap(),
         "sess-err-3"
     );
 }
@@ -264,7 +290,9 @@ async fn test_multiple_extractors_with_extensions_and_session() {
         .method(http::Method::POST)
         .header(http::header::CONTENT_TYPE, "application/json")
         .header("Mcp-Session-Id", "sess-db-777")
-        .body(Full::new(Bytes::from(serde_json::to_vec(&request_payload).unwrap())))
+        .body(Full::new(Bytes::from(
+            serde_json::to_vec(&request_payload).unwrap(),
+        )))
         .unwrap();
 
     // Attach extensions as middleware/framework would
@@ -278,7 +306,12 @@ async fn test_multiple_extractors_with_extensions_and_session() {
     let response = router.call(request).await.unwrap();
     assert_eq!(response.status(), StatusCode::OK);
     assert_eq!(
-        response.headers().get("Mcp-Session-Id").unwrap().to_str().unwrap(),
+        response
+            .headers()
+            .get("Mcp-Session-Id")
+            .unwrap()
+            .to_str()
+            .unwrap(),
         "sess-db-777"
     );
 
@@ -313,7 +346,9 @@ async fn test_missing_extension_returns_extraction_error() {
         .method(http::Method::POST)
         .header(http::header::CONTENT_TYPE, "application/json")
         .header("Mcp-Session-Id", "sess-db-777")
-        .body(Full::new(Bytes::from(serde_json::to_vec(&request_payload).unwrap())))
+        .body(Full::new(Bytes::from(
+            serde_json::to_vec(&request_payload).unwrap(),
+        )))
         .unwrap();
 
     // Insert only DatabaseConnection, missing AuthUser
@@ -347,7 +382,9 @@ async fn test_missing_required_session_id_returns_extraction_error() {
     let request = Request::builder()
         .method(http::Method::POST)
         .header(http::header::CONTENT_TYPE, "application/json")
-        .body(Full::new(Bytes::from(serde_json::to_vec(&request_payload).unwrap())))
+        .body(Full::new(Bytes::from(
+            serde_json::to_vec(&request_payload).unwrap(),
+        )))
         .unwrap();
 
     let response = router.call(request).await.unwrap();
@@ -382,13 +419,20 @@ async fn test_per_request_meta_propagation_in_prompts_get() {
         .method(http::Method::POST)
         .header(http::header::CONTENT_TYPE, "application/json")
         .header("Mcp-Session-Id", "sess-prompt-99")
-        .body(Full::new(Bytes::from(serde_json::to_vec(&request_payload).unwrap())))
+        .body(Full::new(Bytes::from(
+            serde_json::to_vec(&request_payload).unwrap(),
+        )))
         .unwrap();
 
     let response = router.call(request).await.unwrap();
     assert_eq!(response.status(), StatusCode::OK);
     assert_eq!(
-        response.headers().get("Mcp-Session-Id").unwrap().to_str().unwrap(),
+        response
+            .headers()
+            .get("Mcp-Session-Id")
+            .unwrap()
+            .to_str()
+            .unwrap(),
         "sess-prompt-99"
     );
 
@@ -432,7 +476,9 @@ async fn test_request_context_extractor_comprehensive() {
         .header(http::header::CONTENT_TYPE, "application/json")
         .header("Mcp-Session-Id", "sess-ctx-1")
         .header("X-Custom-Trace", "trace-xyz")
-        .body(Full::new(Bytes::from(serde_json::to_vec(&request_payload).unwrap())))
+        .body(Full::new(Bytes::from(
+            serde_json::to_vec(&request_payload).unwrap(),
+        )))
         .unwrap();
 
     let response = router.call(request).await.unwrap();
@@ -512,7 +558,9 @@ async fn test_with_state_and_state_extractor() {
     let request = Request::builder()
         .method(http::Method::POST)
         .header(http::header::CONTENT_TYPE, "application/json")
-        .body(Full::new(Bytes::from(serde_json::to_vec(&request_payload).unwrap())))
+        .body(Full::new(Bytes::from(
+            serde_json::to_vec(&request_payload).unwrap(),
+        )))
         .unwrap();
 
     let response = router.call(request).await.unwrap();
@@ -528,10 +576,10 @@ async fn test_with_state_and_state_extractor() {
 
 #[tokio::test]
 async fn test_axum_shared_state_between_web_and_mcp() {
-    use std::sync::atomic::{AtomicUsize, Ordering};
+    use axum::Router as AxumRouter;
     use axum::extract::State as AxumState;
     use axum::routing::get;
-    use axum::Router as AxumRouter;
+    use std::sync::atomic::{AtomicUsize, Ordering};
 
     #[derive(Clone)]
     struct SharedCounter {
@@ -599,7 +647,9 @@ async fn test_axum_shared_state_between_web_and_mcp() {
         .uri("/mcp")
         .method(http::Method::POST)
         .header(http::header::CONTENT_TYPE, "application/json")
-        .body(axum::body::Body::from(serde_json::to_vec(&mcp_payload).unwrap()))
+        .body(axum::body::Body::from(
+            serde_json::to_vec(&mcp_payload).unwrap(),
+        ))
         .unwrap();
 
     let mcp_resp = app.call(mcp_req).await.unwrap();

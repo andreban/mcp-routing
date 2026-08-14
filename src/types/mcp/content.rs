@@ -134,7 +134,9 @@ impl From<&str> for ContentBlock {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::mcp::resources::{BlobResourceContents, ResourceContents, TextResourceContents};
+    use crate::types::mcp::resources::{
+        BlobResourceContents, ResourceContents, TextResourceContents,
+    };
 
     /// Tests serialization and deserialization for all multi-modal [`ContentBlock`] variants.
     #[test]

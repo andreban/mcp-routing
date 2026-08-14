@@ -19,9 +19,8 @@ use http::StatusCode;
 use mcp_routing::{
     McpRouter,
     types::mcp::{
-        CacheScope, CompletionsCapability, IconTheme, Implementation,
-        PromptsCapability, ResourcesCapability, ServerCapabilities,
-        ToolsCapability,
+        CacheScope, CompletionsCapability, IconTheme, Implementation, PromptsCapability,
+        ResourcesCapability, ServerCapabilities, ToolsCapability,
         server::discover::ServerDiscoverResultResponse,
     },
 };
@@ -37,8 +36,7 @@ use serde_json::json;
 #[tokio::test]
 async fn test_server_discover_via_header() {
     let server_info = common::sample_server_info();
-    let app = McpRouter::new(server_info.clone())
-        .instructions("System instructions for testing.");
+    let app = McpRouter::new(server_info.clone()).instructions("System instructions for testing.");
 
     let req = common::build_request(
         Some("server/discover"),
@@ -92,13 +90,19 @@ async fn test_server_discover_via_header() {
         Some("https://example.com")
     );
     assert_eq!(resp_server_info.icons.len(), 1);
-    assert_eq!(resp_server_info.icons[0].src, "https://example.com/icon.png");
+    assert_eq!(
+        resp_server_info.icons[0].src,
+        "https://example.com/icon.png"
+    );
     assert_eq!(
         resp_server_info.icons[0].mime_type.as_deref(),
         Some("image/png")
     );
     assert_eq!(resp_server_info.icons[0].sizes, vec!["64x64".to_string()]);
-    assert!(matches!(resp_server_info.icons[0].theme, Some(IconTheme::Dark)));
+    assert!(matches!(
+        resp_server_info.icons[0].theme,
+        Some(IconTheme::Dark)
+    ));
 }
 
 /// Tests that omitting the `Mcp-Method` HTTP header falls back to inspecting the JSON-RPC body method.
@@ -253,8 +257,8 @@ async fn test_server_discover_with_request_meta_params() {
 #[tokio::test]
 async fn test_server_discover_caching_headers_and_custom_ttl() {
     let server_info = Implementation::new("caching-server", "1.0.0");
-    let app = McpRouter::new(server_info)
-        .server_discover_cache(Some(30000), Some(CacheScope::Private));
+    let app =
+        McpRouter::new(server_info).server_discover_cache(Some(30000), Some(CacheScope::Private));
 
     let req = common::build_request(
         Some("server/discover"),
@@ -278,4 +282,314 @@ async fn test_server_discover_caching_headers_and_custom_ttl() {
     let res: ServerDiscoverResultResponse = serde_json::from_value(body).unwrap();
     assert_eq!(res.result.ttl_ms, Some(30000));
     assert!(matches!(res.result.cache_scope, Some(CacheScope::Private)));
+}
+
+/// Tests that a client requesting a supported protocol version in `_meta.protocolVersion` succeeds.
+#[tokio::test]
+async fn test_server_discover_protocol_version_negotiation_success() {
+    let server_info = Implementation::new("versioned-server", "1.0.0");
+    let app = McpRouter::new(server_info)
+        .supported_versions(vec!["2026-07-28".to_string(), "2026-01-01".to_string()]);
+
+    let req = common::build_request(
+        Some("server/discover"),
+        None,
+        json!({
+            "jsonrpc": "2.0",
+            "id": "ver-test-1",
+            "method": "server/discover",
+            "params": {
+                "_meta": {
+                    "io.modelcontextprotocol/protocolVersion": "2026-07-28"
+                }
+            }
+        }),
+    );
+
+    let (status, _headers, body) = common::execute_request(app, req).await;
+    assert_eq!(status, StatusCode::OK);
+
+    let res: ServerDiscoverResultResponse = serde_json::from_value(body).unwrap();
+    assert_eq!(res.id, "ver-test-1".into());
+    assert_eq!(
+        res.result.supported_versions,
+        vec!["2026-07-28", "2026-01-01"]
+    );
+}
+
+/// Tests that a client requesting an unsupported protocol version in `_meta.protocolVersion` is rejected.
+#[tokio::test]
+async fn test_server_discover_protocol_version_negotiation_failure() {
+    let server_info = Implementation::new("versioned-server", "1.0.0");
+    let app = McpRouter::new(server_info).supported_versions(vec!["2026-07-28".to_string()]);
+
+    let req = common::build_request(
+        Some("server/discover"),
+        None,
+        json!({
+            "jsonrpc": "2.0",
+            "id": "ver-test-2",
+            "method": "server/discover",
+            "params": {
+                "_meta": {
+                    "io.modelcontextprotocol/protocolVersion": "2024-11-05"
+                }
+            }
+        }),
+    );
+
+    let (status, _headers, body) = common::execute_request(app, req).await;
+    assert_eq!(status, StatusCode::OK);
+
+    assert_eq!(body["jsonrpc"], "2.0");
+    assert_eq!(body["id"], "ver-test-2");
+    assert_eq!(body["error"]["code"], -32602);
+    assert!(
+        body["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("Unsupported protocol version '2024-11-05'")
+    );
+}
+
+/// Tests that disabling protocol version validation allows any client requested protocol version.
+#[tokio::test]
+async fn test_server_discover_protocol_version_validation_disabled() {
+    let server_info = Implementation::new("lenient-server", "1.0.0");
+    let app = McpRouter::new(server_info)
+        .supported_versions(vec!["2026-07-28".to_string()])
+        .validate_protocol_version(false);
+
+    let req = common::build_request(
+        Some("server/discover"),
+        None,
+        json!({
+            "jsonrpc": "2.0",
+            "id": "ver-test-3",
+            "method": "server/discover",
+            "params": {
+                "_meta": {
+                    "io.modelcontextprotocol/protocolVersion": "2024-11-05"
+                }
+            }
+        }),
+    );
+
+    let (status, _headers, body) = common::execute_request(app, req).await;
+    assert_eq!(status, StatusCode::OK);
+
+    let res: ServerDiscoverResultResponse = serde_json::from_value(body).unwrap();
+    assert_eq!(res.id, "ver-test-3".into());
+    assert_eq!(res.result.supported_versions, vec!["2026-07-28"]);
+}
+
+/// Tests dynamic server discovery provider with request extractors (`SessionId`, `Extension`, `Meta`).
+#[tokio::test]
+async fn test_server_discover_dynamic_provider_with_extractors() {
+    #[derive(Clone)]
+    struct Tenant {
+        tenant_id: String,
+        plan: String,
+    }
+
+    async fn custom_discover_provider(
+        session: mcp_routing::extract::SessionId,
+        mcp_routing::extract::Extension(tenant): mcp_routing::extract::Extension<Tenant>,
+        mcp_routing::extract::Meta(meta): mcp_routing::extract::Meta,
+    ) -> Result<(ServerCapabilities, String), String> {
+        let client_name = meta
+            .client_info
+            .as_ref()
+            .map(|c| c.name.as_str())
+            .unwrap_or("anonymous");
+        let instructions = format!(
+            "Welcome {} from tenant {} ({}) in session {}",
+            client_name, tenant.tenant_id, tenant.plan, session
+        );
+
+        let caps = ServerCapabilities {
+            tools: Some(ToolsCapability {
+                list_changed: Some(true),
+            }),
+            resources: Some(ResourcesCapability {
+                subscribe: Some(tenant.plan == "enterprise"),
+                list_changed: Some(false),
+            }),
+            prompts: Some(PromptsCapability { list_changed: None }),
+            completions: None,
+            experimental: None,
+        };
+
+        Ok((caps, instructions))
+    }
+
+    let server_info = Implementation::new("dynamic-server", "1.0.0");
+    let app = McpRouter::new(server_info).dynamic_discovery(custom_discover_provider);
+
+    // Inject extension via router tower layer
+    let mut req = common::build_request(
+        Some("server/discover"),
+        None,
+        json!({
+            "jsonrpc": "2.0",
+            "id": "dyn-1",
+            "method": "server/discover",
+            "params": {
+                "_meta": {
+                    "io.modelcontextprotocol/clientInfo": {
+                        "name": "developer-cli",
+                        "version": "0.5.0"
+                    }
+                }
+            }
+        }),
+    );
+    req.headers_mut()
+        .insert("Mcp-Session-Id", "sess-dyn-42".parse().unwrap());
+    req.extensions_mut().insert(Tenant {
+        tenant_id: "corp-xyz".to_string(),
+        plan: "enterprise".to_string(),
+    });
+
+    let (status, _headers, body) = common::execute_request(app, req).await;
+    assert_eq!(status, StatusCode::OK);
+
+    let res: ServerDiscoverResultResponse = serde_json::from_value(body).unwrap();
+    assert_eq!(res.id, "dyn-1".into());
+
+    let instructions = res.result.instructions.unwrap();
+    assert_eq!(
+        instructions,
+        "Welcome developer-cli from tenant corp-xyz (enterprise) in session sess-dyn-42"
+    );
+
+    let caps = res.result.capabilities;
+    assert_eq!(caps.tools.unwrap().list_changed, Some(true));
+    assert_eq!(caps.resources.unwrap().subscribe, Some(true));
+    assert!(caps.prompts.is_some());
+}
+
+/// Tests dynamic server discovery provider returning a full [`ServerDiscoverResult`] with custom caching.
+#[tokio::test]
+async fn test_server_discover_dynamic_provider_returning_result_with_cache() {
+    use mcp_routing::types::mcp::server::discover::ServerDiscoverResult;
+
+    async fn custom_discover_result_provider() -> ServerDiscoverResult {
+        ServerDiscoverResult::new(
+            ServerCapabilities {
+                tools: Some(ToolsCapability {
+                    list_changed: Some(false),
+                }),
+                resources: None,
+                prompts: None,
+                completions: Some(CompletionsCapability {}),
+                experimental: None,
+            },
+            vec!["2026-07-28".to_string()],
+        )
+        .with_instructions("Dynamic full result instructions")
+        .with_cache(Some(45000), Some(CacheScope::Private))
+    }
+
+    let server_info = Implementation::new("dynamic-cache-server", "1.0.0");
+    let app =
+        McpRouter::new(server_info).server_discovery_provider(custom_discover_result_provider);
+
+    let req = common::build_request(
+        Some("server/discover"),
+        None,
+        json!({
+            "jsonrpc": "2.0",
+            "id": "dyn-cache-1",
+            "method": "server/discover"
+        }),
+    );
+
+    let (status, headers, body) = common::execute_request(app, req).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        headers.get("cache-control").unwrap().to_str().unwrap(),
+        "private, max-age=45"
+    );
+    assert!(headers.contains_key("etag"));
+
+    let res: ServerDiscoverResultResponse = serde_json::from_value(body).unwrap();
+    assert_eq!(res.id, "dyn-cache-1".into());
+    assert_eq!(
+        res.result.instructions.as_deref(),
+        Some("Dynamic full result instructions")
+    );
+    assert_eq!(res.result.ttl_ms, Some(45000));
+    assert!(matches!(res.result.cache_scope, Some(CacheScope::Private)));
+    assert!(res.result.capabilities.completions.is_some());
+    assert_eq!(
+        res.result.meta.unwrap().server_info.unwrap().name,
+        "dynamic-cache-server"
+    );
+}
+
+/// Tests dynamic server discovery provider error handling returning a JSON-RPC internal error.
+#[tokio::test]
+async fn test_server_discover_dynamic_provider_error_handling() {
+    async fn failing_discover_provider() -> Result<ServerCapabilities, String> {
+        Err("Failed to load tenant capabilities from database".to_string())
+    }
+
+    let server_info = Implementation::new("failing-server", "1.0.0");
+    let app = McpRouter::new(server_info).dynamic_discovery(failing_discover_provider);
+
+    let req = common::build_request(
+        Some("server/discover"),
+        None,
+        json!({
+            "jsonrpc": "2.0",
+            "id": "fail-1",
+            "method": "server/discover"
+        }),
+    );
+
+    let (status, _headers, body) = common::execute_request(app, req).await;
+    assert_eq!(status, StatusCode::OK);
+
+    assert_eq!(body["jsonrpc"], "2.0");
+    assert_eq!(body["id"], "fail-1");
+    assert_eq!(body["error"]["code"], -32603);
+    assert!(
+        body["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("Failed to load tenant capabilities from database")
+    );
+}
+
+/// Tests dynamic server discovery provider returning simple string instructions.
+#[tokio::test]
+async fn test_server_discover_dynamic_provider_simple_instructions() {
+    async fn instructions_provider() -> &'static str {
+        "Generated instructions dynamically for every request."
+    }
+
+    let server_info = Implementation::new("instructions-server", "1.0.0");
+    let app = McpRouter::new(server_info).dynamic_discovery(instructions_provider);
+
+    let req = common::build_request(
+        Some("server/discover"),
+        None,
+        json!({
+            "jsonrpc": "2.0",
+            "id": "inst-1",
+            "method": "server/discover"
+        }),
+    );
+
+    let (status, _headers, body) = common::execute_request(app, req).await;
+    assert_eq!(status, StatusCode::OK);
+
+    let res: ServerDiscoverResultResponse = serde_json::from_value(body).unwrap();
+    assert_eq!(res.id, "inst-1".into());
+    assert_eq!(
+        res.result.instructions.as_deref(),
+        Some("Generated instructions dynamically for every request.")
+    );
+    assert!(res.result.capabilities.tools.is_some());
 }

@@ -108,19 +108,10 @@ impl McpRouterInner {
         };
 
         match method.as_str() {
-            "server/discover" => {
-                self.server
-                    .dispatch_discover(ctx.req_id, ctx.is_notification, params_val)
-            }
-            "tools/list" => {
-                self.tools
-                    .dispatch_list(ctx.req_id, ctx.is_notification, params_val)
-            }
+            "server/discover" => self.server.dispatch_discover(ctx, params_val).await,
+            "tools/list" => self.tools.dispatch_list(ctx, params_val).await,
             "tools/call" => self.tools.dispatch_call(ctx, params_val).await,
-            "prompts/list" => {
-                self.prompts
-                    .dispatch_list(ctx.req_id, ctx.is_notification, params_val)
-            }
+            "prompts/list" => self.prompts.dispatch_list(ctx, params_val).await,
             "prompts/get" => self.prompts.dispatch_get(ctx, params_val).await,
             unknown_method => {
                 tracing::debug!(%unknown_method, "Method not found");

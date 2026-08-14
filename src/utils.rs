@@ -47,10 +47,7 @@ pub(crate) fn extract_session_id(headers: &HeaderMap) -> Option<SessionId> {
 /// Leading and trailing slashes are trimmed for normalization.
 pub(crate) fn extract_method(headers: &HeaderMap, body_method: Option<&str>) -> Option<String> {
     // 1. Prefer Mcp-Method HTTP header
-    if let Some(header_method) = headers
-        .get("Mcp-Method")
-        .and_then(|v| v.to_str().ok())
-    {
+    if let Some(header_method) = headers.get("Mcp-Method").and_then(|v| v.to_str().ok()) {
         return Some(header_method.trim_matches('/').to_string());
     }
 

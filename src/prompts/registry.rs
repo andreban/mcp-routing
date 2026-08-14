@@ -8,7 +8,9 @@ use http::Response;
 
 use crate::body::{ResponseBody, json_response, json_response_with_caching};
 use crate::extract::{RequestContext, SessionId};
-use crate::prompts::{IntoPromptHandler, PromptError, PromptHandler};
+use crate::prompts::{
+    IntoPromptHandler, IntoPromptsListHandler, PromptError, PromptHandler, PromptsListHandler,
+};
 use crate::router::{DispatchOutcome, MethodContext};
 use crate::types::jsonrpc::{JsonRpcErrorResponse, JsonRpcRequestId};
 use crate::types::mcp::{
@@ -16,7 +18,7 @@ use crate::types::mcp::{
     prompts::{
         Prompt,
         get::{GetPromptParams, GetPromptRequest, GetPromptResultResponse},
-        list::{ListPromptsParams, ListPromptsRequest},
+        list::{ListPromptsParams, ListPromptsRequest, ListPromptsResultResponse},
     },
 };
 use crate::utils::resolve_prompt_name;
@@ -29,6 +31,7 @@ pub struct PromptRegistry {
     pub(crate) prompt_cache_settings: HashMap<String, (Option<u64>, Option<CacheScope>)>,
     pub(crate) list_ttl_ms: Option<u64>,
     pub(crate) list_cache_scope: Option<CacheScope>,
+    pub(crate) list_handler: Option<Arc<dyn PromptsListHandler>>,
 }
 
 impl Default for PromptRegistry {
@@ -46,7 +49,17 @@ impl PromptRegistry {
             prompt_cache_settings: HashMap::new(),
             list_ttl_ms: Some(0),
             list_cache_scope: Some(CacheScope::Public),
+            list_handler: None,
         }
+    }
+
+    /// Sets a custom handler for `prompts/list` requests.
+    pub fn set_list_handler<H, T>(&mut self, handler: H)
+    where
+        H: IntoPromptsListHandler<T>,
+        T: 'static,
+    {
+        self.list_handler = Some(handler.into_prompts_list_handler());
     }
 
     /// Registers a prompt template alongside a typed asynchronous handler.
@@ -58,7 +71,8 @@ impl PromptRegistry {
     {
         let prompt = prompt.into();
         let name = prompt.name.clone();
-        self.prompt_handlers.insert(name, handler.into_prompt_handler());
+        self.prompt_handlers
+            .insert(name, handler.into_prompt_handler());
         self.prompts.push(prompt);
     }
 
@@ -76,8 +90,10 @@ impl PromptRegistry {
     {
         let prompt = prompt.into();
         let name = prompt.name.clone();
-        self.prompt_handlers.insert(name.clone(), handler.into_prompt_handler());
-        self.prompt_cache_settings.insert(name, (ttl_ms, cache_scope));
+        self.prompt_handlers
+            .insert(name.clone(), handler.into_prompt_handler());
+        self.prompt_cache_settings
+            .insert(name, (ttl_ms, cache_scope));
         self.prompts.push(prompt);
     }
 
@@ -99,13 +115,12 @@ impl PromptRegistry {
     }
 
     /// Dispatches an incoming `prompts/list` JSON-RPC request.
-    pub(crate) fn dispatch_list(
+    pub(crate) async fn dispatch_list(
         &self,
-        req_id: Option<JsonRpcRequestId>,
-        is_notification: bool,
+        ctx: MethodContext<'_>,
         params_val: Option<serde_json::Value>,
     ) -> DispatchOutcome {
-        if is_notification {
+        if ctx.is_notification {
             return DispatchOutcome::notification();
         }
 
@@ -114,7 +129,7 @@ impl PromptRegistry {
                 Ok(p) => p,
                 Err(err) => {
                     return DispatchOutcome::error(JsonRpcErrorResponse::invalid_params(
-                        req_id,
+                        ctx.req_id,
                         format!("Invalid params: {err}"),
                     ));
                 }
@@ -126,27 +141,75 @@ impl PromptRegistry {
             },
         };
 
-        let req = ListPromptsRequest::new(
-            req_id.clone().unwrap_or_else(|| "".into()),
-            "prompts/list",
-            Some(params),
-        );
+        if let Some(ref handler) = self.list_handler {
+            let mut extensions = (*ctx.extensions).clone();
+            extensions.insert(crate::extract::RegisteredPrompts(self.prompts.clone()));
+            let request_ctx = RequestContext::new(
+                ctx.session_id,
+                params.meta.clone(),
+                ctx.headers.clone(),
+                Arc::new(extensions),
+            );
+            match handler
+                .call(
+                    request_ctx,
+                    params.cursor,
+                    self.list_ttl_ms,
+                    self.list_cache_scope.clone(),
+                )
+                .await
+            {
+                Ok(res) => {
+                    let ttl_ms = res.ttl_ms;
+                    let cache_scope = res.cache_scope.clone();
+                    let response = ListPromptsResultResponse::new(
+                        ctx.req_id.unwrap_or_else(|| "".into()),
+                        res,
+                    );
+                    match serde_json::to_value(response) {
+                        Ok(v) => DispatchOutcome::response_with_cache(v, ttl_ms, cache_scope),
+                        Err(err) => DispatchOutcome::error(JsonRpcErrorResponse::internal_error(
+                            None,
+                            format!("Failed to serialize response: {err}"),
+                        )),
+                    }
+                }
+                Err(PromptError::InvalidParams(err)) => {
+                    DispatchOutcome::error(JsonRpcErrorResponse::invalid_params(
+                        ctx.req_id,
+                        format!("Invalid params: {err}"),
+                    ))
+                }
+                Err(PromptError::Internal(err)) => {
+                    DispatchOutcome::error(JsonRpcErrorResponse::internal_error(
+                        ctx.req_id,
+                        format!("Failed to list prompts: {err}"),
+                    ))
+                }
+            }
+        } else {
+            let req = ListPromptsRequest::new(
+                ctx.req_id.clone().unwrap_or_else(|| "".into()),
+                "prompts/list",
+                Some(params),
+            );
 
-        let res = crate::prompts::list::handle_list_prompts(
-            req,
-            self.prompts.clone(),
-            self.list_ttl_ms,
-            self.list_cache_scope.clone(),
-        );
+            let res = crate::prompts::list::handle_list_prompts(
+                req,
+                self.prompts.clone(),
+                self.list_ttl_ms,
+                self.list_cache_scope.clone(),
+            );
 
-        let ttl_ms = res.result.ttl_ms;
-        let cache_scope = res.result.cache_scope.clone();
-        match serde_json::to_value(res) {
-            Ok(v) => DispatchOutcome::response_with_cache(v, ttl_ms, cache_scope),
-            Err(err) => DispatchOutcome::error(JsonRpcErrorResponse::internal_error(
-                req_id,
-                format!("Failed to serialize response: {err}"),
-            )),
+            let ttl_ms = res.result.ttl_ms;
+            let cache_scope = res.result.cache_scope.clone();
+            match serde_json::to_value(res) {
+                Ok(v) => DispatchOutcome::response_with_cache(v, ttl_ms, cache_scope),
+                Err(err) => DispatchOutcome::error(JsonRpcErrorResponse::internal_error(
+                    ctx.req_id,
+                    format!("Failed to serialize response: {err}"),
+                )),
+            }
         }
     }
 
@@ -173,10 +236,8 @@ impl PromptRegistry {
             None => None,
         };
 
-        let prompt_name = resolve_prompt_name(
-            ctx.header_name,
-            params.as_ref().map(|p| p.name.as_str()),
-        );
+        let prompt_name =
+            resolve_prompt_name(ctx.header_name, params.as_ref().map(|p| p.name.as_str()));
 
         let Some(prompt_name) = prompt_name else {
             tracing::debug!("Missing prompt name for prompts/get");
@@ -236,15 +297,11 @@ impl PromptRegistry {
                         res,
                     );
                     match serde_json::to_value(response) {
-                        Ok(v) => {
-                            DispatchOutcome::response_with_cache(v, prompt_ttl, prompt_scope)
-                        }
-                        Err(err) => {
-                            DispatchOutcome::error(JsonRpcErrorResponse::internal_error(
-                                ctx.req_id,
-                                format!("Failed to serialize response: {err}"),
-                            ))
-                        }
+                        Ok(v) => DispatchOutcome::response_with_cache(v, prompt_ttl, prompt_scope),
+                        Err(err) => DispatchOutcome::error(JsonRpcErrorResponse::internal_error(
+                            ctx.req_id,
+                            format!("Failed to serialize response: {err}"),
+                        )),
                     }
                 }
                 Err(PromptError::InvalidParams(err)) => {
@@ -273,10 +330,8 @@ impl PromptRegistry {
             Ok(r) => r,
             Err(err) => {
                 tracing::error!(?err, "Failed to parse ListPromptsRequest");
-                let error_response = JsonRpcErrorResponse::invalid_params(
-                    req_id,
-                    format!("Invalid params: {err}"),
-                );
+                let error_response =
+                    JsonRpcErrorResponse::invalid_params(req_id, format!("Invalid params: {err}"));
                 return json_response(&error_response);
             }
         };
@@ -308,10 +363,8 @@ impl PromptRegistry {
             Ok(r) => r,
             Err(err) => {
                 tracing::error!(?err, "Failed to parse GetPromptRequest");
-                let error_response = JsonRpcErrorResponse::invalid_params(
-                    req_id,
-                    format!("Invalid params: {err}"),
-                );
+                let error_response =
+                    JsonRpcErrorResponse::invalid_params(req_id, format!("Invalid params: {err}"));
                 return json_response(&error_response);
             }
         };
@@ -352,7 +405,11 @@ impl PromptRegistry {
             match handler.call(ctx, raw_args).await {
                 Ok(result) => {
                     let response = GetPromptResultResponse::new(req_id, result);
-                    return json_response_with_caching(&response, prompt_ttl, prompt_scope.as_ref());
+                    return json_response_with_caching(
+                        &response,
+                        prompt_ttl,
+                        prompt_scope.as_ref(),
+                    );
                 }
                 Err(PromptError::InvalidParams(err)) => {
                     let error_response = JsonRpcErrorResponse::invalid_params(

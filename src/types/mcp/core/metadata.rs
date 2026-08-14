@@ -146,10 +146,7 @@ mod tests {
         assert!(matches!(meta.log_level, Some(LoggingLevel::Debug)));
 
         let reserialized = serde_json::to_value(&meta).unwrap();
-        assert_eq!(
-            reserialized["io.modelcontextprotocol/logLevel"],
-            "debug"
-        );
+        assert_eq!(reserialized["io.modelcontextprotocol/logLevel"], "debug");
     }
 
     /// Tests all RFC-5424 [`LoggingLevel`] enum variants.
@@ -171,10 +168,7 @@ mod tests {
             assert_eq!(serialized, expected_json);
 
             let deserialized: LoggingLevel = serde_json::from_str(expected_json).unwrap();
-            assert_eq!(
-                serde_json::to_string(&deserialized).unwrap(),
-                expected_json
-            );
+            assert_eq!(serde_json::to_string(&deserialized).unwrap(), expected_json);
         }
     }
 
@@ -184,7 +178,8 @@ mod tests {
         let num_token: ProgressToken = serde_json::from_value(serde_json::json!(42.0)).unwrap();
         assert!(matches!(num_token, ProgressToken::Number(n) if (n - 42.0).abs() < f32::EPSILON));
 
-        let str_token: ProgressToken = serde_json::from_value(serde_json::json!("tok-123")).unwrap();
+        let str_token: ProgressToken =
+            serde_json::from_value(serde_json::json!("tok-123")).unwrap();
         assert!(matches!(str_token, ProgressToken::String(s) if s == "tok-123"));
     }
 }

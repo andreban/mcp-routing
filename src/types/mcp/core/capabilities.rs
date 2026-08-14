@@ -62,6 +62,58 @@ pub struct ServerCapabilities {
     pub experimental: Option<HashMap<String, Value>>,
 }
 
+impl Default for ServerCapabilities {
+    fn default() -> Self {
+        Self::empty()
+    }
+}
+
+impl ServerCapabilities {
+    /// Creates a new empty [`ServerCapabilities`].
+    pub fn empty() -> Self {
+        Self {
+            tools: None,
+            resources: None,
+            prompts: None,
+            completions: None,
+            experimental: None,
+        }
+    }
+
+    /// Enables tools capability with optional `list_changed` notification support.
+    pub fn with_tools(mut self, list_changed: Option<bool>) -> Self {
+        self.tools = Some(ToolsCapability { list_changed });
+        self
+    }
+
+    /// Enables resources capability with optional `subscribe` and `list_changed` flags.
+    pub fn with_resources(mut self, subscribe: Option<bool>, list_changed: Option<bool>) -> Self {
+        self.resources = Some(ResourcesCapability {
+            subscribe,
+            list_changed,
+        });
+        self
+    }
+
+    /// Enables prompts capability with optional `list_changed` notification support.
+    pub fn with_prompts(mut self, list_changed: Option<bool>) -> Self {
+        self.prompts = Some(PromptsCapability { list_changed });
+        self
+    }
+
+    /// Enables completions capability.
+    pub fn with_completions(mut self) -> Self {
+        self.completions = Some(CompletionsCapability {});
+        self
+    }
+
+    /// Adds experimental capabilities.
+    pub fn with_experimental(mut self, experimental: HashMap<String, Value>) -> Self {
+        self.experimental = Some(experimental);
+        self
+    }
+}
+
 /// Capability configuration for tool operations.
 ///
 /// See <https://modelcontextprotocol.io/specification/2026-07-28/schema#servercapabilities>
@@ -130,12 +182,22 @@ mod tests {
     #[test]
     fn test_server_capabilities_serde() {
         let mut exp = HashMap::new();
-        exp.insert("customFeature".to_string(), serde_json::json!({"enabled": true}));
+        exp.insert(
+            "customFeature".to_string(),
+            serde_json::json!({"enabled": true}),
+        );
 
         let server_caps = ServerCapabilities {
-            tools: Some(ToolsCapability { list_changed: Some(true) }),
-            resources: Some(ResourcesCapability { subscribe: Some(true), list_changed: Some(false) }),
-            prompts: Some(PromptsCapability { list_changed: Some(true) }),
+            tools: Some(ToolsCapability {
+                list_changed: Some(true),
+            }),
+            resources: Some(ResourcesCapability {
+                subscribe: Some(true),
+                list_changed: Some(false),
+            }),
+            prompts: Some(PromptsCapability {
+                list_changed: Some(true),
+            }),
             completions: Some(CompletionsCapability {}),
             experimental: Some(exp),
         };

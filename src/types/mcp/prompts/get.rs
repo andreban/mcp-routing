@@ -8,10 +8,7 @@ use serde_json::Value;
 
 use crate::types::{
     jsonrpc::{JsonRpcRequest, JsonRpcResultResponse},
-    mcp::{
-        RequestMetaObject, ResultMetaObject,
-        prompts::PromptMessage,
-    },
+    mcp::{RequestMetaObject, ResultMetaObject, prompts::PromptMessage},
 };
 
 pub type GetPromptRequest<A = Value> = JsonRpcRequest<GetPromptParams<A>>;
@@ -137,14 +134,20 @@ mod tests {
         let reserialized = serde_json::to_value(&result).unwrap();
         assert_eq!(reserialized["description"], "Code review template");
         assert_eq!(reserialized["messages"][0]["role"], "user");
-        assert_eq!(reserialized["messages"][0]["content"]["text"], "Review this code");
+        assert_eq!(
+            reserialized["messages"][0]["content"]["text"],
+            "Review this code"
+        );
     }
 
     #[test]
     fn test_get_prompt_result_constructors() {
         let res = GetPromptResult::user("Explain Rust lifetimes")
             .with_description("Lifetimes explainer prompt");
-        assert_eq!(res.description.as_deref(), Some("Lifetimes explainer prompt"));
+        assert_eq!(
+            res.description.as_deref(),
+            Some("Lifetimes explainer prompt")
+        );
         assert_eq!(res.messages.len(), 1);
         assert!(matches!(res.messages[0].role, Role::User));
     }

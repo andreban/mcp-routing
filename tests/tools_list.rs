@@ -11,7 +11,6 @@
 
 mod common;
 
-use std::borrow::Cow;
 use http::StatusCode;
 use mcp_routing::{
     McpRouter,
@@ -21,6 +20,7 @@ use mcp_routing::{
     },
 };
 use serde_json::json;
+use std::borrow::Cow;
 
 async fn dummy_handler() -> &'static str {
     "ok"
@@ -142,10 +142,7 @@ async fn test_tools_list_multiple_rich_tools() {
     assert_eq!(t0.icons[0].mime_type.as_deref(), Some("image/png"));
     assert_eq!(t0.icons[0].sizes, vec!["32x32".to_string()]);
     assert!(matches!(t0.icons[0].theme, Some(IconTheme::Light)));
-    assert_eq!(
-        t0.annotations.as_ref().unwrap().read_only_hint,
-        Some(true)
-    );
+    assert_eq!(t0.annotations.as_ref().unwrap().read_only_hint, Some(true));
     assert_eq!(
         t0.annotations.as_ref().unwrap().destructive_hint,
         Some(false)
@@ -208,8 +205,7 @@ async fn test_tools_list_via_body_fallback() {
 /// - String request IDs (`"cursor-req"`) are preserved in response
 #[tokio::test]
 async fn test_tools_list_with_pagination_cursor_and_meta() {
-    let app = McpRouter::new(common::sample_server_info())
-        .register_tool("tool_a", dummy_handler);
+    let app = McpRouter::new(common::sample_server_info()).register_tool("tool_a", dummy_handler);
 
     let req = common::build_request(
         Some("tools/list"),
@@ -270,4 +266,241 @@ async fn test_tools_list_custom_caching_parameters() {
     let res: ListToolsResultResponse = serde_json::from_value(body).unwrap();
     assert_eq!(res.result.ttl_ms, Some(600000));
     assert!(matches!(res.result.cache_scope, Some(CacheScope::Public)));
+}
+
+/// Tests registering a custom `tools_list` handler using `BearerAuth` and `SessionId` extractors.
+#[tokio::test]
+async fn test_tools_list_custom_handler_with_bearer_auth_and_extractors() {
+    use mcp_routing::extract::{BearerAuth, Meta, SessionId};
+    use mcp_routing::types::mcp::tools::list::ListToolsResult;
+
+    async fn custom_list_handler(
+        BearerAuth(token): BearerAuth,
+        session: Option<SessionId>,
+        meta: Option<Meta>,
+    ) -> Result<ListToolsResult, String> {
+        let is_admin = token == "admin-secret";
+        let is_client_vip = meta
+            .as_ref()
+            .and_then(|m| m.client_info.as_ref())
+            .map(|c| c.name == "vip-client")
+            .unwrap_or(false);
+
+        let mut tools = vec![common::sample_tool("public_tool")];
+        if is_admin || is_client_vip {
+            tools.push(common::sample_tool("admin_tool"));
+        }
+        if session.as_deref() == Some("beta-session") {
+            tools.push(common::sample_tool("beta_tool"));
+        }
+
+        Ok(ListToolsResult::new(tools).with_cache(Some(120_000), Some(CacheScope::Private)))
+    }
+
+    let app = McpRouter::new(common::sample_server_info()).tools_list(custom_list_handler);
+
+    // Request 1: Regular user
+    let mut req1 = common::build_request(
+        Some("tools/list"),
+        None,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/list"
+        }),
+    );
+    req1.headers_mut().insert(
+        http::header::AUTHORIZATION,
+        "Bearer user-token".parse().unwrap(),
+    );
+    let (status1, headers1, body1) = common::execute_request(app.clone(), req1).await;
+    assert_eq!(status1, StatusCode::OK);
+    assert_eq!(
+        headers1.get("cache-control").unwrap().to_str().unwrap(),
+        "private, max-age=120"
+    );
+    let res1: ListToolsResultResponse = serde_json::from_value(body1).unwrap();
+    assert_eq!(res1.result.tools.len(), 1);
+    assert_eq!(res1.result.tools[0].name, "public_tool");
+
+    // Request 2: Admin user with beta session
+    let mut req2 = common::build_request(
+        Some("tools/list"),
+        None,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "tools/list"
+        }),
+    );
+    req2.headers_mut().insert(
+        http::header::AUTHORIZATION,
+        "Bearer admin-secret".parse().unwrap(),
+    );
+    req2.headers_mut().insert(
+        http::HeaderName::from_static("mcp-session-id"),
+        "beta-session".parse().unwrap(),
+    );
+    let (status2, _headers2, body2) = common::execute_request(app.clone(), req2).await;
+    assert_eq!(status2, StatusCode::OK);
+    let res2: ListToolsResultResponse = serde_json::from_value(body2).unwrap();
+    assert_eq!(res2.result.tools.len(), 3);
+    assert_eq!(res2.result.tools[0].name, "public_tool");
+    assert_eq!(res2.result.tools[1].name, "admin_tool");
+    assert_eq!(res2.result.tools[2].name, "beta_tool");
+
+    // Request 3: Missing authorization header (should fail extractor)
+    let req3 = common::build_request(
+        Some("tools/list"),
+        None,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 3,
+            "method": "tools/list"
+        }),
+    );
+    let (status3, _headers3, body3) = common::execute_request(app, req3).await;
+    assert_eq!(status3, StatusCode::OK);
+    assert_eq!(body3["error"]["code"], -32602);
+    assert!(
+        body3["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("Missing required Authorization header")
+    );
+}
+
+/// Tests custom `tools_list` handler with pagination cursor parameter.
+#[tokio::test]
+async fn test_tools_list_custom_handler_with_pagination_cursor() {
+    use mcp_routing::types::mcp::tools::list::ListToolsResult;
+
+    async fn paged_list_handler(cursor: Option<String>) -> ListToolsResult {
+        match cursor.as_deref() {
+            None => {
+                ListToolsResult::new(vec![common::sample_tool("item_1")]).with_next_cursor("page_2")
+            }
+            Some("page_2") => ListToolsResult::new(vec![common::sample_tool("item_2")]),
+            Some(_) => ListToolsResult::new(vec![]),
+        }
+    }
+
+    let app = McpRouter::new(common::sample_server_info()).list_tools(paged_list_handler);
+
+    // Page 1
+    let req1 = common::build_request(
+        Some("tools/list"),
+        None,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/list"
+        }),
+    );
+    let (status1, _, body1) = common::execute_request(app.clone(), req1).await;
+    assert_eq!(status1, StatusCode::OK);
+    let res1: ListToolsResultResponse = serde_json::from_value(body1).unwrap();
+    assert_eq!(res1.result.tools.len(), 1);
+    assert_eq!(res1.result.tools[0].name, "item_1");
+    assert_eq!(res1.result.next_cursor.as_deref(), Some("page_2"));
+
+    // Page 2
+    let req2 = common::build_request(
+        Some("tools/list"),
+        None,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "tools/list",
+            "params": { "cursor": "page_2" }
+        }),
+    );
+    let (status2, _, body2) = common::execute_request(app, req2).await;
+    assert_eq!(status2, StatusCode::OK);
+    let res2: ListToolsResultResponse = serde_json::from_value(body2).unwrap();
+    assert_eq!(res2.result.tools.len(), 1);
+    assert_eq!(res2.result.tools[0].name, "item_2");
+    assert_eq!(res2.result.next_cursor, None);
+}
+
+/// Tests custom `tools_list` handler error propagation.
+#[tokio::test]
+async fn test_tools_list_custom_handler_error_propagation() {
+    async fn failing_handler() -> Result<Vec<Tool>, String> {
+        Err("Database connection pool exhausted".to_string())
+    }
+
+    let app = McpRouter::new(common::sample_server_info()).tools_list(failing_handler);
+
+    let req = common::build_request(
+        Some("tools/list"),
+        None,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 100,
+            "method": "tools/list"
+        }),
+    );
+
+    let (status, _, body) = common::execute_request(app, req).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["error"]["code"], -32603);
+    assert!(
+        body["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("Database connection pool exhausted")
+    );
+}
+
+/// Tests that a `tools_list` handler can extract `RegisteredTools` to inspect and filter pre-registered tools.
+#[tokio::test]
+async fn test_tools_list_registered_tools_extractor_filtering() {
+    use mcp_routing::extract::{BearerAuth, RegisteredTools};
+
+    async fn filter_tools(
+        auth: Option<BearerAuth>,
+        RegisteredTools(all_tools): RegisteredTools,
+    ) -> Vec<Tool> {
+        let is_admin = auth.as_ref().map(|a| a.token()) == Some("admin-key");
+        all_tools
+            .into_iter()
+            .filter(|t| !t.name.starts_with("admin_") || is_admin)
+            .collect()
+    }
+
+    let app = McpRouter::new(common::sample_server_info())
+        .register_tool(common::sample_tool("public_echo"), dummy_handler)
+        .register_tool(common::sample_tool("public_calc"), dummy_handler)
+        .register_tool(common::sample_tool("admin_delete_db"), dummy_handler)
+        .tools_list(filter_tools);
+
+    // Standard user request
+    let req_user = common::build_request(
+        Some("tools/list"),
+        None,
+        json!({ "jsonrpc": "2.0", "id": 1, "method": "tools/list" }),
+    );
+    let (status_u, _, body_u) = common::execute_request(app.clone(), req_user).await;
+    assert_eq!(status_u, StatusCode::OK);
+    let res_u: ListToolsResultResponse = serde_json::from_value(body_u).unwrap();
+    assert_eq!(res_u.result.tools.len(), 2);
+    assert_eq!(res_u.result.tools[0].name, "public_echo");
+    assert_eq!(res_u.result.tools[1].name, "public_calc");
+
+    // Admin request with Bearer token
+    let mut req_admin = common::build_request(
+        Some("tools/list"),
+        None,
+        json!({ "jsonrpc": "2.0", "id": 2, "method": "tools/list" }),
+    );
+    req_admin.headers_mut().insert(
+        http::header::AUTHORIZATION,
+        "Bearer admin-key".parse().unwrap(),
+    );
+    let (status_a, _, body_a) = common::execute_request(app, req_admin).await;
+    assert_eq!(status_a, StatusCode::OK);
+    let res_a: ListToolsResultResponse = serde_json::from_value(body_a).unwrap();
+    assert_eq!(res_a.result.tools.len(), 3);
+    assert_eq!(res_a.result.tools[2].name, "admin_delete_db");
 }

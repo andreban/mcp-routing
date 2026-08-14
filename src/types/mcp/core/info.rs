@@ -36,6 +36,36 @@ pub struct Icon {
     pub theme: Option<IconTheme>,
 }
 
+impl Icon {
+    /// Creates a new [`Icon`] with the specified source URI.
+    pub fn new(src: impl Into<String>) -> Self {
+        Self {
+            src: src.into(),
+            mime_type: None,
+            sizes: Vec::new(),
+            theme: None,
+        }
+    }
+
+    /// Sets the MIME type of the icon.
+    pub fn with_mime_type(mut self, mime_type: impl Into<Cow<'static, str>>) -> Self {
+        self.mime_type = Some(mime_type.into());
+        self
+    }
+
+    /// Sets the icon dimensions.
+    pub fn with_sizes(mut self, sizes: Vec<String>) -> Self {
+        self.sizes = sizes;
+        self
+    }
+
+    /// Sets the theme background context for this icon.
+    pub fn with_theme(mut self, theme: IconTheme) -> Self {
+        self.theme = Some(theme);
+        self
+    }
+}
+
 /// An implementation structure identifying a client or server.
 ///
 /// See <https://modelcontextprotocol.io/specification/2026-07-28/schema#implementation>
@@ -78,6 +108,7 @@ pub struct Implementation {
 }
 
 impl Implementation {
+    /// Creates a new [`Implementation`] with a name and version.
     pub fn new(name: impl Into<String>, version: impl Into<String>) -> Self {
         Self {
             icons: Vec::new(),
@@ -87,6 +118,36 @@ impl Implementation {
             description: None,
             website_url: None,
         }
+    }
+
+    /// Sets the human-readable display title.
+    pub fn with_title(mut self, title: impl Into<String>) -> Self {
+        self.title = Some(title.into());
+        self
+    }
+
+    /// Sets the description of the implementation.
+    pub fn with_description(mut self, description: impl Into<String>) -> Self {
+        self.description = Some(description.into());
+        self
+    }
+
+    /// Sets the website URL for this implementation.
+    pub fn with_website_url(mut self, website_url: impl Into<String>) -> Self {
+        self.website_url = Some(website_url.into());
+        self
+    }
+
+    /// Adds an icon to the implementation.
+    pub fn with_icon(mut self, icon: Icon) -> Self {
+        self.icons.push(icon);
+        self
+    }
+
+    /// Sets the list of icons for this implementation.
+    pub fn with_icons(mut self, icons: Vec<Icon>) -> Self {
+        self.icons = icons;
+        self
     }
 }
 
@@ -125,7 +186,10 @@ mod tests {
 
         let private_scope: CacheScope = serde_json::from_str("\"private\"").unwrap();
         assert!(matches!(private_scope, CacheScope::Private));
-        assert_eq!(serde_json::to_string(&private_scope).unwrap(), "\"private\"");
+        assert_eq!(
+            serde_json::to_string(&private_scope).unwrap(),
+            "\"private\""
+        );
 
         let user_role: Role = serde_json::from_str("\"user\"").unwrap();
         assert!(matches!(user_role, Role::User));
@@ -133,7 +197,10 @@ mod tests {
 
         let assistant_role: Role = serde_json::from_str("\"assistant\"").unwrap();
         assert!(matches!(assistant_role, Role::Assistant));
-        assert_eq!(serde_json::to_string(&assistant_role).unwrap(), "\"assistant\"");
+        assert_eq!(
+            serde_json::to_string(&assistant_role).unwrap(),
+            "\"assistant\""
+        );
     }
 
     /// Tests [`Implementation`] metadata and [`Icon`] structures.

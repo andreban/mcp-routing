@@ -59,6 +59,40 @@ pub struct ListToolsResult {
     pub extras: HashMap<String, Value>,
 }
 
+impl ListToolsResult {
+    /// Creates a new [`ListToolsResult`] with the given tools list.
+    pub fn new(tools: Vec<Tool>) -> Self {
+        Self {
+            meta: None,
+            result_type: Some("complete".to_string()),
+            next_cursor: None,
+            ttl_ms: None,
+            cache_scope: None,
+            tools,
+            extras: HashMap::new(),
+        }
+    }
+
+    /// Sets the next pagination cursor.
+    pub fn with_next_cursor(mut self, next_cursor: impl Into<String>) -> Self {
+        self.next_cursor = Some(next_cursor.into());
+        self
+    }
+
+    /// Sets caching directives on the list result.
+    pub fn with_cache(mut self, ttl_ms: Option<u64>, cache_scope: Option<CacheScope>) -> Self {
+        self.ttl_ms = ttl_ms;
+        self.cache_scope = cache_scope;
+        self
+    }
+
+    /// Sets response metadata on the list result.
+    pub fn with_meta(mut self, meta: ResultMetaObject) -> Self {
+        self.meta = Some(meta);
+        self
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

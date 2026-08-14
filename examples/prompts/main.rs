@@ -16,10 +16,7 @@ use mcp_routing::{
     McpRouter,
     types::mcp::{
         CacheScope, Implementation,
-        prompts::{
-            Prompt, PromptArgument, PromptMessage,
-            get::GetPromptResult,
-        },
+        prompts::{Prompt, PromptArgument, PromptMessage, get::GetPromptResult},
     },
 };
 use serde::{Deserialize, Serialize};
@@ -52,10 +49,10 @@ async fn code_review_prompt(params: CodeReviewParams) -> Result<GetPromptResult,
         params.code
     );
 
-    Ok(GetPromptResult::new(vec![
-        PromptMessage::user_text(prompt_text),
-    ])
-    .with_description("Structured code review template"))
+    Ok(
+        GetPromptResult::new(vec![PromptMessage::user_text(prompt_text)])
+            .with_description("Structured code review template"),
+    )
 }
 
 /// Typed parameters for a language tutor prompt.

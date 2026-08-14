@@ -23,8 +23,8 @@ use mcp_routing::{
     McpRouter,
     extract::{Extension, SessionId},
     types::jsonrpc::{
-        INVALID_PARAMS_CODE, INVALID_REQUEST_CODE, METHOD_NOT_FOUND_CODE, PARSE_ERROR_CODE,
-        JsonRpcErrorResponse,
+        INVALID_PARAMS_CODE, INVALID_REQUEST_CODE, JsonRpcErrorResponse, METHOD_NOT_FOUND_CODE,
+        PARSE_ERROR_CODE,
     },
 };
 use serde::{Deserialize, Serialize};
@@ -49,7 +49,9 @@ async fn stateful_tool(
     Extension(state): Extension<AppState>,
     args: EchoArgs,
 ) -> Result<String, String> {
-    let sid = session.map(|s| s.to_string()).unwrap_or_else(|| "none".to_string());
+    let sid = session
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| "none".to_string());
     Ok(format!("{}: [{}] -> {}", state.app_name, sid, args.message))
 }
 
@@ -132,10 +134,7 @@ async fn test_batch_all_successful_requests() {
     // 3. tools/call response
     assert_eq!(arr[2]["jsonrpc"], "2.0");
     assert_eq!(arr[2]["id"], "req-3");
-    assert_eq!(
-        arr[2]["result"]["content"][0]["text"],
-        "echo: batch hello"
-    );
+    assert_eq!(arr[2]["result"]["content"][0]["text"], "echo: batch hello");
 
     // 4. prompts/list response
     assert_eq!(arr[3]["jsonrpc"], "2.0");
@@ -314,7 +313,10 @@ async fn test_empty_batch_array_returns_invalid_request() {
 
     let (status, _, body) = common::execute_request(app, req).await;
     assert_eq!(status, StatusCode::OK);
-    assert!(body.is_object(), "Empty batch must return a single JSON object, NOT an array");
+    assert!(
+        body.is_object(),
+        "Empty batch must return a single JSON object, NOT an array"
+    );
 
     let err_resp: JsonRpcErrorResponse = serde_json::from_value(body).unwrap();
     assert_eq!(err_resp.jsonrpc, "2.0");
@@ -371,14 +373,17 @@ async fn test_batch_invalid_primitive_elements() {
         .method("POST")
         .uri("/")
         .header("Content-Type", "application/json")
-        .body(Body::from(json!([
-            1,
-            {
-                "jsonrpc": "2.0",
-                "id": "valid-1",
-                "method": "tools/list"
-            }
-        ]).to_string()))
+        .body(Body::from(
+            json!([
+                1,
+                {
+                    "jsonrpc": "2.0",
+                    "id": "valid-1",
+                    "method": "tools/list"
+                }
+            ])
+            .to_string(),
+        ))
         .unwrap();
 
     let (status3, _, body3) = common::execute_request(app, req3).await;
@@ -412,7 +417,10 @@ async fn test_batch_malformed_json_returns_parse_error() {
 
     let (status, _, body) = common::execute_request(app, req).await;
     assert_eq!(status, StatusCode::OK);
-    assert!(body.is_object(), "Malformed JSON must return a single JSON-RPC error object");
+    assert!(
+        body.is_object(),
+        "Malformed JSON must return a single JSON-RPC error object"
+    );
 
     let err_resp: JsonRpcErrorResponse = serde_json::from_value(body).unwrap();
     assert_eq!(err_resp.jsonrpc, "2.0");
@@ -537,7 +545,10 @@ async fn test_batch_header_fallback() {
 
     // 1. Fallback tool call using Mcp-Name header
     assert_eq!(arr[0]["id"], "fallback-1");
-    assert_eq!(arr[0]["result"]["content"][0]["text"], "echo: from fallback");
+    assert_eq!(
+        arr[0]["result"]["content"][0]["text"],
+        "echo: from fallback"
+    );
 
     // 2. Explicit server/discover
     assert_eq!(arr[1]["id"], "explicit-2");

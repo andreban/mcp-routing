@@ -14,18 +14,17 @@
 
 mod common;
 
-use std::collections::HashMap;
 use http::StatusCode;
 use mcp_routing::{
     McpRouter,
     types::mcp::{
-        AudioContent, BlobResourceContents, ContentAnnotations, ContentBlock,
-        EmbeddedResource, ImageContent, ResourceContents, ResourceLink, Role,
-        TextContent, TextResourceContents,
+        AudioContent, BlobResourceContents, ContentAnnotations, ContentBlock, EmbeddedResource,
+        ImageContent, ResourceContents, ResourceLink, Role, TextContent, TextResourceContents,
         tools::call::{CallToolResult, CallToolResultResponse},
     },
 };
 use serde_json::json;
+use std::collections::HashMap;
 
 /// Handler returning a single annotated [`ContentBlock::Text`].
 async fn handle_single_text_block() -> ContentBlock {
@@ -305,7 +304,10 @@ async fn test_multi_modal_comprehensive_result() {
     }
 
     // Structured content verification
-    let structured = res.result.structured_content.expect("structured_content should be present");
+    let structured = res
+        .result
+        .structured_content
+        .expect("structured_content should be present");
     assert_eq!(structured["summary"], "Multi-modal result summary");
     assert_eq!(structured["totalBlocks"], 6);
 }

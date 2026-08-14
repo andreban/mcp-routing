@@ -7,12 +7,12 @@
 //! and MCP handlers using `with_state` and the `State<T>` extractor.
 
 use std::error::Error;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
+use axum::Router;
 use axum::extract::State as AxumState;
 use axum::routing::get;
-use axum::Router;
 use mcp_routing::{
     McpRouter, Meta, SessionId, State,
     types::mcp::{Implementation, tools::Tool},

@@ -22,15 +22,11 @@ use crate::{
         mcp::{
             CacheScope, Implementation,
             prompts::{
-                Prompt, PromptArgument,
-                get::GetPromptResultResponse,
+                Prompt, PromptArgument, get::GetPromptResultResponse,
                 list::ListPromptsResultResponse,
             },
             server::discover::ServerDiscoverResultResponse,
-            tools::{
-                Tool,
-                list::ListToolsResultResponse,
-            },
+            tools::{Tool, list::ListToolsResultResponse},
         },
     },
 };
@@ -86,8 +82,7 @@ async fn test_mcp_router_builtin_tools_list() {
 /// Tests that `server/discover` returns the configured server metadata and instructions.
 #[tokio::test]
 async fn test_mcp_router_builtin_server_discover() {
-    let app = McpRouter::new(test_server_info())
-        .instructions("Test instructions");
+    let app = McpRouter::new(test_server_info()).instructions("Test instructions");
 
     let request = Request::builder()
         .method("POST")
@@ -107,7 +102,10 @@ async fn test_mcp_router_builtin_server_discover() {
     let server_info = res.result.meta.unwrap().server_info.unwrap();
     assert_eq!(server_info.name, "test-server");
     assert_eq!(server_info.version, "1.0.0");
-    assert_eq!(res.result.instructions.as_deref(), Some("Test instructions"));
+    assert_eq!(
+        res.result.instructions.as_deref(),
+        Some("Test instructions")
+    );
 }
 
 /// Tests tool call routing using `Mcp-Method: tools/call` and `Mcp-Name: echo` headers.
@@ -195,7 +193,10 @@ async fn test_mcp_router_body_method_fallback_server_discover() {
 
     let bytes = response.into_body().collect().await.unwrap().to_bytes();
     let res: ServerDiscoverResultResponse = serde_json::from_slice(&bytes).unwrap();
-    assert_eq!(res.result.instructions.as_deref(), Some("Test instructions"));
+    assert_eq!(
+        res.result.instructions.as_deref(),
+        Some("Test instructions")
+    );
 }
 
 /// Tests tool call routing when both `Mcp-Method` and `Mcp-Name` headers are omitted.
@@ -420,8 +421,8 @@ async fn test_mcp_router_nested_in_axum() {
 /// Tests typed tool handler argument deserialization and success return wrapping.
 #[tokio::test]
 async fn test_mcp_router_typed_tool_handler_success() {
-    use serde::{Deserialize, Serialize};
     use crate::types::mcp::{ContentBlock, tools::call::CallToolResultResponse};
+    use serde::{Deserialize, Serialize};
 
     #[derive(Serialize, Deserialize)]
     struct AddParams {
@@ -470,8 +471,8 @@ async fn test_mcp_router_typed_tool_handler_success() {
 /// Tests typed tool handler error result wrapping with `is_error: true`.
 #[tokio::test]
 async fn test_mcp_router_typed_tool_handler_error_result() {
-    use serde::{Deserialize, Serialize};
     use crate::types::mcp::{ContentBlock, tools::call::CallToolResultResponse};
+    use serde::{Deserialize, Serialize};
 
     #[derive(Serialize, Deserialize)]
     struct DivideParams {
@@ -551,7 +552,10 @@ async fn test_mcp_router_rejects_non_post_methods() {
             "Expected 405 Method Not Allowed"
         );
         assert_eq!(
-            response.headers().get("allow").and_then(|h| h.to_str().ok()),
+            response
+                .headers()
+                .get("allow")
+                .and_then(|h| h.to_str().ok()),
             Some("POST")
         );
         let bytes = response.into_body().collect().await.unwrap().to_bytes();
@@ -661,17 +665,17 @@ async fn test_mcp_router_server_discover_caching_headers_default() {
     let response = app.oneshot(request).await.unwrap();
     assert_eq!(response.status(), StatusCode::OK);
     assert_eq!(
-        response.headers().get("cache-control").and_then(|h| h.to_str().ok()),
+        response
+            .headers()
+            .get("cache-control")
+            .and_then(|h| h.to_str().ok()),
         Some("public, max-age=0")
     );
     assert!(response.headers().contains_key("etag"));
 
     let bytes = response.into_body().collect().await.unwrap().to_bytes();
     let expected_etag = crate::body::compute_etag(&bytes);
-    assert_eq!(
-        expected_etag,
-        crate::body::compute_etag(&bytes)
-    );
+    assert_eq!(expected_etag, crate::body::compute_etag(&bytes));
 }
 
 /// Tests default `Cache-Control: public, max-age=0` and `ETag` headers on `tools/list`.
@@ -692,7 +696,10 @@ async fn test_mcp_router_tools_list_caching_headers_default() {
     let response = app.oneshot(request).await.unwrap();
     assert_eq!(response.status(), StatusCode::OK);
     assert_eq!(
-        response.headers().get("cache-control").and_then(|h| h.to_str().ok()),
+        response
+            .headers()
+            .get("cache-control")
+            .and_then(|h| h.to_str().ok()),
         Some("public, max-age=0")
     );
     assert!(response.headers().contains_key("etag"));
@@ -719,7 +726,10 @@ async fn test_mcp_router_server_discover_custom_caching_headers() {
     let response = app.oneshot(request).await.unwrap();
     assert_eq!(response.status(), StatusCode::OK);
     assert_eq!(
-        response.headers().get("cache-control").and_then(|h| h.to_str().ok()),
+        response
+            .headers()
+            .get("cache-control")
+            .and_then(|h| h.to_str().ok()),
         Some("private, max-age=60")
     );
     assert!(response.headers().contains_key("etag"));
@@ -753,7 +763,10 @@ async fn test_mcp_router_tools_list_custom_caching_headers() {
     let response = app.oneshot(request).await.unwrap();
     assert_eq!(response.status(), StatusCode::OK);
     assert_eq!(
-        response.headers().get("cache-control").and_then(|h| h.to_str().ok()),
+        response
+            .headers()
+            .get("cache-control")
+            .and_then(|h| h.to_str().ok()),
         Some("public, max-age=120")
     );
     assert!(response.headers().contains_key("etag"));
@@ -767,8 +780,7 @@ async fn test_mcp_router_tools_list_custom_caching_headers() {
 /// Tests disabling caching directives (no `Cache-Control` header) while preserving `ETag`.
 #[tokio::test]
 async fn test_mcp_router_disabled_caching_headers() {
-    let app = McpRouter::new(test_server_info())
-        .server_discover_cache(None, None);
+    let app = McpRouter::new(test_server_info()).server_discover_cache(None, None);
 
     let request = Request::builder()
         .method("POST")
@@ -822,7 +834,10 @@ async fn test_mcp_router_per_tool_caching_headers() {
     let resp1 = app.clone().oneshot(req1).await.unwrap();
     assert_eq!(resp1.status(), StatusCode::OK);
     assert_eq!(
-        resp1.headers().get("cache-control").and_then(|h| h.to_str().ok()),
+        resp1
+            .headers()
+            .get("cache-control")
+            .and_then(|h| h.to_str().ok()),
         Some("public, max-age=45")
     );
     assert!(resp1.headers().contains_key("etag"));
@@ -835,14 +850,18 @@ async fn test_mcp_router_per_tool_caching_headers() {
         .header("Mcp-Name", "configured_tool")
         .header("Content-Type", "application/json")
         .body(Body::from(
-            json!({"id": 2, "method": "tools/call", "params": {"name": "configured_tool"}}).to_string(),
+            json!({"id": 2, "method": "tools/call", "params": {"name": "configured_tool"}})
+                .to_string(),
         ))
         .unwrap();
 
     let resp2 = app.clone().oneshot(req2).await.unwrap();
     assert_eq!(resp2.status(), StatusCode::OK);
     assert_eq!(
-        resp2.headers().get("cache-control").and_then(|h| h.to_str().ok()),
+        resp2
+            .headers()
+            .get("cache-control")
+            .and_then(|h| h.to_str().ok()),
         Some("private, max-age=90")
     );
     assert!(resp2.headers().contains_key("etag"));
@@ -855,7 +874,8 @@ async fn test_mcp_router_per_tool_caching_headers() {
         .header("Mcp-Name", "uncached_tool")
         .header("Content-Type", "application/json")
         .body(Body::from(
-            json!({"id": 3, "method": "tools/call", "params": {"name": "uncached_tool"}}).to_string(),
+            json!({"id": 3, "method": "tools/call", "params": {"name": "uncached_tool"}})
+                .to_string(),
         ))
         .unwrap();
 
@@ -963,12 +983,17 @@ async fn test_mcp_router_prompts_caching_headers() {
         .uri("/")
         .header("Mcp-Method", "prompts/list")
         .header("Content-Type", "application/json")
-        .body(Body::from(json!({"id": 1, "method": "prompts/list"}).to_string()))
+        .body(Body::from(
+            json!({"id": 1, "method": "prompts/list"}).to_string(),
+        ))
         .unwrap();
 
     let resp_list = app.clone().oneshot(req_list).await.unwrap();
     assert_eq!(
-        resp_list.headers().get("cache-control").and_then(|h| h.to_str().ok()),
+        resp_list
+            .headers()
+            .get("cache-control")
+            .and_then(|h| h.to_str().ok()),
         Some("public, max-age=180")
     );
 
@@ -979,14 +1004,17 @@ async fn test_mcp_router_prompts_caching_headers() {
         .header("Mcp-Method", "prompts/get")
         .header("Mcp-Name", "cached_p")
         .header("Content-Type", "application/json")
-        .body(Body::from(json!({"id": 2, "method": "prompts/get"}).to_string()))
+        .body(Body::from(
+            json!({"id": 2, "method": "prompts/get"}).to_string(),
+        ))
         .unwrap();
 
     let resp_get = app.oneshot(req_get).await.unwrap();
     assert_eq!(
-        resp_get.headers().get("cache-control").and_then(|h| h.to_str().ok()),
+        resp_get
+            .headers()
+            .get("cache-control")
+            .and_then(|h| h.to_str().ok()),
         Some("public, max-age=60")
     );
 }
-
-

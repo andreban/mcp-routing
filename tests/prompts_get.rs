@@ -70,9 +70,9 @@ async fn handle_multi_turn() -> Vec<PromptMessage> {
 
 /// No-args handler returning a [`GetPromptResult`] with description.
 async fn handle_result_with_desc() -> GetPromptResult {
-    GetPromptResult::new(vec![
-        PromptMessage::user_text("Summarize the following notes:"),
-    ])
+    GetPromptResult::new(vec![PromptMessage::user_text(
+        "Summarize the following notes:",
+    )])
     .with_description("Notes summarization template")
 }
 
@@ -83,11 +83,14 @@ async fn handle_code_review(params: CodeReviewParams) -> Result<GetPromptResult,
     }
 
     let lang = params.language.unwrap_or_else(|| "unspecified".to_string());
-    let prompt_text = format!("Please review the following {lang} code:\n\n```\n{}\n```", params.code);
+    let prompt_text = format!(
+        "Please review the following {lang} code:\n\n```\n{}\n```",
+        params.code
+    );
 
-    Ok(GetPromptResult::new(vec![
-        PromptMessage::user_text(prompt_text),
-    ]))
+    Ok(GetPromptResult::new(vec![PromptMessage::user_text(
+        prompt_text,
+    )]))
 }
 
 /// Typed handler returning a string directly.
@@ -95,7 +98,10 @@ async fn handle_translate(params: TranslateParams) -> Result<String, String> {
     if params.text.is_empty() {
         return Err("text cannot be empty".to_string());
     }
-    Ok(format!("Translate the following text into {}:\n{}", params.target_language, params.text))
+    Ok(format!(
+        "Translate the following text into {}:\n{}",
+        params.target_language, params.text
+    ))
 }
 
 /// Multi-modal prompt handler returning text and image blocks.
@@ -188,8 +194,8 @@ async fn test_prompts_get_header_method_body_prompt_name_fallback() {
 /// Tests pure body-based fallback routing (when both headers are omitted).
 #[tokio::test]
 async fn test_prompts_get_body_fallback() {
-    let app = McpRouter::new(common::sample_server_info())
-        .register_prompt("translate", handle_translate);
+    let app =
+        McpRouter::new(common::sample_server_info()).register_prompt("translate", handle_translate);
 
     let req = common::build_request(
         None,
@@ -214,7 +220,10 @@ async fn test_prompts_get_body_fallback() {
     let res: GetPromptResultResponse = serde_json::from_value(body).unwrap();
     assert_eq!(res.id, "body-fallback-prompt".into());
     if let ContentBlock::Text(ref t) = res.result.messages[0].content {
-        assert_eq!(t.text, "Translate the following text into Spanish:\nHello world");
+        assert_eq!(
+            t.text,
+            "Translate the following text into Spanish:\nHello world"
+        );
     }
 }
 
@@ -269,7 +278,10 @@ async fn test_prompts_get_no_args_handlers() {
     );
     let (_, _, body4) = common::execute_request(app, req4).await;
     let res4: GetPromptResultResponse = serde_json::from_value(body4).unwrap();
-    assert_eq!(res4.result.description.as_deref(), Some("Notes summarization template"));
+    assert_eq!(
+        res4.result.description.as_deref(),
+        Some("Notes summarization template")
+    );
 }
 
 /// Tests multi-modal prompt message content blocks.
@@ -288,20 +300,25 @@ async fn test_prompts_get_multimodal_content() {
     assert_eq!(status, StatusCode::OK);
     let res: GetPromptResultResponse = serde_json::from_value(body).unwrap();
     assert_eq!(res.result.messages.len(), 2);
-    assert!(matches!(res.result.messages[0].content, ContentBlock::Text(_)));
-    assert!(matches!(res.result.messages[1].content, ContentBlock::Image(_)));
+    assert!(matches!(
+        res.result.messages[0].content,
+        ContentBlock::Text(_)
+    ));
+    assert!(matches!(
+        res.result.messages[1].content,
+        ContentBlock::Image(_)
+    ));
 }
 
 /// Tests per-prompt caching configuration.
 #[tokio::test]
 async fn test_prompts_get_with_caching_directives() {
-    let app = McpRouter::new(common::sample_server_info())
-        .register_prompt_with_cache(
-            "cached_prompt",
-            handle_no_args_static_str,
-            Some(300_000),
-            Some(CacheScope::Public),
-        );
+    let app = McpRouter::new(common::sample_server_info()).register_prompt_with_cache(
+        "cached_prompt",
+        handle_no_args_static_str,
+        Some(300_000),
+        Some(CacheScope::Public),
+    );
 
     let req = common::build_request(
         Some("prompts/get"),
@@ -338,7 +355,12 @@ async fn test_prompts_get_unknown_prompt_returns_method_not_found() {
 
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["error"]["code"], -32601);
-    assert!(body["error"]["message"].as_str().unwrap().contains("prompt 'nonexistent_prompt' not found"));
+    assert!(
+        body["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("prompt 'nonexistent_prompt' not found")
+    );
 }
 
 /// Tests error handling when prompt name is omitted.
@@ -356,14 +378,19 @@ async fn test_prompts_get_missing_prompt_name_returns_invalid_params() {
 
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["error"]["code"], -32602);
-    assert!(body["error"]["message"].as_str().unwrap().contains("empty prompt name"));
+    assert!(
+        body["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("empty prompt name")
+    );
 }
 
 /// Tests error handling when prompt arguments fail deserialization.
 #[tokio::test]
 async fn test_prompts_get_invalid_arguments_returns_invalid_params() {
-    let app = McpRouter::new(common::sample_server_info())
-        .register_prompt("translate", handle_translate);
+    let app =
+        McpRouter::new(common::sample_server_info()).register_prompt("translate", handle_translate);
 
     let req = common::build_request(
         Some("prompts/get"),
@@ -385,7 +412,12 @@ async fn test_prompts_get_invalid_arguments_returns_invalid_params() {
 
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["error"]["code"], -32602);
-    assert!(body["error"]["message"].as_str().unwrap().contains("Invalid params"));
+    assert!(
+        body["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("Invalid params")
+    );
 }
 
 /// Tests error handling when prompt handler business logic returns an error.
@@ -414,5 +446,10 @@ async fn test_prompts_get_business_logic_error_returns_internal_error() {
 
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["error"]["code"], -32603);
-    assert!(body["error"]["message"].as_str().unwrap().contains("code cannot be empty"));
+    assert!(
+        body["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("code cannot be empty")
+    );
 }

@@ -58,6 +58,47 @@ pub struct ServerDiscoverResult {
     pub extras: HashMap<String, Value>,
 }
 
+impl ServerDiscoverResult {
+    /// Creates a new [`ServerDiscoverResult`] with the given capabilities and supported versions.
+    pub fn new(capabilities: ServerCapabilities, supported_versions: Vec<String>) -> Self {
+        Self {
+            meta: None,
+            result_type: Some("complete".to_string()),
+            supported_versions,
+            capabilities,
+            instructions: None,
+            ttl_ms: None,
+            cache_scope: None,
+            extras: HashMap::new(),
+        }
+    }
+
+    /// Sets human-readable instructions on the discover result.
+    pub fn with_instructions(mut self, instructions: impl Into<String>) -> Self {
+        self.instructions = Some(instructions.into());
+        self
+    }
+
+    /// Sets caching parameters on the discover result.
+    pub fn with_cache(mut self, ttl_ms: Option<u64>, cache_scope: Option<CacheScope>) -> Self {
+        self.ttl_ms = ttl_ms;
+        self.cache_scope = cache_scope;
+        self
+    }
+
+    /// Sets the result metadata on the discover result.
+    pub fn with_meta(mut self, meta: ResultMetaObject) -> Self {
+        self.meta = Some(meta);
+        self
+    }
+
+    /// Sets the result type discriminator string.
+    pub fn with_result_type(mut self, result_type: impl Into<String>) -> Self {
+        self.result_type = Some(result_type.into());
+        self
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

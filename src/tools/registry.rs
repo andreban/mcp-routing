@@ -9,14 +9,16 @@ use http::Response;
 use crate::body::{ResponseBody, json_response, json_response_with_caching};
 use crate::extract::{RequestContext, SessionId};
 use crate::router::{DispatchOutcome, MethodContext};
-use crate::tools::{IntoToolHandler, ToolHandler};
+use crate::tools::{
+    IntoToolHandler, IntoToolsListHandler, ToolError, ToolHandler, ToolsListHandler,
+};
 use crate::types::jsonrpc::{JsonRpcErrorResponse, JsonRpcRequestId};
 use crate::types::mcp::{
     CacheScope,
     tools::{
         Tool,
         call::{CallToolParams, CallToolRequest, CallToolResultResponse},
-        list::{ListToolsParams, ListToolsRequest},
+        list::{ListToolsParams, ListToolsRequest, ListToolsResultResponse},
     },
 };
 use crate::utils::resolve_tool_name;
@@ -29,6 +31,7 @@ pub struct ToolRegistry {
     pub(crate) tool_cache_settings: HashMap<String, (Option<u64>, Option<CacheScope>)>,
     pub(crate) list_ttl_ms: Option<u64>,
     pub(crate) list_cache_scope: Option<CacheScope>,
+    pub(crate) list_handler: Option<Arc<dyn ToolsListHandler>>,
 }
 
 impl Default for ToolRegistry {
@@ -46,7 +49,17 @@ impl ToolRegistry {
             tool_cache_settings: HashMap::new(),
             list_ttl_ms: Some(0),
             list_cache_scope: Some(CacheScope::Public),
+            list_handler: None,
         }
+    }
+
+    /// Sets a custom handler for `tools/list` requests.
+    pub fn set_list_handler<H, T>(&mut self, handler: H)
+    where
+        H: IntoToolsListHandler<T>,
+        T: 'static,
+    {
+        self.list_handler = Some(handler.into_tools_list_handler());
     }
 
     /// Registers a tool definition alongside a typed asynchronous handler.
@@ -76,7 +89,8 @@ impl ToolRegistry {
     {
         let tool = tool.into();
         let name = tool.name.clone();
-        self.tool_handlers.insert(name.clone(), handler.into_tool_handler());
+        self.tool_handlers
+            .insert(name.clone(), handler.into_tool_handler());
         self.tool_cache_settings.insert(name, (ttl_ms, cache_scope));
         self.tools.push(tool);
     }
@@ -99,13 +113,12 @@ impl ToolRegistry {
     }
 
     /// Dispatches an incoming `tools/list` JSON-RPC request.
-    pub(crate) fn dispatch_list(
+    pub(crate) async fn dispatch_list(
         &self,
-        req_id: Option<JsonRpcRequestId>,
-        is_notification: bool,
+        ctx: MethodContext<'_>,
         params_val: Option<serde_json::Value>,
     ) -> DispatchOutcome {
-        if is_notification {
+        if ctx.is_notification {
             return DispatchOutcome::notification();
         }
 
@@ -114,7 +127,7 @@ impl ToolRegistry {
                 Ok(p) => p,
                 Err(err) => {
                     return DispatchOutcome::error(JsonRpcErrorResponse::invalid_params(
-                        req_id,
+                        ctx.req_id,
                         format!("Invalid params: {err}"),
                     ));
                 }
@@ -126,27 +139,73 @@ impl ToolRegistry {
             },
         };
 
-        let req = ListToolsRequest::new(
-            req_id.clone().unwrap_or_else(|| "".into()),
-            "tools/list",
-            Some(params),
-        );
+        if let Some(ref handler) = self.list_handler {
+            let mut extensions = (*ctx.extensions).clone();
+            extensions.insert(crate::extract::RegisteredTools(self.tools.clone()));
+            let request_ctx = RequestContext::new(
+                ctx.session_id,
+                params.meta.clone(),
+                ctx.headers.clone(),
+                Arc::new(extensions),
+            );
+            match handler
+                .call(
+                    request_ctx,
+                    params.cursor,
+                    self.list_ttl_ms,
+                    self.list_cache_scope.clone(),
+                )
+                .await
+            {
+                Ok(res) => {
+                    let ttl_ms = res.ttl_ms;
+                    let cache_scope = res.cache_scope.clone();
+                    let response =
+                        ListToolsResultResponse::new(ctx.req_id.unwrap_or_else(|| "".into()), res);
+                    match serde_json::to_value(response) {
+                        Ok(v) => DispatchOutcome::response_with_cache(v, ttl_ms, cache_scope),
+                        Err(err) => DispatchOutcome::error(JsonRpcErrorResponse::internal_error(
+                            None,
+                            format!("Failed to serialize response: {err}"),
+                        )),
+                    }
+                }
+                Err(ToolError::InvalidParams(err)) => {
+                    DispatchOutcome::error(JsonRpcErrorResponse::invalid_params(
+                        ctx.req_id,
+                        format!("Invalid params: {err}"),
+                    ))
+                }
+                Err(ToolError::Internal(err)) => {
+                    DispatchOutcome::error(JsonRpcErrorResponse::internal_error(
+                        ctx.req_id,
+                        format!("Failed to list tools: {err}"),
+                    ))
+                }
+            }
+        } else {
+            let req = ListToolsRequest::new(
+                ctx.req_id.clone().unwrap_or_else(|| "".into()),
+                "tools/list",
+                Some(params),
+            );
 
-        let res = crate::tools::list::handle_list_tools(
-            req,
-            self.tools.clone(),
-            self.list_ttl_ms,
-            self.list_cache_scope.clone(),
-        );
+            let res = crate::tools::list::handle_list_tools(
+                req,
+                self.tools.clone(),
+                self.list_ttl_ms,
+                self.list_cache_scope.clone(),
+            );
 
-        let ttl_ms = res.result.ttl_ms;
-        let cache_scope = res.result.cache_scope.clone();
-        match serde_json::to_value(res) {
-            Ok(v) => DispatchOutcome::response_with_cache(v, ttl_ms, cache_scope),
-            Err(err) => DispatchOutcome::error(JsonRpcErrorResponse::internal_error(
-                req_id,
-                format!("Failed to serialize response: {err}"),
-            )),
+            let ttl_ms = res.result.ttl_ms;
+            let cache_scope = res.result.cache_scope.clone();
+            match serde_json::to_value(res) {
+                Ok(v) => DispatchOutcome::response_with_cache(v, ttl_ms, cache_scope),
+                Err(err) => DispatchOutcome::error(JsonRpcErrorResponse::internal_error(
+                    ctx.req_id,
+                    format!("Failed to serialize response: {err}"),
+                )),
+            }
         }
     }
 
@@ -173,10 +232,8 @@ impl ToolRegistry {
             None => None,
         };
 
-        let tool_name = resolve_tool_name(
-            ctx.header_name,
-            params.as_ref().map(|p| p.name.as_str()),
-        );
+        let tool_name =
+            resolve_tool_name(ctx.header_name, params.as_ref().map(|p| p.name.as_str()));
 
         let Some(tool_name) = tool_name else {
             tracing::debug!("Missing tool name for tools/call");
@@ -253,10 +310,8 @@ impl ToolRegistry {
             Ok(r) => r,
             Err(err) => {
                 tracing::error!(?err, "Failed to parse ListToolsRequest");
-                let error_response = JsonRpcErrorResponse::invalid_params(
-                    req_id,
-                    format!("Invalid params: {err}"),
-                );
+                let error_response =
+                    JsonRpcErrorResponse::invalid_params(req_id, format!("Invalid params: {err}"));
                 return json_response(&error_response);
             }
         };
@@ -288,10 +343,8 @@ impl ToolRegistry {
             Ok(r) => r,
             Err(err) => {
                 tracing::error!(?err, "Failed to parse CallToolRequest");
-                let error_response = JsonRpcErrorResponse::invalid_params(
-                    req_id,
-                    format!("Invalid params: {err}"),
-                );
+                let error_response =
+                    JsonRpcErrorResponse::invalid_params(req_id, format!("Invalid params: {err}"));
                 return json_response(&error_response);
             }
         };

@@ -84,7 +84,11 @@ mod tests {
     #[test]
     fn test_jsonrpc_payload_serde() {
         // Single Request
-        let single_req = JsonRpcRequest::new(1.into(), "tools/list", Some(serde_json::json!({"cursor": "p1"})));
+        let single_req = JsonRpcRequest::new(
+            1.into(),
+            "tools/list",
+            Some(serde_json::json!({"cursor": "p1"})),
+        );
         let single_payload = JsonRpcPayload::Single(single_req.clone());
         assert!(single_payload.is_single());
         assert!(!single_payload.is_batch());

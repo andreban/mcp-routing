@@ -139,10 +139,7 @@ pub fn build_request(
 }
 
 /// Executes a request against an [`McpRouter`] using `oneshot`, returning the status code, header map, and parsed JSON value.
-pub async fn execute_request(
-    app: McpRouter,
-    req: Request<Body>,
-) -> (StatusCode, HeaderMap, Value) {
+pub async fn execute_request(app: McpRouter, req: Request<Body>) -> (StatusCode, HeaderMap, Value) {
     let response = app.oneshot(req).await.unwrap();
     let status = response.status();
     let headers = response.headers().clone();
@@ -179,7 +176,8 @@ pub async fn send_raw_http_request(
 ) -> (StatusCode, HeaderMap, String) {
     let mut stream = TcpStream::connect(addr).await.unwrap();
 
-    let mut request_raw = format!("{method} {path} HTTP/1.1\r\nHost: {addr}\r\nConnection: close\r\n");
+    let mut request_raw =
+        format!("{method} {path} HTTP/1.1\r\nHost: {addr}\r\nConnection: close\r\n");
     request_raw.push_str(&format!("Content-Length: {}\r\n", body.len()));
     for (k, v) in headers {
         request_raw.push_str(&format!("{k}: {v}\r\n"));

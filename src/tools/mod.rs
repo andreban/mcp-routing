@@ -9,15 +9,33 @@ use serde::de::DeserializeOwned;
 use serde_json::Value;
 
 use crate::extract::{FromRequestContext, RequestContext};
-use crate::types::mcp::{
-    ContentBlock,
-    tools::call::CallToolResult,
-};
+use crate::types::mcp::{ContentBlock, tools::call::CallToolResult};
 
 pub mod list;
 pub mod registry;
 
+pub use list::{IntoToolsListHandler, IntoToolsListResult, ToolsListHandler};
 pub use registry::ToolRegistry;
+
+/// Error type encountered during tool execution or tool listing.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ToolError {
+    /// Invalid arguments provided to the tool or listing handler.
+    InvalidParams(String),
+    /// Internal execution or business logic error.
+    Internal(String),
+}
+
+impl std::fmt::Display for ToolError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ToolError::InvalidParams(msg) => write!(f, "Invalid params: {msg}"),
+            ToolError::Internal(msg) => write!(f, "{msg}"),
+        }
+    }
+}
+
+impl std::error::Error for ToolError {}
 
 /// Trait for types that can be converted into a [`CallToolResult`].
 pub trait IntoToolResult: Send {
@@ -133,9 +151,7 @@ where
                 Box::pin(async move { fut.await.into_tool_result() })
             }
             Err(err) => {
-                Box::pin(async move {
-                    CallToolResult::error(format!("Invalid arguments: {err}"))
-                })
+                Box::pin(async move { CallToolResult::error(format!("Invalid arguments: {err}")) })
             }
         }
     }
@@ -317,8 +333,15 @@ mod tests {
             Meta(meta): Meta,
             params: EchoParams,
         ) -> Result<String, String> {
-            let client = meta.client_info.as_ref().map(|c| c.name.as_str()).unwrap_or("unknown");
-            Ok(format!("{}: [{session}] {client} -> {}", state.prefix, params.message))
+            let client = meta
+                .client_info
+                .as_ref()
+                .map(|c| c.name.as_str())
+                .unwrap_or("unknown");
+            Ok(format!(
+                "{}: [{session}] {client} -> {}",
+                state.prefix, params.message
+            ))
         }
 
         let handler = echo_handler.into_tool_handler();

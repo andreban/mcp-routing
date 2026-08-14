@@ -21,8 +21,8 @@ use http::{Request, StatusCode};
 use mcp_routing::{
     McpRouter,
     types::jsonrpc::{
-        INVALID_PARAMS_CODE, INVALID_REQUEST_CODE, METHOD_NOT_FOUND_CODE, PARSE_ERROR_CODE,
-        JsonRpcErrorResponse,
+        INVALID_PARAMS_CODE, INVALID_REQUEST_CODE, JsonRpcErrorResponse, METHOD_NOT_FOUND_CODE,
+        PARSE_ERROR_CODE,
     },
 };
 use serde_json::json;
@@ -37,8 +37,7 @@ async fn dummy_tool() -> &'static str {
 /// - Method and tool name resolution is robust to surrounding slashes
 #[tokio::test]
 async fn test_slash_normalization_in_headers_and_body() {
-    let app = McpRouter::new(common::sample_server_info())
-        .register_tool("echo_tool", dummy_tool);
+    let app = McpRouter::new(common::sample_server_info()).register_tool("echo_tool", dummy_tool);
 
     // 1. Headers with leading and trailing slashes
     let req1 = common::build_request(
@@ -141,8 +140,7 @@ async fn test_empty_method_returns_invalid_request() {
 /// Tests that a `tools/call` request without a tool name in headers or body returns `Invalid Params` (-32602).
 #[tokio::test]
 async fn test_missing_tool_name_returns_invalid_params() {
-    let app = McpRouter::new(common::sample_server_info())
-        .register_tool("sample", dummy_tool);
+    let app = McpRouter::new(common::sample_server_info()).register_tool("sample", dummy_tool);
 
     // Mcp-Method is tools/call, but no Mcp-Name header and no params.name in body
     let req = common::build_request(
@@ -170,8 +168,7 @@ async fn test_missing_tool_name_returns_invalid_params() {
 /// Tests that a `tools/call` request with an empty tool name string returns `Invalid Params` (-32602).
 #[tokio::test]
 async fn test_empty_tool_name_returns_invalid_params() {
-    let app = McpRouter::new(common::sample_server_info())
-        .register_tool("sample", dummy_tool);
+    let app = McpRouter::new(common::sample_server_info()).register_tool("sample", dummy_tool);
 
     // Empty tool name
     let req = common::build_request(
@@ -223,8 +220,7 @@ async fn test_unknown_method_returns_method_not_found() {
 /// Tests that non-standard path suffix methods like `tools/call/echo` return `Method Not Found` (-32601).
 #[tokio::test]
 async fn test_invalid_method_path_suffix_returns_method_not_found() {
-    let app = McpRouter::new(common::sample_server_info())
-        .register_tool("echo", dummy_tool);
+    let app = McpRouter::new(common::sample_server_info()).register_tool("echo", dummy_tool);
 
     let req = common::build_request(
         Some("tools/call/echo"),
@@ -248,8 +244,8 @@ async fn test_invalid_method_path_suffix_returns_method_not_found() {
 /// Tests that attempting to call an unregistered tool name returns `Method Not Found` (-32601).
 #[tokio::test]
 async fn test_unknown_tool_returns_method_not_found() {
-    let app = McpRouter::new(common::sample_server_info())
-        .register_tool("existing_tool", dummy_tool);
+    let app =
+        McpRouter::new(common::sample_server_info()).register_tool("existing_tool", dummy_tool);
 
     let req = common::build_request(
         Some("tools/call"),
@@ -276,8 +272,7 @@ async fn test_unknown_tool_returns_method_not_found() {
 /// Tests that malformed or non-JSON payloads across all endpoints return `Parse Error` (-32700) with `id: null`.
 #[tokio::test]
 async fn test_malformed_json_body_returns_parse_error() {
-    let app = McpRouter::new(common::sample_server_info())
-        .register_tool("echo", dummy_tool);
+    let app = McpRouter::new(common::sample_server_info()).register_tool("echo", dummy_tool);
 
     // 1. Invalid JSON in server/discover
     let req1 = Request::builder()
@@ -329,8 +324,7 @@ async fn test_malformed_json_body_returns_parse_error() {
 /// Tests that non-POST HTTP methods (GET, PUT, DELETE, PATCH, OPTIONS, HEAD) return HTTP 405 Method Not Allowed with `Allow: POST`.
 #[tokio::test]
 async fn test_http_method_not_allowed_returns_405() {
-    let app = McpRouter::new(common::sample_server_info())
-        .register_tool("echo", dummy_tool);
+    let app = McpRouter::new(common::sample_server_info()).register_tool("echo", dummy_tool);
 
     let methods = [
         ("GET", http::Method::GET),
@@ -347,7 +341,9 @@ async fn test_http_method_not_allowed_returns_405() {
             .uri("/")
             .header("Mcp-Method", "server/discover")
             .header("Content-Type", "application/json")
-            .body(Body::from(json!({"id": 1, "method": "server/discover"}).to_string()))
+            .body(Body::from(
+                json!({"id": 1, "method": "server/discover"}).to_string(),
+            ))
             .unwrap();
 
         let (status, headers, body_bytes) = common::execute_request_raw(app.clone(), req).await;
@@ -368,15 +364,16 @@ async fn test_http_method_not_allowed_returns_405() {
 /// Tests that missing or non-JSON Content-Type headers return HTTP 415 Unsupported Media Type.
 #[tokio::test]
 async fn test_unsupported_media_type_returns_415() {
-    let app = McpRouter::new(common::sample_server_info())
-        .register_tool("echo", dummy_tool);
+    let app = McpRouter::new(common::sample_server_info()).register_tool("echo", dummy_tool);
 
     // 1. Missing Content-Type header
     let req_missing = Request::builder()
         .method("POST")
         .uri("/")
         .header("Mcp-Method", "server/discover")
-        .body(Body::from(json!({"id": 1, "method": "server/discover"}).to_string()))
+        .body(Body::from(
+            json!({"id": 1, "method": "server/discover"}).to_string(),
+        ))
         .unwrap();
 
     let (status1, _, body1) = common::execute_request_raw(app.clone(), req_missing).await;
@@ -389,7 +386,9 @@ async fn test_unsupported_media_type_returns_415() {
         .uri("/")
         .header("Mcp-Method", "server/discover")
         .header("Content-Type", "text/plain")
-        .body(Body::from(json!({"id": 2, "method": "server/discover"}).to_string()))
+        .body(Body::from(
+            json!({"id": 2, "method": "server/discover"}).to_string(),
+        ))
         .unwrap();
 
     let (status2, _, body2) = common::execute_request_raw(app.clone(), req_text).await;
@@ -414,8 +413,7 @@ async fn test_unsupported_media_type_returns_415() {
 /// Tests that valid JSON content types with parameters (e.g. charset) or different casing are accepted.
 #[tokio::test]
 async fn test_valid_json_content_types_accepted() {
-    let app = McpRouter::new(common::sample_server_info())
-        .register_tool("echo", dummy_tool);
+    let app = McpRouter::new(common::sample_server_info()).register_tool("echo", dummy_tool);
 
     let content_types = [
         "application/json",
@@ -432,17 +430,23 @@ async fn test_valid_json_content_types_accepted() {
             .header("Mcp-Method", "tools/call")
             .header("Mcp-Name", "echo")
             .header("Content-Type", ct)
-            .body(Body::from(json!({
-                "jsonrpc": "2.0",
-                "id": ct,
-                "method": "tools/call",
-                "params": { "name": "echo" }
-            }).to_string()))
+            .body(Body::from(
+                json!({
+                    "jsonrpc": "2.0",
+                    "id": ct,
+                    "method": "tools/call",
+                    "params": { "name": "echo" }
+                })
+                .to_string(),
+            ))
             .unwrap();
 
         let (status, _, body) = common::execute_request(app.clone(), req).await;
-        assert_eq!(status, StatusCode::OK, "Content-Type '{ct}' should be accepted");
+        assert_eq!(
+            status,
+            StatusCode::OK,
+            "Content-Type '{ct}' should be accepted"
+        );
         assert_eq!(body["result"]["content"][0]["text"], "success");
     }
 }
-

@@ -11,15 +11,13 @@ use serde_json::Value;
 use crate::extract::{FromRequestContext, RequestContext};
 use crate::types::mcp::{
     ContentBlock,
-    prompts::{
-        PromptMessage,
-        get::GetPromptResult,
-    },
+    prompts::{PromptMessage, get::GetPromptResult},
 };
 
 pub mod list;
 pub mod registry;
 
+pub use list::{IntoPromptsListHandler, IntoPromptsListResult, PromptsListHandler};
 pub use registry::PromptRegistry;
 
 /// Error type encountered during prompt execution or argument deserialization.
@@ -169,13 +167,11 @@ where
                 let fut = (self.0)(args);
                 Box::pin(async move { fut.await.into_prompt_result() })
             }
-            Err(err) => {
-                Box::pin(async move {
-                    Err(PromptError::InvalidParams(format!(
-                        "Invalid arguments: {err}"
-                    )))
-                })
-            }
+            Err(err) => Box::pin(async move {
+                Err(PromptError::InvalidParams(format!(
+                    "Invalid arguments: {err}"
+                )))
+            }),
         }
     }
 }
@@ -361,7 +357,10 @@ mod tests {
             args: SummarizeArgs,
         ) -> Result<String, String> {
             let ver = meta.protocol_version.as_deref().unwrap_or("v1");
-            Ok(format!("[{session}][{ver}] Summarize in {} tone: {}", config.tone, args.text))
+            Ok(format!(
+                "[{session}][{ver}] Summarize in {} tone: {}",
+                config.tone, args.text
+            ))
         }
 
         let handler = summarize_prompt.into_prompt_handler();
@@ -397,7 +396,10 @@ mod tests {
 
         assert_eq!(result.messages.len(), 1);
         if let ContentBlock::Text(ref t) = result.messages[0].content {
-            assert_eq!(t.text, "[sess-prompt-1][2026-07-28] Summarize in formal tone: Antigravity codebase");
+            assert_eq!(
+                t.text,
+                "[sess-prompt-1][2026-07-28] Summarize in formal tone: Antigravity codebase"
+            );
         } else {
             panic!("Expected text content");
         }

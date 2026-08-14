@@ -79,9 +79,19 @@ mod test;
 
 pub use body::{BoxError, ResponseBody, compute_etag, format_cache_control};
 pub use extract::{
-    Extension, ExtractionError, FromRequestContext, Meta, RequestContext, SessionId, State,
+    Authorization, BearerAuth, Extension, ExtractionError, FromRequestContext, Meta,
+    RegisteredPrompts, RegisteredTools, RequestContext, SessionId, State,
 };
-pub use prompts::{IntoPromptHandler, IntoPromptResult, PromptError, PromptHandler, PromptRegistry};
+pub use prompts::{
+    IntoPromptHandler, IntoPromptResult, IntoPromptsListHandler, IntoPromptsListResult,
+    PromptError, PromptHandler, PromptRegistry, PromptsListHandler,
+};
 pub use router::McpRouter;
-pub use server::ServerConfig;
-pub use tools::{IntoToolHandler, IntoToolResult, ToolHandler, ToolRegistry};
+pub use server::{
+    DiscoveryError, IntoServerDiscoveryHandler, IntoServerDiscoveryResult, ServerConfig,
+    ServerDiscoveryHandler, validate_protocol_version,
+};
+pub use tools::{
+    IntoToolHandler, IntoToolResult, IntoToolsListHandler, IntoToolsListResult, ToolError,
+    ToolHandler, ToolRegistry, ToolsListHandler,
+};

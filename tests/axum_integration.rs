@@ -71,7 +71,10 @@ async fn test_axum_nested_service_oneshot() {
     assert_eq!(resp.status(), StatusCode::OK);
     let bytes = resp.into_body().collect().await.unwrap().to_bytes();
     let disc_res: ServerDiscoverResultResponse = serde_json::from_slice(&bytes).unwrap();
-    assert_eq!(disc_res.result.instructions.as_deref(), Some("Nested in Axum"));
+    assert_eq!(
+        disc_res.result.instructions.as_deref(),
+        Some("Nested in Axum")
+    );
 
     // 2. Tools list endpoint
     let list_req = Request::builder()
@@ -356,4 +359,3 @@ async fn test_axum_real_tcp_server_e2e() {
     assert_eq!(status_ct, StatusCode::UNSUPPORTED_MEDIA_TYPE);
     assert!(body_ct.is_empty());
 }
-

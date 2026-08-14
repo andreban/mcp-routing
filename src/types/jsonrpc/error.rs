@@ -191,7 +191,11 @@ mod tests {
             (JsonRpcErrorCode::MethodNotFound, -32601, "Method not found"),
             (JsonRpcErrorCode::InvalidParams, -32602, "Invalid params"),
             (JsonRpcErrorCode::InternalError, -32603, "Internal error"),
-            (JsonRpcErrorCode::ServerError(-32050), -32050, "Server error"),
+            (
+                JsonRpcErrorCode::ServerError(-32050),
+                -32050,
+                "Server error",
+            ),
             (JsonRpcErrorCode::Custom(1001), 1001, "Custom error"),
         ];
 
@@ -231,9 +235,6 @@ mod tests {
         let deserialized: JsonRpcError = serde_json::from_value(val_with_data).unwrap();
         assert_eq!(deserialized.code, JsonRpcErrorCode::InvalidParams);
         assert_eq!(deserialized.message, "Bad argument");
-        assert_eq!(
-            deserialized.data.unwrap()["field"],
-            "name"
-        );
+        assert_eq!(deserialized.data.unwrap()["field"], "name");
     }
 }

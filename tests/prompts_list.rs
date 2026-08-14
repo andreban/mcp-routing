@@ -13,7 +13,6 @@
 
 mod common;
 
-use std::borrow::Cow;
 use http::StatusCode;
 use mcp_routing::{
     McpRouter,
@@ -24,6 +23,7 @@ use mcp_routing::{
     },
 };
 use serde_json::json;
+use std::borrow::Cow;
 
 async fn dummy_prompt_handler() -> &'static str {
     "prompt text"
@@ -114,7 +114,10 @@ async fn test_prompts_list_multiple_rich_prompts() {
     let p0 = &res.result.prompts[0];
     assert_eq!(p0.name, "code_review");
     assert_eq!(p0.title.as_deref(), Some("Title for code_review"));
-    assert_eq!(p0.description.as_deref(), Some("Description for code_review"));
+    assert_eq!(
+        p0.description.as_deref(),
+        Some("Description for code_review")
+    );
     assert_eq!(p0.icons.len(), 1);
     assert_eq!(p0.icons[0].src, "https://example.com/prompt_icon.png");
     assert_eq!(p0.icons[0].mime_type.as_deref(), Some("image/png"));
@@ -253,4 +256,257 @@ async fn test_prompts_capability_advertisement_in_discover() {
     assert_eq!(status, StatusCode::OK);
     let res: ServerDiscoverResultResponse = serde_json::from_value(body).unwrap();
     assert!(res.result.capabilities.prompts.is_some());
+}
+
+/// Tests registering a custom `prompts_list` handler using `BearerAuth` and `SessionId` extractors.
+#[tokio::test]
+async fn test_prompts_list_custom_handler_with_bearer_auth_and_extractors() {
+    use mcp_routing::extract::{BearerAuth, Meta, SessionId};
+    use mcp_routing::types::mcp::prompts::list::ListPromptsResult;
+
+    async fn custom_prompts_handler(
+        BearerAuth(token): BearerAuth,
+        session: Option<SessionId>,
+        meta: Option<Meta>,
+    ) -> Result<ListPromptsResult, String> {
+        let is_admin = token == "admin-secret";
+        let is_vip = meta
+            .as_ref()
+            .and_then(|m| m.client_info.as_ref())
+            .map(|c| c.name == "vip-client")
+            .unwrap_or(false);
+
+        let mut prompts = vec![common::sample_prompt("public_prompt")];
+        if is_admin || is_vip {
+            prompts.push(common::sample_prompt("admin_prompt"));
+        }
+        if session.as_deref() == Some("beta-session") {
+            prompts.push(common::sample_prompt("beta_prompt"));
+        }
+
+        Ok(ListPromptsResult::new(prompts).with_cache(Some(60_000), Some(CacheScope::Private)))
+    }
+
+    let app = McpRouter::new(common::sample_server_info()).prompts_list(custom_prompts_handler);
+
+    // Request 1: Regular user
+    let mut req1 = common::build_request(
+        Some("prompts/list"),
+        None,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "prompts/list"
+        }),
+    );
+    req1.headers_mut().insert(
+        http::header::AUTHORIZATION,
+        "Bearer user-token".parse().unwrap(),
+    );
+    let (status1, headers1, body1) = common::execute_request(app.clone(), req1).await;
+    assert_eq!(status1, StatusCode::OK);
+    assert_eq!(
+        headers1.get("cache-control").unwrap().to_str().unwrap(),
+        "private, max-age=60"
+    );
+    let res1: ListPromptsResultResponse = serde_json::from_value(body1).unwrap();
+    assert_eq!(res1.result.prompts.len(), 1);
+    assert_eq!(res1.result.prompts[0].name, "public_prompt");
+
+    // Request 2: Admin user with beta session
+    let mut req2 = common::build_request(
+        Some("prompts/list"),
+        None,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "prompts/list"
+        }),
+    );
+    req2.headers_mut().insert(
+        http::header::AUTHORIZATION,
+        "Bearer admin-secret".parse().unwrap(),
+    );
+    req2.headers_mut().insert(
+        http::HeaderName::from_static("mcp-session-id"),
+        "beta-session".parse().unwrap(),
+    );
+    let (status2, _headers2, body2) = common::execute_request(app.clone(), req2).await;
+    assert_eq!(status2, StatusCode::OK);
+    let res2: ListPromptsResultResponse = serde_json::from_value(body2).unwrap();
+    assert_eq!(res2.result.prompts.len(), 3);
+    assert_eq!(res2.result.prompts[0].name, "public_prompt");
+    assert_eq!(res2.result.prompts[1].name, "admin_prompt");
+    assert_eq!(res2.result.prompts[2].name, "beta_prompt");
+
+    // Request 3: Missing authorization header (fails extractor)
+    let req3 = common::build_request(
+        Some("prompts/list"),
+        None,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 3,
+            "method": "prompts/list"
+        }),
+    );
+    let (status3, _headers3, body3) = common::execute_request(app, req3).await;
+    assert_eq!(status3, StatusCode::OK);
+    assert_eq!(body3["error"]["code"], -32602);
+    assert!(
+        body3["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("Missing required Authorization header")
+    );
+}
+
+/// Tests custom `prompts_list` handler with pagination cursor parameter.
+#[tokio::test]
+async fn test_prompts_list_custom_handler_with_pagination_cursor() {
+    use mcp_routing::types::mcp::prompts::list::ListPromptsResult;
+
+    async fn paged_prompts_handler(cursor: Option<String>) -> ListPromptsResult {
+        match cursor.as_deref() {
+            None => ListPromptsResult::new(vec![common::sample_prompt("prompt_page1")])
+                .with_next_cursor("next_cursor_page2"),
+            Some("next_cursor_page2") => {
+                ListPromptsResult::new(vec![common::sample_prompt("prompt_page2")])
+            }
+            Some(_) => ListPromptsResult::new(vec![]),
+        }
+    }
+
+    let app = McpRouter::new(common::sample_server_info()).list_prompts(paged_prompts_handler);
+
+    // Page 1
+    let req1 = common::build_request(
+        Some("prompts/list"),
+        None,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "prompts/list"
+        }),
+    );
+    let (status1, _, body1) = common::execute_request(app.clone(), req1).await;
+    assert_eq!(status1, StatusCode::OK);
+    let res1: ListPromptsResultResponse = serde_json::from_value(body1).unwrap();
+    assert_eq!(res1.result.prompts.len(), 1);
+    assert_eq!(res1.result.prompts[0].name, "prompt_page1");
+    assert_eq!(
+        res1.result.next_cursor.as_deref(),
+        Some("next_cursor_page2")
+    );
+
+    // Page 2
+    let req2 = common::build_request(
+        Some("prompts/list"),
+        None,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "prompts/list",
+            "params": { "cursor": "next_cursor_page2" }
+        }),
+    );
+    let (status2, _, body2) = common::execute_request(app, req2).await;
+    assert_eq!(status2, StatusCode::OK);
+    let res2: ListPromptsResultResponse = serde_json::from_value(body2).unwrap();
+    assert_eq!(res2.result.prompts.len(), 1);
+    assert_eq!(res2.result.prompts[0].name, "prompt_page2");
+    assert_eq!(res2.result.next_cursor, None);
+}
+
+/// Tests custom `prompts_list` handler error propagation.
+#[tokio::test]
+async fn test_prompts_list_custom_handler_error_propagation() {
+    use mcp_routing::types::mcp::prompts::Prompt;
+
+    async fn failing_handler() -> Result<Vec<Prompt>, String> {
+        Err("Template engine failed to load prompts".to_string())
+    }
+
+    let app = McpRouter::new(common::sample_server_info()).prompts_list(failing_handler);
+
+    let req = common::build_request(
+        Some("prompts/list"),
+        None,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 200,
+            "method": "prompts/list"
+        }),
+    );
+
+    let (status, _, body) = common::execute_request(app, req).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["error"]["code"], -32603);
+    assert!(
+        body["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("Template engine failed to load prompts")
+    );
+}
+
+/// Tests that a `prompts_list` handler can extract `RegisteredPrompts` to inspect and filter pre-registered prompts.
+#[tokio::test]
+async fn test_prompts_list_registered_prompts_extractor_filtering() {
+    use mcp_routing::extract::{BearerAuth, RegisteredPrompts};
+    use mcp_routing::types::mcp::prompts::Prompt;
+
+    async fn filter_prompts(
+        auth: Option<BearerAuth>,
+        RegisteredPrompts(all_prompts): RegisteredPrompts,
+    ) -> Vec<Prompt> {
+        let is_admin = auth.as_ref().map(|a| a.token()) == Some("admin-key");
+        all_prompts
+            .into_iter()
+            .filter(|p| !p.name.starts_with("admin_") || is_admin)
+            .collect()
+    }
+
+    let app = McpRouter::new(common::sample_server_info())
+        .register_prompt(
+            common::sample_prompt("public_summary"),
+            dummy_prompt_handler,
+        )
+        .register_prompt(
+            common::sample_prompt("public_translate"),
+            dummy_prompt_handler,
+        )
+        .register_prompt(
+            common::sample_prompt("admin_diagnostics"),
+            dummy_prompt_handler,
+        )
+        .prompts_list(filter_prompts);
+
+    // Standard user request
+    let req_user = common::build_request(
+        Some("prompts/list"),
+        None,
+        json!({ "jsonrpc": "2.0", "id": 1, "method": "prompts/list" }),
+    );
+    let (status_u, _, body_u) = common::execute_request(app.clone(), req_user).await;
+    assert_eq!(status_u, StatusCode::OK);
+    let res_u: ListPromptsResultResponse = serde_json::from_value(body_u).unwrap();
+    assert_eq!(res_u.result.prompts.len(), 2);
+    assert_eq!(res_u.result.prompts[0].name, "public_summary");
+    assert_eq!(res_u.result.prompts[1].name, "public_translate");
+
+    // Admin request with Bearer token
+    let mut req_admin = common::build_request(
+        Some("prompts/list"),
+        None,
+        json!({ "jsonrpc": "2.0", "id": 2, "method": "prompts/list" }),
+    );
+    req_admin.headers_mut().insert(
+        http::header::AUTHORIZATION,
+        "Bearer admin-key".parse().unwrap(),
+    );
+    let (status_a, _, body_a) = common::execute_request(app, req_admin).await;
+    assert_eq!(status_a, StatusCode::OK);
+    let res_a: ListPromptsResultResponse = serde_json::from_value(body_a).unwrap();
+    assert_eq!(res_a.result.prompts.len(), 3);
+    assert_eq!(res_a.result.prompts[2].name, "admin_diagnostics");
 }

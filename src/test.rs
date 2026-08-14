@@ -1,20 +1,17 @@
 // Copyright 2026 André Cipriani Bandarra
 // SPDX-License-Identifier: Apache-2.0
 
-use std::convert::Infallible;
-
 use axum::{
     Router,
     body::Body,
-    http::{Request, Response, StatusCode},
-    routing::post,
+    http::{Request, StatusCode},
 };
 use http_body_util::BodyExt;
 use serde_json::json;
 use tower::ServiceExt;
 
 use crate::{
-    McpRouter, ResponseBody,
+    McpRouter,
     types::mcp::{
         Implementation,
         server::discover::ServerDiscoverResultResponse,
@@ -168,54 +165,6 @@ async fn test_mcp_router_nested_in_axum() {
     assert_eq!(response.status(), StatusCode::OK);
 }
 
-#[tokio::test]
-async fn test_mcp_router_custom_route_override_tower() {
-    let app = McpRouter::new(test_server_info()).route(
-        "/server/discover",
-        tower::service_fn(|_req: Request<ResponseBody>| async {
-            Ok::<_, Infallible>(Response::new(ResponseBody::from("custom_discover")))
-        }),
-    );
-
-    let request = Request::builder()
-        .method("POST")
-        .uri("/")
-        .header("Mcp-Method", "server/discover")
-        .header("Content-Type", "application/json")
-        .body(Body::empty())
-        .unwrap();
-
-    let response = app.oneshot(request).await.unwrap();
-    assert_eq!(response.status(), StatusCode::OK);
-    let bytes = response.into_body().collect().await.unwrap().to_bytes();
-    assert_eq!(bytes.as_ref(), b"custom_discover");
-}
-
-#[tokio::test]
-async fn test_mcp_router_custom_route_override_axum() {
-    async fn custom_discover() -> &'static str {
-        "custom_discover_axum"
-    }
-
-    let app = McpRouter::new(test_server_info()).route(
-        "/server/discover",
-        post(custom_discover)
-            .map_request(|req: Request<ResponseBody>| req.map(axum::body::Body::new)),
-    );
-
-    let request = Request::builder()
-        .method("POST")
-        .uri("/")
-        .header("Mcp-Method", "server/discover")
-        .header("Content-Type", "application/json")
-        .body(Body::empty())
-        .unwrap();
-
-    let response = app.oneshot(request).await.unwrap();
-    assert_eq!(response.status(), StatusCode::OK);
-    let bytes = response.into_body().collect().await.unwrap().to_bytes();
-    assert_eq!(bytes.as_ref(), b"custom_discover_axum");
-}
 
 #[tokio::test]
 async fn test_mcp_router_typed_tool_handler_success() {

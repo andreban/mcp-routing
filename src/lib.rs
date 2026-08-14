@@ -22,8 +22,6 @@
 //!   and path-based routing (`/tools/call/echo`).
 //! - **Typed Tool Handlers**: Register async functions directly as tools with automatic JSON deserialization
 //!   of arguments and serialization of results.
-//! - **Custom Route Overrides**: Override standard protocol endpoints (`server/discover`, `tools/list`)
-//!   with custom Tower services.
 //! - **Zero Framework Lock-in**: No hard dependency on Axum in the core library—use it with any Tower-compatible server.
 //!
 //! ## Example
@@ -69,7 +67,6 @@
 pub mod body;
 pub mod router;
 pub mod server;
-pub mod service;
 pub mod tools;
 pub mod types;
 
@@ -78,5 +75,4 @@ mod test;
 
 pub use body::{BoxError, ResponseBody};
 pub use router::McpRouter;
-pub use service::BoxCloneSyncService;
 pub use tools::{IntoToolHandler, IntoToolResult, ToolHandler};

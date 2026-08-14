@@ -12,7 +12,6 @@ A [Tower](https://crates.io/crates/tower)-native routing library for building [M
 - **Tower-Native**: Implements `tower::Service` for any HTTP request body implementing `http_body::Body`.
 - **Flexible Routing**: Supports both header-based routing (`Mcp-Method`, `Mcp-Name`) and path-based routing (`/tools/call/<tool_name>`).
 - **Typed Tool Handlers**: Register async Rust functions as MCP tools with automatic JSON-RPC argument deserialization and result wrapping.
-- **Custom Route Overrides**: Override standard protocol endpoints (`server/discover`, `tools/list`) with custom Tower services.
 - **Zero Framework Lock-in**: No hard dependency on Axum—use it with any Tower-compatible server stack.
 
 ## Installation

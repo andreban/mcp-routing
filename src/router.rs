@@ -16,7 +16,6 @@ use tower::Service;
 
 use crate::body::{BoxError, ResponseBody, json_response};
 use crate::server;
-use crate::service::BoxCloneSyncService;
 use crate::tools::{self, IntoToolHandler, ToolHandler};
 use crate::types::{
     jsonrpc::JsonRpcRequest,
@@ -31,15 +30,12 @@ use crate::types::{
     },
 };
 
-type BoxedService = BoxCloneSyncService<Request<ResponseBody>, Response<ResponseBody>, Infallible>;
-
 /// A [Tower](tower)-native router for the Model Context Protocol (MCP).
 ///
 /// `McpRouter` implements [`tower::Service`] for HTTP requests and handles routing for:
 /// - Built-in `server/discover` discovery endpoint
 /// - Built-in `tools/list` tool discovery endpoint
 /// - `tools/call` tool execution endpoints (delegating to typed handlers)
-/// - Custom user routes overriding default behaviors
 #[derive(Clone)]
 pub struct McpRouter {
     server_info: Implementation,
@@ -48,7 +44,6 @@ pub struct McpRouter {
     supported_versions: Vec<String>,
     tools: Vec<Tool>,
     tool_handlers: HashMap<String, Arc<dyn ToolHandler>>,
-    custom_handlers: HashMap<String, BoxedService>,
 }
 
 impl McpRouter {
@@ -67,7 +62,6 @@ impl McpRouter {
             supported_versions: vec!["2026-07-28".to_string()],
             tools: Vec::new(),
             tool_handlers: HashMap::new(),
-            custom_handlers: HashMap::new(),
         }
     }
 
@@ -103,29 +97,6 @@ impl McpRouter {
         let name = tool.name.clone();
         self.tool_handlers.insert(name, handler.into_tool_handler());
         self.tools.push(tool);
-        self
-    }
-
-    /// Registers a custom [`tower::Service`] to handle a specific protocol method or path.
-    ///
-    /// This can be used to override built-in endpoints such as `server/discover` or `tools/list`.
-    pub fn route<S, ResBody>(mut self, path: &str, service: S) -> Self
-    where
-        S: Service<Request<ResponseBody>, Response = Response<ResBody>, Error = Infallible>
-            + Clone
-            + Send
-            + Sync
-            + 'static,
-        S::Future: Future<Output = Result<Response<ResBody>, Infallible>> + Send + 'static,
-        ResBody: http_body::Body<Data = Bytes> + Send + 'static,
-        ResBody::Error: Into<BoxError>,
-    {
-        let key = path.trim_matches('/').to_string();
-        let mapped = tower::ServiceBuilder::new()
-            .map_response(|resp: Response<ResBody>| resp.map(ResponseBody::new))
-            .service(service);
-        self.custom_handlers
-            .insert(key, BoxCloneSyncService::new(mapped));
         self
     }
 }
@@ -198,7 +169,7 @@ where
     }
 
     fn call(&mut self, req: Request<B>) -> Self::Future {
-        let mut this = self.clone();
+        let this = self.clone();
 
         Box::pin(async move {
             let Some((method, name)) = extract_mcp_target(&req) else {
@@ -208,12 +179,6 @@ where
                     .body(ResponseBody::empty())
                     .unwrap());
             };
-
-            // Check custom handlers first (e.g. user overrides)
-            if let Some(handler) = this.custom_handlers.get_mut(&method) {
-                let req = req.map(ResponseBody::new);
-                return handler.call(req).await;
-            }
 
             // Built-in server/discover
             if method == "server/discover" {

@@ -14,7 +14,7 @@ pub type ServerDiscoverResultResponse = JsonRpcResultResponse<ServerDiscoverResu
 /// Parameters for a `server/discover` request.
 ///
 /// See https://modelcontextprotocol.io/specification/2026-07-28/schema#serverdiscoverrequest
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ServerDiscoverParams {
     /// Protocol-level request metadata.
@@ -28,7 +28,7 @@ pub struct ServerDiscoverParams {
 /// The server's response to a `server/discover` request.
 ///
 /// See https://modelcontextprotocol.io/specification/2026-07-28/schema#serverdiscoverresult
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ServerDiscoverResult {
     /// Protocol-level response metadata.

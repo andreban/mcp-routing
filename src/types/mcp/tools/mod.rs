@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -9,7 +11,7 @@ pub mod list;
 /// The definition of a tool exposed by an MCP server.
 ///
 /// See https://modelcontextprotocol.io/specification/2026-07-28/schema#tool
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Tool {
     /// Optional list of icons for display in user interfaces.
@@ -36,10 +38,39 @@ pub struct Tool {
     pub meta: Option<MetaObject>,
 }
 
+impl From<String> for Tool {
+    fn from(name: String) -> Self {
+        Self {
+            icons: Vec::new(),
+            name,
+            title: None,
+            description: None,
+            input_schema: serde_json::json!({
+                "type": "object"
+            }),
+            output_schema: None,
+            annotations: None,
+            meta: None,
+        }
+    }
+}
+
+impl From<&str> for Tool {
+    fn from(name: &str) -> Self {
+        name.to_string().into()
+    }
+}
+
+impl From<Cow<'static, str>> for Tool {
+    fn from(name: Cow<'static, str>) -> Self {
+        name.into_owned().into()
+    }
+}
+
 /// Execution hints and behavioral annotations for a tool.
 ///
 /// See https://modelcontextprotocol.io/specification/2026-07-28/schema#toolannotations
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ToolAnnotations {
     /// Human-readable title for the tool.

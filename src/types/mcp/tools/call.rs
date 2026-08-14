@@ -8,15 +8,15 @@ use crate::types::{
     mcp::{ContentBlock, RequestMetaObject, ResultMetaObject},
 };
 
-pub type CallToolRequest = JsonRpcRequest<CallToolParams>;
+pub type CallToolRequest<A = Value> = JsonRpcRequest<CallToolParams<A>>;
 pub type CallToolResultResponse = JsonRpcResultResponse<CallToolResult>;
 
 /// Parameters for a `tools/call` request.
 ///
 /// See https://modelcontextprotocol.io/specification/2026-07-28/schema#calltoolrequest
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct CallToolParams {
+pub struct CallToolParams<A = Value>  {
     /// Protocol-level request metadata.
     #[serde(rename = "_meta", skip_serializing_if = "Option::is_none")]
     pub meta: Option<RequestMetaObject>,
@@ -24,7 +24,7 @@ pub struct CallToolParams {
     pub name: String,
     /// Arguments to pass to the tool.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub arguments: Option<Value>,
+    pub arguments: Option<A>,
     /// Additional unrecognized or custom metadata properties.
     #[serde(flatten, skip_serializing_if = "HashMap::is_empty")]
     pub extras: HashMap<String, Value>,
@@ -33,7 +33,7 @@ pub struct CallToolParams {
 /// The server's response to a `tools/call` request.
 ///
 /// See https://modelcontextprotocol.io/specification/2026-07-28/schema#calltoolresult
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CallToolResult {
     /// Protocol-level response metadata.

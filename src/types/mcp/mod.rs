@@ -9,7 +9,7 @@ pub mod tools;
 /// A progress token, used to associate progress notifications with the original request.
 ///
 /// See https://modelcontextprotocol.io/specification/2026-07-28/schema#progresstoken
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum ProgressToken {
     /// A numeric progress token.
@@ -21,7 +21,7 @@ pub enum ProgressToken {
 /// An icon that can be displayed in a user interface.
 ///
 /// See https://modelcontextprotocol.io/specification/2026-07-28/schema#icon
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Icon {
     /// A standard URI (HTTPS or `data:` URI with Base64-encoded data) pointing to the icon resource.
@@ -40,7 +40,7 @@ pub struct Icon {
 /// Specifies whether an icon is intended for a light or dark theme context.
 ///
 /// See https://modelcontextprotocol.io/specification/2026-07-28/schema#icontheme
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[serde(untagged)]
 pub enum IconTheme {
@@ -55,7 +55,7 @@ pub enum IconTheme {
 /// Maps to RFC-5424 syslog severities.
 ///
 /// See https://modelcontextprotocol.io/specification/2026-07-28/schema#logginglevel
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[serde(untagged)]
 pub enum LoggingLevel {
@@ -80,7 +80,7 @@ pub enum LoggingLevel {
 /// An implementation structure identifying a client or server.
 ///
 /// See https://modelcontextprotocol.io/specification/2026-07-28/schema#implementation
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Implementation {
     /// Optional set of sized icons that the client can display in a user interface.
@@ -118,11 +118,24 @@ pub struct Implementation {
     pub website_url: Option<String>,
 }
 
+impl Implementation {
+    pub fn new(name: impl Into<String>, version: impl Into<String>) -> Self {
+        Self {
+            icons: Vec::new(),
+            name: name.into(),
+            title: None,
+            version: version.into(),
+            description: None,
+            website_url: None,
+        }
+    }
+}
+
 /// Capabilities a client may support. Known capabilities are defined here, in this schema,
 /// but this is not a closed set: any client can define its own, additional capabilities.
 ///
 /// See https://modelcontextprotocol.io/specification/2026-07-28/schema#clientcapabilities
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ClientCapabilities {
     /// Experimental, non-standard capabilities that the client supports.
@@ -139,14 +152,14 @@ pub struct ClientCapabilities {
 /// Capability configuration for sampling LLM completions.
 ///
 /// See https://modelcontextprotocol.io/specification/2026-07-28/schema#clientcapabilities
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SamplingCapability {}
 
 /// Capability configuration for server-driven elicitation.
 ///
 /// See https://modelcontextprotocol.io/specification/2026-07-28/schema#clientcapabilities
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ElicitationCapability {}
 
@@ -154,7 +167,7 @@ pub struct ElicitationCapability {}
 /// but this is not a closed set: any server can define its own, additional capabilities.
 ///
 /// See https://modelcontextprotocol.io/specification/2026-07-28/schema#servercapabilities
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ServerCapabilities {
     /// Present if the server supports tool operations.
@@ -177,7 +190,7 @@ pub struct ServerCapabilities {
 /// Capability configuration for tool operations.
 ///
 /// See https://modelcontextprotocol.io/specification/2026-07-28/schema#servercapabilities
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ToolsCapability {
     /// Optional hint indicating whether the server emits notifications when tool lists change.
@@ -188,7 +201,7 @@ pub struct ToolsCapability {
 /// Capability configuration for resource operations.
 ///
 /// See https://modelcontextprotocol.io/specification/2026-07-28/schema#servercapabilities
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ResourcesCapability {
     /// Optional hint indicating whether the server supports subscribing to resource updates.
@@ -202,7 +215,7 @@ pub struct ResourcesCapability {
 /// Capability configuration for prompt templates.
 ///
 /// See https://modelcontextprotocol.io/specification/2026-07-28/schema#servercapabilities
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PromptsCapability {
     /// Optional hint indicating whether the server emits notifications when prompt lists change.
@@ -213,14 +226,14 @@ pub struct PromptsCapability {
 /// Capability configuration for completion operations.
 ///
 /// See https://modelcontextprotocol.io/specification/2026-07-28/schema#servercapabilities
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CompletionsCapability {}
 
 /// An object containing metadata for a result.
 ///
 /// See https://modelcontextprotocol.io/specification/2026-07-28/schema#resultmetaobject
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ResultMetaObject {
     /// Identifies the server software producing the response.
@@ -238,7 +251,7 @@ pub struct ResultMetaObject {
 /// An object containing metadata for a request.
 ///
 /// See https://modelcontextprotocol.io/specification/2026-07-28/schema#requestmetaobject
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RequestMetaObject {
     /// A progress token used to associate progress notifications with the original request.
@@ -281,7 +294,7 @@ pub type MetaObject = HashMap<String, Value>;
 /// Specifies the scope for caching responses (`public` or `private`).
 ///
 /// See https://modelcontextprotocol.io/specification/2026-07-28/schema#cachescope
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum CacheScope {
     /// The response contains no user-specific data and may be cached publicly.
@@ -293,7 +306,7 @@ pub enum CacheScope {
 /// Specifies the role of an entity in a conversation.
 ///
 /// See https://modelcontextprotocol.io/specification/2026-07-28/schema#role
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Role {
     User,
@@ -303,7 +316,7 @@ pub enum Role {
 /// Annotations that can be attached to content blocks.
 ///
 /// See https://modelcontextprotocol.io/specification/2026-07-28/schema#contentannotations
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ContentAnnotations {
     /// Intended audience for the content.
@@ -317,7 +330,7 @@ pub struct ContentAnnotations {
 /// Text content block.
 ///
 /// See https://modelcontextprotocol.io/specification/2026-07-28/schema#textcontent
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TextContent {
     /// The text content.
@@ -333,7 +346,7 @@ pub struct TextContent {
 /// Image content block.
 ///
 /// See https://modelcontextprotocol.io/specification/2026-07-28/schema#imagecontent
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ImageContent {
     /// Base64-encoded image data.
@@ -351,7 +364,7 @@ pub struct ImageContent {
 /// Audio content block.
 ///
 /// See https://modelcontextprotocol.io/specification/2026-07-28/schema#audiocontent
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AudioContent {
     /// Base64-encoded audio data.
@@ -367,7 +380,7 @@ pub struct AudioContent {
 }
 
 /// Text resource contents.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TextResourceContents {
     /// The URI of the resource.
@@ -380,7 +393,7 @@ pub struct TextResourceContents {
 }
 
 /// Blob resource contents.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BlobResourceContents {
     /// The URI of the resource.
@@ -395,7 +408,7 @@ pub struct BlobResourceContents {
 /// Resource contents (text or blob).
 ///
 /// See https://modelcontextprotocol.io/specification/2026-07-28/schema#resourcecontents
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum ResourceContents {
     Text(TextResourceContents),
@@ -405,7 +418,7 @@ pub enum ResourceContents {
 /// Embedded resource content block.
 ///
 /// See https://modelcontextprotocol.io/specification/2026-07-28/schema#embeddedresource
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EmbeddedResource {
     /// The embedded resource contents.
@@ -421,7 +434,7 @@ pub struct EmbeddedResource {
 /// Resource link content block.
 ///
 /// See https://modelcontextprotocol.io/specification/2026-07-28/schema#resourcelink
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ResourceLink {
     /// The URI of the linked resource.
@@ -446,7 +459,7 @@ pub struct ResourceLink {
 /// A content block in a message or tool result.
 ///
 /// See https://modelcontextprotocol.io/specification/2026-07-28/schema#contentblock
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum ContentBlock {
     Text(TextContent),

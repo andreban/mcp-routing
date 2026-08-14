@@ -14,7 +14,7 @@ pub type ListToolsResultResponse = JsonRpcResultResponse<ListToolsResult>;
 /// Parameters for a `tools/list` request.
 ///
 /// See https://modelcontextprotocol.io/specification/2026-07-28/schema#listtoolsrequest
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ListToolsParams {
     /// Protocol-level request metadata.
@@ -31,7 +31,7 @@ pub struct ListToolsParams {
 /// The server's response to a `tools/list` request.
 ///
 /// See https://modelcontextprotocol.io/specification/2026-07-28/schema#listtoolsresult
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ListToolsResult {
     /// Protocol-level response metadata.

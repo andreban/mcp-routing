@@ -8,7 +8,9 @@ use serde_json::Value;
 
 use crate::types::{
     jsonrpc::{JsonRpcRequest, JsonRpcResultResponse},
-    mcp::{ContentBlock, RequestMetaObject, ResultMetaObject, TextContent},
+    mcp::{
+        AudioContent, ContentBlock, ImageContent, RequestMetaObject, ResultMetaObject, TextContent,
+    },
 };
 
 pub type CallToolRequest<A = Value> = JsonRpcRequest<CallToolParams<A>>;
@@ -60,7 +62,26 @@ pub struct CallToolResult<S = Value> {
     pub extras: HashMap<String, Value>,
 }
 
-impl<S> CallToolResult<S> {
+impl<S> Default for CallToolResult<S> {
+    fn default() -> Self {
+        Self {
+            meta: None,
+            result_type: Some("complete".to_string()),
+            content: Vec::new(),
+            is_error: Some(false),
+            structured_content: None,
+            extras: HashMap::new(),
+        }
+    }
+}
+
+impl CallToolResult<Value> {
+    /// Creates a new successful [`CallToolResult`] with empty content.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Creates a successful [`CallToolResult`] containing a single text content block.
     pub fn text(text: impl Into<String>) -> Self {
         Self {
             meta: None,
@@ -76,6 +97,7 @@ impl<S> CallToolResult<S> {
         }
     }
 
+    /// Creates an error [`CallToolResult`] containing a single text content block with the error message.
     pub fn error(message: impl Into<String>) -> Self {
         Self {
             meta: None,
@@ -91,15 +113,168 @@ impl<S> CallToolResult<S> {
         }
     }
 
-    pub fn with_content(content: Vec<ContentBlock>) -> Self {
+    /// Creates a successful [`CallToolResult`] with the provided content blocks.
+    pub fn with_content(content: impl Into<Vec<ContentBlock>>) -> Self {
         Self {
             meta: None,
             result_type: Some("complete".to_string()),
-            content,
+            content: content.into(),
             is_error: Some(false),
             structured_content: None,
             extras: HashMap::new(),
         }
+    }
+
+    /// Creates a successful [`CallToolResult`] by serializing any serializable value into [`Value`].
+    pub fn structured_json<T: Serialize>(value: &T) -> Result<Self, serde_json::Error> {
+        let structured_content = serde_json::to_value(value)?;
+        Ok(Self::structured(structured_content))
+    }
+
+    /// Creates a successful [`CallToolResult`] containing both serialized structured JSON and a text message.
+    pub fn structured_json_with_text<T: Serialize>(
+        value: &T,
+        text: impl Into<String>,
+    ) -> Result<Self, serde_json::Error> {
+        let structured_content = serde_json::to_value(value)?;
+        Ok(Self::structured_with_text(structured_content, text))
+    }
+
+    /// Creates a successful [`CallToolResult`] containing both serialized structured JSON and content blocks.
+    pub fn structured_json_with_content<T: Serialize>(
+        value: &T,
+        content: impl Into<Vec<ContentBlock>>,
+    ) -> Result<Self, serde_json::Error> {
+        let structured_content = serde_json::to_value(value)?;
+        Ok(Self::structured_with_content(structured_content, content))
+    }
+}
+
+impl<S> CallToolResult<S> {
+    /// Creates a successful [`CallToolResult`] with structured output data.
+    pub fn structured(data: S) -> Self {
+        Self {
+            meta: None,
+            result_type: Some("complete".to_string()),
+            content: Vec::new(),
+            is_error: Some(false),
+            structured_content: Some(data),
+            extras: HashMap::new(),
+        }
+    }
+
+    /// Creates a successful [`CallToolResult`] containing both structured output data and a text message.
+    pub fn structured_with_text(data: S, text: impl Into<String>) -> Self {
+        Self {
+            meta: None,
+            result_type: Some("complete".to_string()),
+            content: vec![ContentBlock::Text(TextContent {
+                text: text.into(),
+                annotations: None,
+                meta: None,
+            })],
+            is_error: Some(false),
+            structured_content: Some(data),
+            extras: HashMap::new(),
+        }
+    }
+
+    /// Creates a successful [`CallToolResult`] containing both structured output data and content blocks.
+    pub fn structured_with_content(data: S, content: impl Into<Vec<ContentBlock>>) -> Self {
+        Self {
+            meta: None,
+            result_type: Some("complete".to_string()),
+            content: content.into(),
+            is_error: Some(false),
+            structured_content: Some(data),
+            extras: HashMap::new(),
+        }
+    }
+
+    /// Sets or replaces the structured content payload.
+    pub fn structured_content(mut self, structured: S) -> Self {
+        self.structured_content = Some(structured);
+        self
+    }
+
+    /// Transforms this result into a [`CallToolResult<T>`] with the specified structured content.
+    pub fn with_structured<T>(self, structured: T) -> CallToolResult<T> {
+        CallToolResult {
+            meta: self.meta,
+            result_type: self.result_type,
+            content: self.content,
+            is_error: self.is_error,
+            structured_content: Some(structured),
+            extras: self.extras,
+        }
+    }
+
+    /// Sets the protocol-level metadata for this result.
+    pub fn with_meta(mut self, meta: ResultMetaObject) -> Self {
+        self.meta = Some(meta);
+        self
+    }
+
+    /// Sets the result type discriminator string.
+    pub fn with_result_type(mut self, result_type: impl Into<String>) -> Self {
+        self.result_type = Some(result_type.into());
+        self
+    }
+
+    /// Sets whether the tool execution resulted in an error.
+    pub fn with_error(mut self, is_error: bool) -> Self {
+        self.is_error = Some(is_error);
+        self
+    }
+
+    /// Appends a text content block to the result.
+    pub fn with_text(mut self, text: impl Into<String>) -> Self {
+        self.content.push(ContentBlock::Text(TextContent {
+            text: text.into(),
+            annotations: None,
+            meta: None,
+        }));
+        self
+    }
+
+    /// Appends an image content block to the result.
+    pub fn with_image(mut self, data: impl Into<String>, mime_type: impl Into<String>) -> Self {
+        self.content.push(ContentBlock::Image(ImageContent {
+            data: data.into(),
+            mime_type: mime_type.into(),
+            annotations: None,
+            meta: None,
+        }));
+        self
+    }
+
+    /// Appends an audio content block to the result.
+    pub fn with_audio(mut self, data: impl Into<String>, mime_type: impl Into<String>) -> Self {
+        self.content.push(ContentBlock::Audio(AudioContent {
+            data: data.into(),
+            mime_type: mime_type.into(),
+            annotations: None,
+            meta: None,
+        }));
+        self
+    }
+
+    /// Appends a generic [`ContentBlock`] to the result.
+    pub fn with_block(mut self, block: impl Into<ContentBlock>) -> Self {
+        self.content.push(block.into());
+        self
+    }
+
+    /// Appends multiple content blocks to the result.
+    pub fn with_blocks(mut self, blocks: impl IntoIterator<Item = ContentBlock>) -> Self {
+        self.content.extend(blocks);
+        self
+    }
+
+    /// Adds a key-value pair to the extras metadata map.
+    pub fn with_extra(mut self, key: impl Into<String>, value: impl Into<Value>) -> Self {
+        self.extras.insert(key.into(), value.into());
+        self
     }
 }
 
@@ -136,7 +311,10 @@ mod tests {
                 "type": "text",
                 "text": "Hello"
             }],
-            "isError": false
+            "isError": false,
+            "structuredContent": {
+                "key": "value"
+            }
         });
 
         let result: CallToolResult = serde_json::from_value(json_data).unwrap();
@@ -148,14 +326,16 @@ mod tests {
             panic!("Expected ContentBlock::Text");
         }
         assert_eq!(result.is_error, Some(false));
+        assert_eq!(result.structured_content.as_ref().unwrap()["key"], "value");
 
         let reserialized = serde_json::to_value(&result).unwrap();
         assert_eq!(reserialized["isError"], false);
         assert_eq!(reserialized["content"][0]["type"], "text");
         assert_eq!(reserialized["content"][0]["text"], "Hello");
+        assert_eq!(reserialized["structuredContent"]["key"], "value");
     }
 
-    /// Tests [`CallToolResult`] convenience constructors (`text`, `error`, `with_content`).
+    /// Tests [`CallToolResult`] convenience constructors and builder methods.
     #[test]
     fn test_call_tool_result_builder_constructors() {
         let text_res = CallToolResult::<serde_json::Value>::text("Hello result");
@@ -173,8 +353,57 @@ mod tests {
             annotations: None,
             meta: None,
         });
-        let with_content_res = CallToolResult::<serde_json::Value>::with_content(vec![block]);
+        let with_content_res =
+            CallToolResult::<serde_json::Value>::with_content(vec![block.clone()]);
         assert_eq!(with_content_res.is_error, Some(false));
         assert_eq!(with_content_res.content.len(), 1);
+
+        // Structured constructors
+        let struct_res = CallToolResult::structured(serde_json::json!({ "status": "ok" }));
+        assert_eq!(struct_res.structured_content.unwrap()["status"], "ok");
+        assert!(struct_res.content.is_empty());
+
+        let struct_text_res = CallToolResult::structured_with_text(
+            serde_json::json!({ "count": 10 }),
+            "Found 10 items",
+        );
+        assert_eq!(struct_text_res.structured_content.unwrap()["count"], 10);
+        assert_eq!(struct_text_res.content.len(), 1);
+
+        let struct_content_res =
+            CallToolResult::structured_with_content(serde_json::json!({ "id": 1 }), vec![block]);
+        assert_eq!(struct_content_res.structured_content.unwrap()["id"], 1);
+        assert_eq!(struct_content_res.content.len(), 1);
+
+        // JSON helper constructors
+        #[derive(Serialize)]
+        struct Person {
+            name: String,
+            age: u32,
+        }
+        let person = Person {
+            name: "Alice".to_string(),
+            age: 30,
+        };
+
+        let json_res = CallToolResult::structured_json(&person).unwrap();
+        assert_eq!(json_res.structured_content.unwrap()["name"], "Alice");
+
+        let json_text_res =
+            CallToolResult::structured_json_with_text(&person, "Person created").unwrap();
+        assert_eq!(json_text_res.structured_content.unwrap()["age"], 30);
+        assert_eq!(json_text_res.content.len(), 1);
+
+        // Fluent builders
+        let chained = CallToolResult::new()
+            .with_text("Chained text")
+            .with_image("aW1hZ2U=", "image/png")
+            .with_audio("YXVkaW8=", "audio/wav")
+            .with_extra("custom", serde_json::json!(42))
+            .with_structured(serde_json::json!({ "chained": true }));
+
+        assert_eq!(chained.content.len(), 3);
+        assert_eq!(chained.extras.get("custom").unwrap(), 42);
+        assert_eq!(chained.structured_content.unwrap()["chained"], true);
     }
 }

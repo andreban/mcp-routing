@@ -79,7 +79,7 @@ mod test;
 
 pub use body::{BoxError, ResponseBody, compute_etag, format_cache_control};
 pub use extract::{
-    Authorization, BearerAuth, Extension, ExtractionError, FromRequestContext, Meta,
+    Authorization, BearerAuth, Extension, ExtractionError, FromRequestContext, Json, Meta,
     RegisteredPrompts, RegisteredTools, RequestContext, SessionId, State,
 };
 pub use prompts::{
@@ -92,6 +92,6 @@ pub use server::{
     ServerDiscoveryHandler, validate_protocol_version,
 };
 pub use tools::{
-    IntoToolHandler, IntoToolResult, IntoToolsListHandler, IntoToolsListResult, ToolError,
-    ToolHandler, ToolRegistry, ToolsListHandler,
+    IntoToolHandler, IntoToolResult, IntoToolsListHandler, IntoToolsListResult, Json as ToolJson,
+    ToolError, ToolHandler, ToolRegistry, ToolsListHandler,
 };

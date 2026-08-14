@@ -10,6 +10,7 @@
 pub mod auth;
 pub mod context;
 pub mod error;
+pub mod json;
 pub mod meta;
 pub mod registered;
 pub mod session;
@@ -19,6 +20,7 @@ pub mod traits;
 pub use auth::{Authorization, BearerAuth};
 pub use context::RequestContext;
 pub use error::ExtractionError;
+pub use json::Json;
 pub use meta::Meta;
 pub use registered::{RegisteredPrompts, RegisteredTools};
 pub use session::SessionId;

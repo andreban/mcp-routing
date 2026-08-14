@@ -592,7 +592,10 @@ async fn test_tools_call_schema_pre_validation_success() {
     let app = McpRouter::new(common::sample_server_info()).register_tool(
         schema_tool,
         |args: CreateUserArgs| async move {
-            format!("Created user {} ({}) with role {}", args.username, args.age, args.role)
+            format!(
+                "Created user {} ({}) with role {}",
+                args.username, args.age, args.role
+            )
         },
     );
 
@@ -627,8 +630,8 @@ async fn test_tools_call_schema_pre_validation_success() {
 /// Tests that invalid arguments violating JSON Schema constraints are rejected before invoking the handler.
 #[tokio::test]
 async fn test_tools_call_schema_pre_validation_failures() {
-    use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::Arc;
+    use std::sync::atomic::{AtomicBool, Ordering};
 
     let handler_called = Arc::new(AtomicBool::new(false));
     let handler_called_clone = Arc::clone(&handler_called);

@@ -14,6 +14,7 @@ use crate::types::mcp::{ContentBlock, tools::call::CallToolResult};
 pub mod list;
 pub mod registry;
 
+pub use crate::extract::Json;
 pub use list::{IntoToolsListHandler, IntoToolsListResult, ToolsListHandler};
 pub use registry::ToolRegistry;
 
@@ -42,9 +43,31 @@ pub trait IntoToolResult: Send {
     fn into_tool_result(self) -> CallToolResult;
 }
 
-impl IntoToolResult for CallToolResult {
+impl<S> IntoToolResult for CallToolResult<S>
+where
+    S: serde::Serialize + Send,
+{
     fn into_tool_result(self) -> CallToolResult {
-        self
+        let structured_content = match self.structured_content {
+            Some(s) => match serde_json::to_value(s) {
+                Ok(v) => Some(v),
+                Err(err) => {
+                    return CallToolResult::error(format!(
+                        "Failed to serialize structured output: {err}"
+                    ));
+                }
+            },
+            None => None,
+        };
+
+        CallToolResult {
+            meta: self.meta,
+            result_type: self.result_type,
+            content: self.content,
+            is_error: self.is_error,
+            structured_content,
+            extras: self.extras,
+        }
     }
 }
 
@@ -69,6 +92,188 @@ impl IntoToolResult for ContentBlock {
 impl IntoToolResult for Vec<ContentBlock> {
     fn into_tool_result(self) -> CallToolResult {
         CallToolResult::with_content(self)
+    }
+}
+
+impl IntoToolResult for Value {
+    fn into_tool_result(self) -> CallToolResult {
+        CallToolResult::structured(self)
+    }
+}
+
+impl<T> IntoToolResult for Json<T>
+where
+    T: serde::Serialize + Send,
+{
+    fn into_tool_result(self) -> CallToolResult {
+        match serde_json::to_value(&self.0) {
+            Ok(val) => CallToolResult::structured(val),
+            Err(err) => {
+                CallToolResult::error(format!("Failed to serialize structured output: {err}"))
+            }
+        }
+    }
+}
+
+// Tuple conversions with String / &str text
+impl IntoToolResult for (Value, String) {
+    fn into_tool_result(self) -> CallToolResult {
+        CallToolResult::structured_with_text(self.0, self.1)
+    }
+}
+
+impl IntoToolResult for (Value, &'static str) {
+    fn into_tool_result(self) -> CallToolResult {
+        CallToolResult::structured_with_text(self.0, self.1)
+    }
+}
+
+impl IntoToolResult for (String, Value) {
+    fn into_tool_result(self) -> CallToolResult {
+        CallToolResult::structured_with_text(self.1, self.0)
+    }
+}
+
+impl IntoToolResult for (&'static str, Value) {
+    fn into_tool_result(self) -> CallToolResult {
+        CallToolResult::structured_with_text(self.1, self.0)
+    }
+}
+
+impl<T> IntoToolResult for (Json<T>, String)
+where
+    T: serde::Serialize + Send,
+{
+    fn into_tool_result(self) -> CallToolResult {
+        match serde_json::to_value(&self.0.0) {
+            Ok(val) => CallToolResult::structured_with_text(val, self.1),
+            Err(err) => {
+                CallToolResult::error(format!("Failed to serialize structured output: {err}"))
+            }
+        }
+    }
+}
+
+impl<T> IntoToolResult for (Json<T>, &'static str)
+where
+    T: serde::Serialize + Send,
+{
+    fn into_tool_result(self) -> CallToolResult {
+        match serde_json::to_value(&self.0.0) {
+            Ok(val) => CallToolResult::structured_with_text(val, self.1),
+            Err(err) => {
+                CallToolResult::error(format!("Failed to serialize structured output: {err}"))
+            }
+        }
+    }
+}
+
+impl<T> IntoToolResult for (String, Json<T>)
+where
+    T: serde::Serialize + Send,
+{
+    fn into_tool_result(self) -> CallToolResult {
+        match serde_json::to_value(&self.1.0) {
+            Ok(val) => CallToolResult::structured_with_text(val, self.0),
+            Err(err) => {
+                CallToolResult::error(format!("Failed to serialize structured output: {err}"))
+            }
+        }
+    }
+}
+
+impl<T> IntoToolResult for (&'static str, Json<T>)
+where
+    T: serde::Serialize + Send,
+{
+    fn into_tool_result(self) -> CallToolResult {
+        match serde_json::to_value(&self.1.0) {
+            Ok(val) => CallToolResult::structured_with_text(val, self.0),
+            Err(err) => {
+                CallToolResult::error(format!("Failed to serialize structured output: {err}"))
+            }
+        }
+    }
+}
+
+// Tuple conversions with ContentBlock / Vec<ContentBlock>
+impl IntoToolResult for (Value, ContentBlock) {
+    fn into_tool_result(self) -> CallToolResult {
+        CallToolResult::structured_with_content(self.0, vec![self.1])
+    }
+}
+
+impl IntoToolResult for (ContentBlock, Value) {
+    fn into_tool_result(self) -> CallToolResult {
+        CallToolResult::structured_with_content(self.1, vec![self.0])
+    }
+}
+
+impl IntoToolResult for (Value, Vec<ContentBlock>) {
+    fn into_tool_result(self) -> CallToolResult {
+        CallToolResult::structured_with_content(self.0, self.1)
+    }
+}
+
+impl IntoToolResult for (Vec<ContentBlock>, Value) {
+    fn into_tool_result(self) -> CallToolResult {
+        CallToolResult::structured_with_content(self.1, self.0)
+    }
+}
+
+impl<T> IntoToolResult for (Json<T>, ContentBlock)
+where
+    T: serde::Serialize + Send,
+{
+    fn into_tool_result(self) -> CallToolResult {
+        match serde_json::to_value(&self.0.0) {
+            Ok(val) => CallToolResult::structured_with_content(val, vec![self.1]),
+            Err(err) => {
+                CallToolResult::error(format!("Failed to serialize structured output: {err}"))
+            }
+        }
+    }
+}
+
+impl<T> IntoToolResult for (ContentBlock, Json<T>)
+where
+    T: serde::Serialize + Send,
+{
+    fn into_tool_result(self) -> CallToolResult {
+        match serde_json::to_value(&self.1.0) {
+            Ok(val) => CallToolResult::structured_with_content(val, vec![self.0]),
+            Err(err) => {
+                CallToolResult::error(format!("Failed to serialize structured output: {err}"))
+            }
+        }
+    }
+}
+
+impl<T> IntoToolResult for (Json<T>, Vec<ContentBlock>)
+where
+    T: serde::Serialize + Send,
+{
+    fn into_tool_result(self) -> CallToolResult {
+        match serde_json::to_value(&self.0.0) {
+            Ok(val) => CallToolResult::structured_with_content(val, self.1),
+            Err(err) => {
+                CallToolResult::error(format!("Failed to serialize structured output: {err}"))
+            }
+        }
+    }
+}
+
+impl<T> IntoToolResult for (Vec<ContentBlock>, Json<T>)
+where
+    T: serde::Serialize + Send,
+{
+    fn into_tool_result(self) -> CallToolResult {
+        match serde_json::to_value(&self.1.0) {
+            Ok(val) => CallToolResult::structured_with_content(val, self.0),
+            Err(err) => {
+                CallToolResult::error(format!("Failed to serialize structured output: {err}"))
+            }
+        }
     }
 }
 
@@ -313,6 +518,42 @@ mod tests {
         });
         let res_block = block.into_tool_result();
         assert_eq!(res_block.content.len(), 1);
+
+        // Value
+        let val = serde_json::json!({ "answer": 42 });
+        let res_val = val.into_tool_result();
+        assert_eq!(res_val.structured_content.unwrap()["answer"], 42);
+
+        // Json<T>
+        #[derive(serde::Serialize)]
+        struct Output {
+            count: usize,
+        }
+        let res_json = Json(Output { count: 5 }).into_tool_result();
+        assert_eq!(res_json.structured_content.unwrap()["count"], 5);
+
+        // (Json<T>, &str) tuple
+        let res_tuple_str = (Json(Output { count: 10 }), "Summary text").into_tool_result();
+        assert_eq!(res_tuple_str.structured_content.unwrap()["count"], 10);
+        if let ContentBlock::Text(ref t) = res_tuple_str.content[0] {
+            assert_eq!(t.text, "Summary text");
+        }
+
+        // (Value, String) tuple
+        let res_val_str =
+            (serde_json::json!({ "ok": true }), "All good".to_string()).into_tool_result();
+        assert_eq!(res_val_str.structured_content.unwrap()["ok"], true);
+        if let ContentBlock::Text(ref t) = res_val_str.content[0] {
+            assert_eq!(t.text, "All good");
+        }
+
+        // Generic CallToolResult<Output>
+        let custom_res = CallToolResult::structured(Output { count: 99 }).with_text("Count report");
+        let res_custom = custom_res.into_tool_result();
+        assert_eq!(res_custom.structured_content.unwrap()["count"], 99);
+        if let ContentBlock::Text(ref t) = res_custom.content[0] {
+            assert_eq!(t.text, "Count report");
+        }
     }
 
     #[tokio::test]

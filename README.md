@@ -114,11 +114,14 @@ Incoming HTTP JSON-RPC requests are routed using HTTP headers:
 Tool handlers can accept:
 - **No arguments**: `async fn my_tool() -> Result<String, String>`
 - **Typed deserializable arguments**: `async fn my_tool(params: MyParams) -> Result<String, String>`
+- **Request extractors**: `async fn my_tool(session: SessionId, State(state): State<AppState>, params: MyParams) -> Json<MyOutput>`
 
 Return types can implement [`IntoToolResult`](src/tools/mod.rs):
 - `String`, `&str`
 - `ContentBlock`, `Vec<ContentBlock>`
-- `CallToolResult`
+- `CallToolResult<T>` (with structured output and multi-modal content builders)
+- `Json<T>` and `serde_json::Value` (automatic structured output)
+- `(Json<T>, &str)`, `(Json<T>, String)`, `(Json<T>, Vec<ContentBlock>)` (structured output + text/blocks)
 - `Result<T, E>` where `T: IntoToolResult` and `E: Display`
 
 ### Prompt Handlers
@@ -140,6 +143,12 @@ Run the basic starter example:
 
 ```bash
 cargo run --example basic
+```
+
+Run the structured output example (demonstrating `Json<T>`, `output_schema`, and annotations):
+
+```bash
+cargo run --example structured_output
 ```
 
 Run the caching example (demonstrating discovery and per-tool caching):

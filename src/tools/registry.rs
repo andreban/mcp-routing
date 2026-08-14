@@ -260,11 +260,9 @@ impl ToolRegistry {
             None => None,
         };
 
-        let tool_name = resolve_tool_name(
-            ctx.header_name,
-            params.as_ref().map(|p| p.name.as_str()),
-        )
-        .map(String::from);
+        let tool_name =
+            resolve_tool_name(ctx.header_name, params.as_ref().map(|p| p.name.as_str()))
+                .map(String::from);
 
         let Some(tool_name) = tool_name else {
             tracing::debug!("Missing tool name for tools/call");

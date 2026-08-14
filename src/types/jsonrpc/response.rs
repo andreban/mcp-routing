@@ -7,14 +7,14 @@ use crate::types::jsonrpc::default_jsonrpc;
 
 use super::JsonRpcRequestId;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum JsonRpcResponse<R = Value, E = Value> {
     Result(JsonRpcResultResponse<R>),
     Error(JsonRpcErrorResponse<E>),
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct JsonRpcResultResponse<R = Value> {
     pub jsonrpc: Cow<'static, str>,
     pub id: JsonRpcRequestId,
@@ -31,7 +31,7 @@ impl<R> JsonRpcResultResponse<R> {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct JsonRpcErrorResponse<E = Value> {
     pub jsonrpc: Cow<'static, str>,
     pub id: JsonRpcRequestId,

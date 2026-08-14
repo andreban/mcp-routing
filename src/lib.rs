@@ -2,15 +2,17 @@ use std::collections::HashMap;
 use std::convert::Infallible;
 use std::future::Future;
 use std::pin::Pin;
+use std::sync::Arc;
 use std::task::{Context, Poll};
 
 use axum::{
+    Json,
     body::Body,
-    handler::Handler,
     http::{Request, Response, StatusCode},
     response::IntoResponse,
-    routing::{MethodRouter, post},
+    routing::MethodRouter,
 };
+use serde::de::DeserializeOwned;
 use tower::Service;
 
 pub mod server;
@@ -20,9 +22,18 @@ pub mod types;
 #[cfg(test)]
 mod test;
 
-use types::mcp::{
-    Implementation, ServerCapabilities, ToolsCapability,
-    tools::Tool,
+use tools::{IntoToolHandler, ToolHandler};
+use types::{
+    jsonrpc::JsonRpcRequest,
+    mcp::{
+        Implementation, ServerCapabilities, ToolsCapability,
+        server::discover::ServerDiscoverRequest,
+        tools::{
+            Tool,
+            call::{CallToolRequest, CallToolResultResponse},
+            list::ListToolsRequest,
+        },
+    },
 };
 
 #[derive(Clone)]
@@ -32,7 +43,8 @@ pub struct McpRouter {
     capabilities: ServerCapabilities,
     supported_versions: Vec<String>,
     tools: Vec<Tool>,
-    tool_handlers: HashMap<String, MethodRouter>,
+    tool_handlers: HashMap<String, Arc<dyn ToolHandler>>,
+    tool_routes: HashMap<String, MethodRouter>,
     custom_handlers: HashMap<String, MethodRouter>,
 }
 
@@ -51,6 +63,7 @@ impl McpRouter {
             supported_versions: vec!["2026-07-28".to_string()],
             tools: Vec::new(),
             tool_handlers: HashMap::new(),
+            tool_routes: HashMap::new(),
             custom_handlers: HashMap::new(),
         }
     }
@@ -73,12 +86,20 @@ impl McpRouter {
     pub fn register_tool<TTool, H, T>(mut self, tool: TTool, handler: H) -> Self
     where
         TTool: Into<Tool>,
-        H: Handler<T, ()>,
+        H: IntoToolHandler<T>,
         T: 'static,
     {
         let tool = tool.into();
         let name = tool.name.clone();
-        self.tool_handlers.insert(name, post(handler));
+        self.tool_handlers.insert(name, handler.into_tool_handler());
+        self.tools.push(tool);
+        self
+    }
+
+    pub fn register_tool_route(mut self, tool: impl Into<Tool>, method_router: MethodRouter) -> Self {
+        let tool = tool.into();
+        let name = tool.name.clone();
+        self.tool_routes.insert(name, method_router);
         self.tools.push(tool);
         self
     }
@@ -87,6 +108,26 @@ impl McpRouter {
         let key = path.trim_matches('/').to_string();
         self.custom_handlers.insert(key, method_router);
         self
+    }
+}
+
+async fn parse_json_rpc_request<P: DeserializeOwned>(
+    req: Request<Body>,
+) -> Result<JsonRpcRequest<P>, Response<Body>> {
+    let body_bytes = match axum::body::to_bytes(req.into_body(), usize::MAX).await {
+        Ok(bytes) => bytes,
+        Err(err) => {
+            tracing::error!(?err, "Failed to read request body");
+            return Err(StatusCode::BAD_REQUEST.into_response());
+        }
+    };
+
+    match serde_json::from_slice(&body_bytes) {
+        Ok(request) => Ok(request),
+        Err(err) => {
+            tracing::error!(?err, "Failed to parse JSON-RPC request");
+            Err(StatusCode::BAD_REQUEST.into_response())
+        }
     }
 }
 
@@ -138,19 +179,31 @@ impl Service<Request<Body>> for McpRouter {
 
             // Built-in server/discover
             if method == "server/discover" {
-                return Ok(server::discover::handle_server_discover(
-                    req,
+                let request: ServerDiscoverRequest = match parse_json_rpc_request(req).await {
+                    Ok(r) => r,
+                    Err(err_resp) => return Ok(err_resp),
+                };
+
+                let response = server::discover::handle_server_discover(
+                    request,
                     this.server_info,
                     this.instructions,
                     this.capabilities,
                     this.supported_versions,
-                )
-                .await);
+                );
+
+                return Ok(Json(response).into_response());
             }
 
             // Built-in tools/list
             if method == "tools/list" {
-                return Ok(tools::list::handle_list_tools(req, this.tools).await);
+                let request: ListToolsRequest = match parse_json_rpc_request(req).await {
+                    Ok(r) => r,
+                    Err(err_resp) => return Ok(err_resp),
+                };
+
+                let response = tools::list::handle_list_tools(request, this.tools);
+                return Ok(Json(response).into_response());
             }
 
             // Tool execution: tools/call
@@ -160,8 +213,23 @@ impl Service<Request<Body>> for McpRouter {
                     return Ok(StatusCode::BAD_REQUEST.into_response());
                 };
 
-                if let Some(handler) = this.tool_handlers.get_mut(&tool_name) {
+                // Check raw Axum MethodRouter tool handlers
+                if let Some(handler) = this.tool_routes.get_mut(&tool_name) {
                     return handler.call(req).await;
+                }
+
+                // Check typed ToolHandler
+                if let Some(handler) = this.tool_handlers.get(&tool_name) {
+                    let request: CallToolRequest<serde_json::Value> =
+                        match parse_json_rpc_request(req).await {
+                            Ok(r) => r,
+                            Err(err_resp) => return Ok(err_resp),
+                        };
+
+                    let req_id = request.id.clone();
+                    let result = handler.call(request).await;
+                    let response = CallToolResultResponse::new(req_id, result);
+                    return Ok(Json(response).into_response());
                 }
 
                 tracing::debug!(tool_name, "Tool not found");

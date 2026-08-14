@@ -7,7 +7,7 @@ use crate::types::jsonrpc::default_jsonrpc;
 
 use super::JsonRpcRequestId;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct JsonRpcRequest<P = Value> {
     #[serde(default = "super::default_jsonrpc")]
     pub jsonrpc: Cow<'static, str>,

@@ -1,16 +1,9 @@
-use std::collections::HashMap;
 use std::error::Error;
 
-use axum::{Json, Router};
+use axum::Router;
 use mcp_routing::{
     McpRouter,
-    types::mcp::{
-        ContentBlock, Implementation, TextContent,
-        tools::{
-            Tool,
-            call::{CallToolRequest, CallToolResult, CallToolResultResponse},
-        },
-    },
+    types::mcp::{Implementation, tools::Tool},
 };
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -19,43 +12,12 @@ use serde_json::json;
 pub struct EchoParams {
     pub value: String,
 }
-async fn echo(Json(request): Json<CallToolRequest<EchoParams>>) -> Json<CallToolResultResponse> {
-    let value = request
-        .params
-        .as_ref()
-        .and_then(|p| p.arguments.as_ref())
-        .map(|args| args.value.as_str());
 
-    let (content, is_error) = match value {
-        Some(text) => (
-            vec![ContentBlock::Text(TextContent {
-                text: text.to_string(),
-                annotations: None,
-                meta: None,
-            })],
-            false,
-        ),
-        None => (
-            vec![ContentBlock::Text(TextContent {
-                text: "Missing required string parameter: value".to_string(),
-                annotations: None,
-                meta: None,
-            })],
-            true,
-        ),
-    };
-
-    Json(CallToolResultResponse::new(
-        request.id,
-        CallToolResult {
-            meta: None,
-            result_type: Some("complete".to_string()),
-            content,
-            is_error: Some(is_error),
-            structured_content: None,
-            extras: HashMap::new(),
-        },
-    ))
+async fn echo(params: EchoParams) -> Result<String, String> {
+    if params.value.is_empty() {
+        return Err("Missing required string parameter: value".to_string());
+    }
+    Ok(params.value)
 }
 
 #[tokio::main]

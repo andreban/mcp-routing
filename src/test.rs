@@ -184,3 +184,104 @@ async fn test_mcp_router_custom_route_override() {
     let bytes = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
     assert_eq!(bytes.as_ref(), b"custom_discover");
 }
+
+#[tokio::test]
+async fn test_mcp_router_typed_tool_handler_success() {
+    use serde::{Deserialize, Serialize};
+    use crate::types::mcp::{ContentBlock, tools::call::CallToolResultResponse};
+
+    #[derive(Serialize, Deserialize)]
+    struct AddParams {
+        a: i32,
+        b: i32,
+    }
+
+    async fn add_tool(params: AddParams) -> Result<String, String> {
+        Ok(format!("sum={}", params.a + params.b))
+    }
+
+    let app = McpRouter::new(test_server_info()).register_tool("add", add_tool);
+    let request = Request::builder()
+        .method("POST")
+        .uri("/")
+        .header("Mcp-Method", "tools/call")
+        .header("Mcp-Name", "add")
+        .header("Content-Type", "application/json")
+        .body(Body::from(
+            json!({
+                "id": 42,
+                "method": "tools/call/add",
+                "params": {
+                    "name": "add",
+                    "arguments": { "a": 10, "b": 20 }
+                }
+            })
+            .to_string(),
+        ))
+        .unwrap();
+
+    let response = app.oneshot(request).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let bytes = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let res: CallToolResultResponse = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(res.id, 42.into());
+    assert_eq!(res.result.is_error, Some(false));
+    if let ContentBlock::Text(ref t) = res.result.content[0] {
+        assert_eq!(t.text, "sum=30");
+    } else {
+        panic!("Expected text block");
+    }
+}
+
+#[tokio::test]
+async fn test_mcp_router_typed_tool_handler_error_result() {
+    use serde::{Deserialize, Serialize};
+    use crate::types::mcp::{ContentBlock, tools::call::CallToolResultResponse};
+
+    #[derive(Serialize, Deserialize)]
+    struct DivideParams {
+        a: i32,
+        b: i32,
+    }
+
+    async fn divide_tool(params: DivideParams) -> Result<String, String> {
+        if params.b == 0 {
+            return Err("Cannot divide by zero".to_string());
+        }
+        Ok((params.a / params.b).to_string())
+    }
+
+    let app = McpRouter::new(test_server_info()).register_tool("divide", divide_tool);
+    let request = Request::builder()
+        .method("POST")
+        .uri("/")
+        .header("Mcp-Method", "tools/call")
+        .header("Mcp-Name", "divide")
+        .header("Content-Type", "application/json")
+        .body(Body::from(
+            json!({
+                "id": 43,
+                "method": "tools/call/divide",
+                "params": {
+                    "name": "divide",
+                    "arguments": { "a": 10, "b": 0 }
+                }
+            })
+            .to_string(),
+        ))
+        .unwrap();
+
+    let response = app.oneshot(request).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let bytes = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let res: CallToolResultResponse = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(res.id, 43.into());
+    assert_eq!(res.result.is_error, Some(true));
+    if let ContentBlock::Text(ref t) = res.result.content[0] {
+        assert_eq!(t.text, "Cannot divide by zero");
+    } else {
+        panic!("Expected text block");
+    }
+}

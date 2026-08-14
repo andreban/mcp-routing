@@ -5,11 +5,11 @@ use serde_json::Value;
 
 use crate::types::{
     jsonrpc::{JsonRpcRequest, JsonRpcResultResponse},
-    mcp::{ContentBlock, RequestMetaObject, ResultMetaObject},
+    mcp::{ContentBlock, RequestMetaObject, ResultMetaObject, TextContent},
 };
 
 pub type CallToolRequest<A = Value> = JsonRpcRequest<CallToolParams<A>>;
-pub type CallToolResultResponse = JsonRpcResultResponse<CallToolResult>;
+pub type CallToolResultResponse<S = Value> = JsonRpcResultResponse<CallToolResult<S>>;
 
 /// Parameters for a `tools/call` request.
 ///
@@ -35,7 +35,7 @@ pub struct CallToolParams<A = Value>  {
 /// See https://modelcontextprotocol.io/specification/2026-07-28/schema#calltoolresult
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct CallToolResult {
+pub struct CallToolResult<S = Value> {
     /// Protocol-level response metadata.
     #[serde(rename = "_meta", skip_serializing_if = "Option::is_none")]
     pub meta: Option<ResultMetaObject>,
@@ -50,10 +50,53 @@ pub struct CallToolResult {
     pub is_error: Option<bool>,
     /// Structured output data, if provided by the tool.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub structured_content: Option<Value>,
+    pub structured_content: Option<S>,
     /// Additional unrecognized or custom metadata properties.
     #[serde(flatten, skip_serializing_if = "HashMap::is_empty")]
     pub extras: HashMap<String, Value>,
+}
+
+impl<S> CallToolResult<S> {
+    pub fn text(text: impl Into<String>) -> Self {
+        Self {
+            meta: None,
+            result_type: Some("complete".to_string()),
+            content: vec![ContentBlock::Text(TextContent {
+                text: text.into(),
+                annotations: None,
+                meta: None,
+            })],
+            is_error: Some(false),
+            structured_content: None,
+            extras: HashMap::new(),
+        }
+    }
+
+    pub fn error(message: impl Into<String>) -> Self {
+        Self {
+            meta: None,
+            result_type: Some("complete".to_string()),
+            content: vec![ContentBlock::Text(TextContent {
+                text: message.into(),
+                annotations: None,
+                meta: None,
+            })],
+            is_error: Some(true),
+            structured_content: None,
+            extras: HashMap::new(),
+        }
+    }
+
+    pub fn with_content(content: Vec<ContentBlock>) -> Self {
+        Self {
+            meta: None,
+            result_type: Some("complete".to_string()),
+            content,
+            is_error: Some(false),
+            structured_content: None,
+            extras: HashMap::new(),
+        }
+    }
 }
 
 #[cfg(test)]

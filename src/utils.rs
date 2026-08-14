@@ -8,6 +8,8 @@
 
 use http::HeaderMap;
 
+use crate::extract::SessionId;
+
 /// Validates whether the `Content-Type` header specifies `application/json`.
 ///
 /// This check is case-insensitive and ignores optional parameters such as `charset=utf-8`.
@@ -28,6 +30,16 @@ pub(crate) fn extract_header_name(headers: &HeaderMap) -> Option<String> {
         .get("Mcp-Name")
         .and_then(|v| v.to_str().ok())
         .map(|s| s.trim_matches('/').to_string())
+}
+
+/// Extracts the session ID from the `Mcp-Session-Id` HTTP header, trimming whitespace.
+pub(crate) fn extract_session_id(headers: &HeaderMap) -> Option<SessionId> {
+    headers
+        .get("Mcp-Session-Id")
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .map(SessionId::new)
 }
 
 /// Extracts the MCP method to dispatch, prioritizing `Mcp-Method` header and falling back to the body method.
@@ -106,6 +118,28 @@ mod tests {
 
         headers.insert("Mcp-Name", "///".parse().unwrap());
         assert_eq!(extract_header_name(&headers), Some("".to_string()));
+    }
+
+    /// Tests extracting the `Mcp-Session-Id` header and trimming whitespace.
+    #[test]
+    fn test_extract_session_id() {
+        let mut headers = HeaderMap::new();
+        assert_eq!(extract_session_id(&headers), None);
+
+        headers.insert("Mcp-Session-Id", "session-xyz".parse().unwrap());
+        assert_eq!(
+            extract_session_id(&headers),
+            Some(SessionId::new("session-xyz"))
+        );
+
+        headers.insert("Mcp-Session-Id", "  session-with-spaces  ".parse().unwrap());
+        assert_eq!(
+            extract_session_id(&headers),
+            Some(SessionId::new("session-with-spaces"))
+        );
+
+        headers.insert("Mcp-Session-Id", "   ".parse().unwrap());
+        assert_eq!(extract_session_id(&headers), None);
     }
 
     /// Tests extracting the method from `Mcp-Method` header or JSON body.

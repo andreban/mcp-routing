@@ -26,9 +26,9 @@ This roadmap tracks all Model Context Protocol (MCP) features and capabilities f
 | **Body-Based Tool Name Fallback** | ✅ | Fall back to `params.name` in [`CallToolParams`](src/types/mcp/tools/call.rs) when `Mcp-Name` header is omitted | [`src/router.rs`](src/router.rs) |
 | **HTTP Verb & Media Type Negotiation** | ✅ | Validate `POST` method (return `405 Method Not Allowed` with `Allow: POST`) and `Content-Type: application/json` (return `415 Unsupported Media Type`) | [`src/router.rs`](src/router.rs) |
 | **HTTP Caching Headers Propagation** | ✅ | Set HTTP `Cache-Control` (`public`/`private`, `max-age`) and `ETag` headers matching `ttl_ms` and `cache_scope` | [`src/body.rs`](src/body.rs), [`src/router.rs`](src/router.rs) |
-| **`Mcp-Session-Id` Header Handling** | ❌ | Extract, validate, and propagate `Mcp-Session-Id` correlation header to handlers for stateful workflows | Planned for [`src/router.rs`](src/router.rs) |
-| **Per-Request `_meta` Propagation** | ❌ | Extract and pass [`RequestMetaObject`](src/types/mcp/mod.rs) (`clientInfo`, `protocolVersion`, `progressToken`) into tool handlers | Planned for [`src/tools/mod.rs`](src/tools/mod.rs) |
-| **Session & Context Extractors** | ❌ | Support `SessionContext`, `RequestContext`, and Tower extractors (`Extension<T>`, `HeaderMap`) in handler signatures | Planned for [`src/tools/mod.rs`](src/tools/mod.rs) |
+| **`Mcp-Session-Id` Header Handling** | ✅ | Extract, validate, and propagate `Mcp-Session-Id` correlation header to handlers and outgoing responses | [`src/router.rs`](src/router.rs), [`src/extract.rs`](src/extract.rs) |
+| **Per-Request `_meta` Propagation** | ✅ | Extract and pass [`RequestMetaObject`](src/types/mcp/mod.rs) (`clientInfo`, `protocolVersion`, `progressToken`) via [`Meta`](src/extract.rs) and [`RequestContext`](src/extract.rs) | [`src/extract.rs`](src/extract.rs), [`src/tools/mod.rs`](src/tools/mod.rs), [`src/prompts/mod.rs`](src/prompts/mod.rs) |
+| **Session & Context Extractors** | ✅ | Support [`SessionId`](src/extract.rs), [`RequestContext`](src/extract.rs), [`Meta`](src/extract.rs), and Tower extractors ([`Extension<T>`](src/extract.rs), [`HeaderMap`](https://docs.rs/http/latest/http/header/struct.HeaderMap.html)) in handler signatures | [`src/extract.rs`](src/extract.rs), [`src/tools/mod.rs`](src/tools/mod.rs), [`src/prompts/mod.rs`](src/prompts/mod.rs) |
 
 ---
 
@@ -154,7 +154,7 @@ gantt
     Resources (resources/list, read)   :active, p2_2, after p2_1, 6d
     Completions (completion/complete)  :p2_3, after p2_2, 4d
     section Phase 3: Ergonomics & Extensibility
-    Session & Context Extractors       :p3_1, after p2_3, 5d
-    JSON Schema Input Pre-Validation   :p3_2, after p3_1, 4d
+    Session & Context Extractors       :done, p3_1, 2026-08-15, 3d
+    JSON Schema Input Pre-Validation   :p3_2, after p2_2, 4d
     Dynamic Tool/Prompt Providers      :p3_3, after p3_2, 4d
 ```

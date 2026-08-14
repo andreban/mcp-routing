@@ -36,9 +36,10 @@ use crate::types::mcp::{
         list::ListToolsRequest,
     },
 };
+use crate::extract::{RequestContext, SessionId};
 use crate::utils::{
-    extract_header_name, extract_method, is_json_content_type, resolve_prompt_name,
-    resolve_tool_name,
+    extract_header_name, extract_method, extract_session_id, is_json_content_type,
+    resolve_prompt_name, resolve_tool_name,
 };
 
 /// A [Tower](tower)-native router for the Model Context Protocol (MCP).
@@ -72,6 +73,7 @@ struct McpRouterInner {
     tools_list_cache_scope: Option<CacheScope>,
     prompts_list_ttl_ms: Option<u64>,
     prompts_list_cache_scope: Option<CacheScope>,
+    state_injectors: Vec<Arc<dyn Fn(&mut http::Extensions) + Send + Sync>>,
 }
 
 impl McpRouter {
@@ -101,8 +103,25 @@ impl McpRouter {
                 tools_list_cache_scope: Some(CacheScope::Public),
                 prompts_list_ttl_ms: Some(0),
                 prompts_list_cache_scope: Some(CacheScope::Public),
+                state_injectors: Vec::new(),
             }),
         }
+    }
+
+    /// Attaches application state to the router.
+    ///
+    /// The provided state value will be injected into request context for tool and prompt handlers,
+    /// making it accessible via the [`State`](crate::extract::State) or [`Extension`](crate::extract::Extension)
+    /// extractors, or through [`RequestContext::state`](crate::extract::RequestContext::state).
+    pub fn with_state<S: Clone + Send + Sync + 'static>(mut self, state: S) -> Self {
+        let injector: Arc<dyn Fn(&mut http::Extensions) + Send + Sync> =
+            Arc::new(move |exts: &mut http::Extensions| {
+                if exts.get::<S>().is_none() {
+                    exts.insert(state.clone());
+                }
+            });
+        Arc::make_mut(&mut self.inner).state_injectors.push(injector);
+        self
     }
 
     /// Sets human-readable instructions describing how to use this MCP server.
@@ -315,24 +334,42 @@ impl McpRouterInner {
         B: http_body::Body<Data = Bytes> + Send + 'static,
         B::Error: Into<BoxError>,
     {
+        let session_id = extract_session_id(req.headers());
+
+        let attach_session = |mut resp: Response<ResponseBody>| {
+            if let Some(ref sid) = session_id
+                && let Ok(header_val) = http::HeaderValue::from_str(sid.as_str())
+            {
+                resp.headers_mut().insert(
+                    http::header::HeaderName::from_static("mcp-session-id"),
+                    header_val,
+                );
+            }
+            resp
+        };
+
         if req.method() != http::Method::POST {
             tracing::debug!(method = %req.method(), "HTTP method not allowed, only POST is supported");
-            return method_not_allowed();
+            return attach_session(method_not_allowed());
         }
 
         if !is_json_content_type(req.headers()) {
             tracing::debug!("Missing or unsupported Content-Type header");
-            return unsupported_media_type();
+            return attach_session(unsupported_media_type());
         }
 
-        let (parts, body) = req.into_parts();
+        let (mut parts, body) = req.into_parts();
+        for injector in &self.state_injectors {
+            injector(&mut parts.extensions);
+        }
+        let extensions = Arc::new(parts.extensions);
 
         let body_bytes = match body.collect().await {
             Ok(collected) => collected.to_bytes(),
             Err(err) => {
                 let err = err.into();
                 tracing::error!(?err, "Failed to read request body");
-                return bad_request();
+                return attach_session(bad_request());
             }
         };
 
@@ -348,7 +385,7 @@ impl McpRouterInner {
                 tracing::debug!(?err, "Failed to parse JSON body");
                 let error_response =
                     JsonRpcErrorResponse::parse_error(format!("Parse error: {err}"));
-                return json_response(&error_response);
+                return attach_session(json_response(&error_response));
             }
         };
 
@@ -359,7 +396,7 @@ impl McpRouterInner {
                 peek.id,
                 "Invalid Request: missing method",
             );
-            return json_response(&error_response);
+            return attach_session(json_response(&error_response));
         };
 
         if method.is_empty() {
@@ -368,22 +405,36 @@ impl McpRouterInner {
                 peek.id,
                 "Invalid Request: empty method",
             );
-            return json_response(&error_response);
+            return attach_session(json_response(&error_response));
         }
 
         let header_name = extract_header_name(&parts.headers);
 
-        match method.as_str() {
+        let response = match method.as_str() {
             "server/discover" => self.handle_server_discover(peek.id, &body_bytes),
             "tools/list" => self.handle_tools_list(peek.id, &body_bytes),
             "tools/call" => {
-                self.handle_tools_call(peek.id, header_name.as_deref(), &body_bytes)
-                    .await
+                self.handle_tools_call(
+                    peek.id,
+                    header_name.as_deref(),
+                    session_id.clone(),
+                    &parts.headers,
+                    Arc::clone(&extensions),
+                    &body_bytes,
+                )
+                .await
             }
             "prompts/list" => self.handle_prompts_list(peek.id, &body_bytes),
             "prompts/get" => {
-                self.handle_prompts_get(peek.id, header_name.as_deref(), &body_bytes)
-                    .await
+                self.handle_prompts_get(
+                    peek.id,
+                    header_name.as_deref(),
+                    session_id.clone(),
+                    &parts.headers,
+                    Arc::clone(&extensions),
+                    &body_bytes,
+                )
+                .await
             }
             unknown_method => {
                 tracing::debug!(%unknown_method, "Method not found");
@@ -393,7 +444,9 @@ impl McpRouterInner {
                 );
                 json_response(&error_response)
             }
-        }
+        };
+
+        attach_session(response)
     }
 
     fn handle_server_discover(
@@ -464,6 +517,9 @@ impl McpRouterInner {
         &self,
         req_id: Option<JsonRpcRequestId>,
         header_name: Option<&str>,
+        session_id: Option<SessionId>,
+        headers: &http::HeaderMap,
+        extensions: Arc<http::Extensions>,
         body: &[u8],
     ) -> Response<ResponseBody> {
         let request: CallToolRequest<serde_json::Value> = match serde_json::from_slice(body) {
@@ -508,7 +564,10 @@ impl McpRouterInner {
                 .cloned()
                 .unwrap_or((None, None));
             let req_id = request.id.clone();
-            let result = handler.call(request).await;
+            let meta = request.params.as_ref().and_then(|p| p.meta.clone());
+            let ctx = RequestContext::new(session_id, meta, headers.clone(), extensions);
+            let raw_args = request.params.and_then(|p| p.arguments);
+            let result = handler.call(ctx, raw_args).await;
             let response = CallToolResultResponse::new(req_id, result);
             return json_response_with_caching(&response, tool_ttl, tool_scope.as_ref());
         }
@@ -555,6 +614,9 @@ impl McpRouterInner {
         &self,
         req_id: Option<JsonRpcRequestId>,
         header_name: Option<&str>,
+        session_id: Option<SessionId>,
+        headers: &http::HeaderMap,
+        extensions: Arc<http::Extensions>,
         body: &[u8],
     ) -> Response<ResponseBody> {
         let request: GetPromptRequest<serde_json::Value> = match serde_json::from_slice(body) {
@@ -599,7 +661,10 @@ impl McpRouterInner {
                 .cloned()
                 .unwrap_or((None, None));
             let req_id = request.id.clone();
-            match handler.call(request).await {
+            let meta = request.params.as_ref().and_then(|p| p.meta.clone());
+            let ctx = RequestContext::new(session_id, meta, headers.clone(), extensions);
+            let raw_args = request.params.and_then(|p| p.arguments);
+            match handler.call(ctx, raw_args).await {
                 Ok(result) => {
                     let response = GetPromptResultResponse::new(req_id, result);
                     return json_response_with_caching(&response, prompt_ttl, prompt_scope.as_ref());

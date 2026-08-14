@@ -10,6 +10,8 @@ pub mod prompts;
 pub mod server;
 pub mod tools;
 
+pub use crate::extract::SessionId;
+
 /// A progress token, used to associate progress notifications with the original request.
 ///
 /// See <https://modelcontextprotocol.io/specification/2026-07-28/schema#progresstoken>

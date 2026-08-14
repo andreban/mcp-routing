@@ -1,0 +1,158 @@
+# Model Context Protocol (MCP) Roadmap
+
+This roadmap tracks all Model Context Protocol (MCP) features and capabilities for the **stateless HTTP transport** ([`2026-07-28` specification](https://modelcontextprotocol.io/docs/2026-07-28/)) implemented via [Tower](https://crates.io/crates/tower).
+
+---
+
+## Status Legend
+
+| Symbol | Status | Description |
+|:---:|:---|:---|
+| ✅ | **Implemented** | Fully implemented and covered by unit/integration tests |
+| 🟡 | **Partial** | Types or definitions exist, but runtime routing, validation, or handlers are missing |
+| ❌ | **Not Implemented** | Feature is currently missing from the library |
+
+---
+
+## 1. HTTP Transport & Tower Routing
+
+| Feature | Status | Details | Primary References |
+|---|:---:|---|---|
+| **Tower `Service` Implementation** | ✅ | [`McpRouter`](src/router.rs) implements `tower::Service<Request<B>>` for any body `B: http_body::Body<Data = Bytes>` | [`src/router.rs`](src/router.rs) |
+| **Streaming `ResponseBody`** | ✅ | Custom box-body [`ResponseBody`](src/body.rs) supporting `Bytes`, `Vec<u8>`, `String`, and conversions | [`src/body.rs`](src/body.rs) |
+| **Header-Based Method Routing** | ✅ | Dispatches via `Mcp-Method` header (`server/discover`, `tools/list`, `tools/call`) | [`src/router.rs`](src/router.rs) |
+| **Header-Based Tool Target Routing** | ✅ | Routes tool calls via `Mcp-Name: <name>` header | [`src/router.rs`](src/router.rs) |
+| **Body-Based Method Dispatch Fallback** | ❌ | Fall back to `request.method` inside JSON-RPC body when `Mcp-Method` header is omitted | Planned for [`src/router.rs`](src/router.rs) |
+| **Body-Based Tool Name Fallback** | ❌ | Fall back to `params.name` in [`CallToolParams`](src/types/mcp/tools/call.rs) when `Mcp-Name` header is omitted | Planned for [`src/router.rs`](src/router.rs) |
+| **HTTP Verb & Media Type Negotiation** | ❌ | Validate `POST` method (return `405 Method Not Allowed`) and `Content-Type: application/json` (return `415 Unsupported Media Type`) | Planned for [`src/router.rs`](src/router.rs) |
+| **HTTP Caching Headers Propagation** | ❌ | Set HTTP `Cache-Control` (`public`/`private`, `max-age`) and `ETag` headers matching `ttl_ms` and `cache_scope` | Planned for [`src/body.rs`](src/body.rs) |
+| **Request Context & Tower Extractors** | ❌ | Support Axum/Tower extractors (e.g. `Extension<T>`, `HeaderMap`, auth tokens) in tool and handler signatures | Planned for [`src/tools/mod.rs`](src/tools/mod.rs) |
+
+---
+
+## 2. JSON-RPC 2.0 Protocol Compliance
+
+| Feature | Status | Details | Primary References |
+|---|:---:|---|---|
+| **JSON-RPC Request Model** | ✅ | [`JsonRpcRequest<P>`](src/types/jsonrpc/request.rs) with flexible generic parameters | [`src/types/jsonrpc/request.rs`](src/types/jsonrpc/request.rs) |
+| **Flexible Request ID Format** | ✅ | [`JsonRpcRequestId`](src/types/jsonrpc/mod.rs) supporting string and numeric IDs | [`src/types/jsonrpc/mod.rs`](src/types/jsonrpc/mod.rs) |
+| **JSON-RPC Success Responses** | ✅ | [`JsonRpcResultResponse<R>`](src/types/jsonrpc/response.rs) serialized with standard `jsonrpc: "2.0"` | [`src/types/jsonrpc/response.rs`](src/types/jsonrpc/response.rs) |
+| **JSON-RPC Error Structures** | 🟡 | [`JsonRpcErrorResponse<E>`](src/types/jsonrpc/response.rs) type exists, but router returns raw empty HTTP responses on routing/deserialization errors | [`src/types/jsonrpc/response.rs`](src/types/jsonrpc/response.rs) |
+| **Standard JSON-RPC Error Codes** | ❌ | Structured error mapping for `ParseError` (`-32700`), `InvalidRequest` (`-32600`), `MethodNotFound` (`-32601`), `InvalidParams` (`-32602`), and `InternalError` (`-32603`) | Planned for [`src/types/jsonrpc/`](src/types/jsonrpc) |
+| **JSON-RPC Batch Requests** | ❌ | Processing and batching array payloads `[JsonRpcRequest, ...]` over HTTP POST | Planned for [`src/router.rs`](src/router.rs) |
+| **JSON-RPC Notifications** | 🟡 | [`JsonRpcNotification<P>`](src/types/jsonrpc/notification.rs) type defined, but no notification dispatcher/handler in router | [`src/types/jsonrpc/notification.rs`](src/types/jsonrpc/notification.rs) |
+
+---
+
+## 3. Server Discovery & Metadata (`server/*`)
+
+| Feature | Status | Details | Primary References |
+|---|:---:|---|---|
+| **`server/discover` Endpoint** | ✅ | Built-in endpoint via [`handle_server_discover`](src/server/discover.rs) | [`src/server/discover.rs`](src/server/discover.rs) |
+| **Server Implementation Info** | ✅ | [`Implementation`](src/types/mcp/mod.rs) metadata (`name`, `version`, `title`, `description`, `website_url`, `icons`) | [`src/types/mcp/mod.rs`](src/types/mcp/mod.rs) |
+| **Server Capabilities Advertisement** | ✅ | [`ServerCapabilities`](src/types/mcp/mod.rs) advertising tools, resources, prompts, completions, and experimental | [`src/types/mcp/mod.rs`](src/types/mcp/mod.rs) |
+| **Human-Readable Instructions** | ✅ | Router builder method [`.instructions()`](src/router.rs) serialized into discovery response | [`src/router.rs`](src/router.rs) |
+| **Supported Versions Configuration** | ✅ | Configurable supported protocol versions (defaults to `["2026-07-28"]`) | [`src/router.rs`](src/router.rs) |
+| **Protocol Version Negotiation** | ❌ | Validate client `protocolVersion` in [`RequestMetaObject`](src/types/mcp/mod.rs) against server `supported_versions` | Planned for [`src/server/discover.rs`](src/server/discover.rs) |
+| **Dynamic Discovery Provider** | ❌ | Dynamic async hook to generate capabilities/instructions on per-request basis | Planned for [`src/router.rs`](src/router.rs) |
+
+---
+
+## 4. Tools Capability (`tools/*`)
+
+| Feature | Status | Details | Primary References |
+|---|:---:|---|---|
+| **`tools/list` Endpoint** | ✅ | Built-in handler in [`handle_list_tools`](src/tools/list.rs) returning registered tools | [`src/tools/list.rs`](src/tools/list.rs) |
+| **Tool Definition Schema** | ✅ | [`Tool`](src/types/mcp/tools/mod.rs) with `name`, `title`, `description`, `input_schema`, `output_schema`, `icons`, `annotations`, `_meta` | [`src/types/mcp/tools/mod.rs`](src/types/mcp/tools/mod.rs) |
+| **Tool Behavioral Annotations** | ✅ | [`ToolAnnotations`](src/types/mcp/tools/mod.rs) (`read_only_hint`, `destructive_hint`, `idempotent_hint`, `open_world_hint`, `title`) | [`src/types/mcp/tools/mod.rs`](src/types/mcp/tools/mod.rs) |
+| **`tools/call` Endpoint** | ✅ | Dispatches tool invocation to registered handlers in [`router.rs`](src/router.rs) | [`src/router.rs`](src/router.rs) |
+| **Typed Asynchronous Handlers** | ✅ | [`IntoToolHandler`](src/tools/mod.rs) for `async fn()` and `async fn(Args)` with Serde JSON deserialization | [`src/tools/mod.rs`](src/tools/mod.rs) |
+| **Flexible Result Conversions** | ✅ | [`IntoToolResult`](src/tools/mod.rs) for `String`, `&str`, `ContentBlock`, `Vec<ContentBlock>`, `CallToolResult`, and `Result<T, E>` | [`src/tools/mod.rs`](src/tools/mod.rs) |
+| **Tool Pagination (`cursor`)** | 🟡 | [`ListToolsParams`](src/types/mcp/tools/list.rs) has `cursor` and `next_cursor`, but [`handle_list_tools`](src/tools/list.rs) returns static vector with `next_cursor: None` | [`src/tools/list.rs`](src/tools/list.rs) |
+| **Input JSON Schema Pre-Validation** | ❌ | Validate raw JSON arguments against `tool.input_schema` prior to deserialization | Planned for [`src/tools/mod.rs`](src/tools/mod.rs) |
+| **Structured Output Helpers** | 🟡 | [`CallToolResult.structured_content`](src/types/mcp/tools/call.rs) exists in types; ergonomic builder helpers missing | [`src/types/mcp/tools/call.rs`](src/types/mcp/tools/call.rs) |
+| **Dynamic Tool Provider** | ❌ | Register a dynamic async provider for listing/calling tools generated at runtime | Planned for [`src/router.rs`](src/router.rs) |
+
+---
+
+## 5. Multi-Modal Content & Data Types
+
+| Feature | Status | Details | Primary References |
+|---|:---:|---|---|
+| **Text Content** | ✅ | [`TextContent`](src/types/mcp/mod.rs) with annotations and metadata | [`src/types/mcp/mod.rs`](src/types/mcp/mod.rs) |
+| **Image Content** | ✅ | [`ImageContent`](src/types/mcp/mod.rs) with base64 data and mimeType | [`src/types/mcp/mod.rs`](src/types/mcp/mod.rs) |
+| **Audio Content** | ✅ | [`AudioContent`](src/types/mcp/mod.rs) with base64 data and mimeType | [`src/types/mcp/mod.rs`](src/types/mcp/mod.rs) |
+| **Embedded Resources** | ✅ | [`EmbeddedResource`](src/types/mcp/mod.rs) (`TextResourceContents` and `BlobResourceContents`) | [`src/types/mcp/mod.rs`](src/types/mcp/mod.rs) |
+| **Resource Links** | ✅ | [`ResourceLink`](src/types/mcp/mod.rs) referencing external or hosted resources | [`src/types/mcp/mod.rs`](src/types/mcp/mod.rs) |
+| **Content Annotations** | ✅ | [`ContentAnnotations`](src/types/mcp/mod.rs) with `audience` ([`Role`](src/types/mcp/mod.rs)) and `priority` (0.0–1.0) | [`src/types/mcp/mod.rs`](src/types/mcp/mod.rs) |
+| **UI Icon Specifications** | ✅ | [`Icon`](src/types/mcp/mod.rs) with `src`, `mime_type`, `sizes`, and [`IconTheme`](src/types/mcp/mod.rs) | [`src/types/mcp/mod.rs`](src/types/mcp/mod.rs) |
+| **Progress Tokens & Caching Scopes** | ✅ | [`ProgressToken`](src/types/mcp/mod.rs) and [`CacheScope`](src/types/mcp/mod.rs) | [`src/types/mcp/mod.rs`](src/types/mcp/mod.rs) |
+
+---
+
+## 6. Resources Capability (`resources/*`)
+
+| Feature | Status | Details | Primary References |
+|---|:---:|---|---|
+| **Resource Capability Flag** | 🟡 | [`ResourcesCapability`](src/types/mcp/mod.rs) type exists with `subscribe` and `list_changed` fields | [`src/types/mcp/mod.rs`](src/types/mcp/mod.rs) |
+| **Resource Definitions & Models** | ❌ | `Resource`, `ResourceTemplate`, `ResourceAnnotations` data types | Planned for `src/types/mcp/resources/` |
+| **`resources/list` Endpoint** | ❌ | Listing available direct resources with cursor pagination | Planned for `src/resources/` |
+| **`resources/read` Endpoint** | ❌ | Reading text/blob resource content by URI | Planned for `src/resources/` |
+| **`resources/templates/list` Endpoint**| ❌ | Listing URI templates for dynamic parameterized resources | Planned for `src/resources/` |
+| **Typed Resource Handlers** | ❌ | `register_resource` and `register_resource_template` router builder APIs | Planned for [`src/router.rs`](src/router.rs) |
+
+---
+
+## 7. Prompts Capability (`prompts/*`)
+
+| Feature | Status | Details | Primary References |
+|---|:---:|---|---|
+| **Prompt Capability Flag** | 🟡 | [`PromptsCapability`](src/types/mcp/mod.rs) type exists with `list_changed` field | [`src/types/mcp/mod.rs`](src/types/mcp/mod.rs) |
+| **Prompt Definitions & Models** | ❌ | `Prompt`, `PromptArgument`, `PromptMessage` data types | Planned for `src/types/mcp/prompts/` |
+| **`prompts/list` Endpoint** | ❌ | Listing available prompt templates with cursor pagination | Planned for `src/prompts/` |
+| **`prompts/get` Endpoint** | ❌ | Retrieving prompt messages with argument substitution | Planned for `src/prompts/` |
+| **Typed Prompt Handlers** | ❌ | `register_prompt` builder API with typed argument deserialization | Planned for [`src/router.rs`](src/router.rs) |
+
+---
+
+## 8. Completions Capability (`completion/*`)
+
+| Feature | Status | Details | Primary References |
+|---|:---:|---|---|
+| **Completions Capability Flag** | 🟡 | [`CompletionsCapability`](src/types/mcp/mod.rs) type exists in schema | [`src/types/mcp/mod.rs`](src/types/mcp/mod.rs) |
+| **`completion/complete` Endpoint** | ❌ | Autocompletion endpoint for prompt arguments and resource reference values | Planned for `src/completion/` |
+| **Completion Types & Handlers** | ❌ | `CompleteRequest`, `CompleteResult`, and completion registration APIs | Planned for `src/completion/` |
+
+---
+
+## 9. Logging & Diagnostics (`logging/*`)
+
+| Feature | Status | Details | Primary References |
+|---|:---:|---|---|
+| **Logging Severity Levels** | ✅ | [`LoggingLevel`](src/types/mcp/mod.rs) enum matching RFC-5424 severities | [`src/types/mcp/mod.rs`](src/types/mcp/mod.rs) |
+| **`logging/setLevel` Endpoint** | ❌ | Endpoint allowing clients to dynamically request server logging threshold | Planned for `src/logging/` |
+| **Per-Request `logLevel` Handling**| 🟡 | `log_level` parsed in [`RequestMetaObject`](src/types/mcp/mod.rs), but not yet wired to tracing filters | [`src/types/mcp/mod.rs`](src/types/mcp/mod.rs) |
+
+---
+
+## Phased Development Plan
+
+```mermaid
+gantt
+    title Phased Implementation Plan
+    dateFormat  YYYY-MM-DD
+    section Phase 1: Robustness & Spec Errors
+    Body-based method fallback         :active, p1_1, 2026-08-15, 3d
+    Tool name param fallback           :active, p1_2, after p1_1, 2d
+    JSON-RPC error code responses      :p1_3, after p1_2, 3d
+    HTTP verb & Content-Type validation:p1_4, after p1_3, 2d
+    Cache-Control header propagation   :p1_5, after p1_4, 2d
+    section Phase 2: Core Capabilities
+    Prompts (prompts/list, prompts/get):p2_1, after p1_5, 5d
+    Resources (resources/list, read)   :p2_2, after p2_1, 6d
+    Completions (completion/complete)  :p2_3, after p2_2, 4d
+    section Phase 3: Ergonomics & Extensibility
+    Tower / Axum Request Extractors    :p3_1, after p2_3, 5d
+    JSON Schema Input Pre-Validation   :p3_2, after p3_1, 4d
+    Dynamic Tool/Prompt Providers      :p3_3, after p3_2, 4d
+```

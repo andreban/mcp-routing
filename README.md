@@ -125,6 +125,10 @@ cargo run --example routing
 cargo test
 ```
 
+## Roadmap
+
+See [ROADMAP.md](ROADMAP.md) for current MCP specification coverage, supported features, and planned capabilities.
+
 ## License
 
 Licensed under the Apache License, Version 2.0 ([LICENSE](LICENSE) or <http://www.apache.org/licenses/LICENSE-2.0>).

@@ -66,6 +66,7 @@
 //! ```
 
 pub mod body;
+pub mod completion;
 pub mod extract;
 pub mod prompts;
 pub mod resources;
@@ -79,6 +80,10 @@ pub(crate) mod utils;
 mod test;
 
 pub use body::{BoxError, ResponseBody, compute_etag, format_cache_control};
+pub use completion::{
+    CompletionError, CompletionHandler, CompletionRegistry, IntoCompletionHandler,
+    IntoCompletionResult,
+};
 pub use extract::{
     Authorization, BearerAuth, Extension, ExtractionError, FromRequestContext, Json, Meta,
     RegisteredPrompts, RegisteredResourceTemplates, RegisteredResources, RegisteredTools,
@@ -103,3 +108,4 @@ pub use tools::{
     IntoToolHandler, IntoToolResult, IntoToolsListHandler, IntoToolsListResult, Json as ToolJson,
     ToolError, ToolHandler, ToolRegistry, ToolsListHandler,
 };
+

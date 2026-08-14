@@ -28,11 +28,13 @@ use crate::types::mcp::{
 };
 use crate::utils::{extract_header_uri, match_uri_template, resolve_resource_uri};
 
+type MatchedResourceHandler = (Arc<dyn ResourceHandler>, Option<u64>, Option<CacheScope>);
+
 /// Registry managing direct resources, URI resource templates, typed handlers, and cache configurations.
 #[derive(Clone)]
 pub struct ResourceRegistry {
-    pub(crate) resources: Vec<Resource>,
-    pub(crate) resource_templates: Vec<ResourceTemplate>,
+    pub(crate) resources: Arc<Vec<Resource>>,
+    pub(crate) resource_templates: Arc<Vec<ResourceTemplate>>,
     pub(crate) resource_handlers: HashMap<String, Arc<dyn ResourceHandler>>,
     pub(crate) template_handlers: Vec<(ResourceTemplate, Arc<dyn ResourceHandler>)>,
     pub(crate) resource_cache_settings: HashMap<String, (Option<u64>, Option<CacheScope>)>,
@@ -54,8 +56,8 @@ impl ResourceRegistry {
     /// Creates a new empty [`ResourceRegistry`].
     pub fn new() -> Self {
         Self {
-            resources: Vec::new(),
-            resource_templates: Vec::new(),
+            resources: Arc::new(Vec::new()),
+            resource_templates: Arc::new(Vec::new()),
             resource_handlers: HashMap::new(),
             template_handlers: Vec::new(),
             resource_cache_settings: HashMap::new(),
@@ -97,7 +99,7 @@ impl ResourceRegistry {
         let uri = resource.uri.clone();
         self.resource_handlers
             .insert(uri, handler.into_resource_handler());
-        self.resources.push(resource);
+        Arc::make_mut(&mut self.resources).push(resource);
     }
 
     /// Registers a direct resource definition alongside a typed asynchronous handler and caching directives.
@@ -118,7 +120,7 @@ impl ResourceRegistry {
             .insert(uri.clone(), handler.into_resource_handler());
         self.resource_cache_settings
             .insert(uri, (ttl_ms, cache_scope));
-        self.resources.push(resource);
+        Arc::make_mut(&mut self.resources).push(resource);
     }
 
     /// Registers a resource template definition alongside a typed asynchronous handler.
@@ -131,7 +133,7 @@ impl ResourceRegistry {
         let template = template.into();
         self.template_handlers
             .push((template.clone(), handler.into_resource_handler()));
-        self.resource_templates.push(template);
+        Arc::make_mut(&mut self.resource_templates).push(template);
     }
 
     /// Registers a resource template definition alongside a typed asynchronous handler and caching directives.
@@ -152,7 +154,7 @@ impl ResourceRegistry {
             .push((template.clone(), handler.into_resource_handler()));
         self.resource_cache_settings
             .insert(uri_template, (ttl_ms, cache_scope));
-        self.resource_templates.push(template);
+        Arc::make_mut(&mut self.resource_templates).push(template);
     }
 
     /// Sets caching directives for a specific registered resource or template by URI.
@@ -211,7 +213,7 @@ impl ResourceRegistry {
 
         if let Some(ref handler) = self.list_handler {
             let mut extensions = (*ctx.extensions).clone();
-            extensions.insert(crate::extract::RegisteredResources(self.resources.clone()));
+            extensions.insert(crate::extract::RegisteredResources((*self.resources).clone()));
             let request_ctx = RequestContext::new(
                 ctx.session_id,
                 params.meta.clone(),
@@ -270,7 +272,7 @@ impl ResourceRegistry {
 
             let res = crate::resources::list::handle_list_resources(
                 req,
-                self.resources.clone(),
+                (*self.resources).clone(),
                 self.list_ttl_ms,
                 self.list_cache_scope.clone(),
             );
@@ -317,7 +319,7 @@ impl ResourceRegistry {
         if let Some(ref handler) = self.templates_list_handler {
             let mut extensions = (*ctx.extensions).clone();
             extensions.insert(crate::extract::RegisteredResourceTemplates(
-                self.resource_templates.clone(),
+                (*self.resource_templates).clone(),
             ));
             let request_ctx = RequestContext::new(
                 ctx.session_id,
@@ -377,7 +379,7 @@ impl ResourceRegistry {
 
             let res = crate::resources::templates::handle_list_resource_templates(
                 req,
-                self.resource_templates.clone(),
+                (*self.resource_templates).clone(),
                 self.templates_list_ttl_ms,
                 self.templates_list_cache_scope.clone(),
             );
@@ -453,7 +455,7 @@ impl ResourceRegistry {
         }
 
         // 1. Check exact resource handler match
-        let matched_handler: Option<(Arc<dyn ResourceHandler>, Option<u64>, Option<CacheScope>)> =
+        let matched_handler: Option<MatchedResourceHandler> =
             if let Some(handler) = self.resource_handlers.get(resource_uri) {
                 let (ttl, scope) = self
                     .resource_cache_settings
@@ -553,7 +555,7 @@ impl ResourceRegistry {
 
         let response = crate::resources::list::handle_list_resources(
             request,
-            self.resources.clone(),
+            (*self.resources).clone(),
             self.list_ttl_ms,
             self.list_cache_scope.clone(),
         );
@@ -582,7 +584,7 @@ impl ResourceRegistry {
 
         let response = crate::resources::templates::handle_list_resource_templates(
             request,
-            self.resource_templates.clone(),
+            (*self.resource_templates).clone(),
             self.templates_list_ttl_ms,
             self.templates_list_cache_scope.clone(),
         );
@@ -636,7 +638,7 @@ impl ResourceRegistry {
             return json_response(&error_response);
         }
 
-        let matched_handler: Option<(Arc<dyn ResourceHandler>, Option<u64>, Option<CacheScope>)> =
+        let matched_handler: Option<MatchedResourceHandler> =
             if let Some(handler) = self.resource_handlers.get(resource_uri) {
                 let (ttl, scope) = self
                     .resource_cache_settings

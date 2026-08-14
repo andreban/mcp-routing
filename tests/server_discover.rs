@@ -424,7 +424,7 @@ async fn test_server_discover_dynamic_provider_with_extractors() {
     }
 
     let server_info = Implementation::new("dynamic-server", "1.0.0");
-    let app = McpRouter::new(server_info).dynamic_discovery(custom_discover_provider);
+    let app = McpRouter::new(server_info).discover(custom_discover_provider);
 
     // Inject extension via router tower layer
     let mut req = common::build_request(
@@ -493,7 +493,7 @@ async fn test_server_discover_dynamic_provider_returning_result_with_cache() {
 
     let server_info = Implementation::new("dynamic-cache-server", "1.0.0");
     let app =
-        McpRouter::new(server_info).server_discovery_provider(custom_discover_result_provider);
+        McpRouter::new(server_info).discover(custom_discover_result_provider);
 
     let req = common::build_request(
         Some("server/discover"),
@@ -536,7 +536,7 @@ async fn test_server_discover_dynamic_provider_error_handling() {
     }
 
     let server_info = Implementation::new("failing-server", "1.0.0");
-    let app = McpRouter::new(server_info).dynamic_discovery(failing_discover_provider);
+    let app = McpRouter::new(server_info).discover(failing_discover_provider);
 
     let req = common::build_request(
         Some("server/discover"),
@@ -570,7 +570,7 @@ async fn test_server_discover_dynamic_provider_simple_instructions() {
     }
 
     let server_info = Implementation::new("instructions-server", "1.0.0");
-    let app = McpRouter::new(server_info).dynamic_discovery(instructions_provider);
+    let app = McpRouter::new(server_info).discover(instructions_provider);
 
     let req = common::build_request(
         Some("server/discover"),

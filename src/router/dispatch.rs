@@ -118,6 +118,7 @@ impl McpRouterInner {
             "resources/templates/list" => {
                 self.resources.dispatch_templates_list(ctx, params_val).await
             }
+            "completion/complete" => self.completion.dispatch_complete(ctx, params_val).await,
             unknown_method => {
                 tracing::debug!(%unknown_method, "Method not found");
                 if ctx.is_notification {

@@ -385,7 +385,7 @@ async fn test_tools_list_custom_handler_with_pagination_cursor() {
         }
     }
 
-    let app = McpRouter::new(common::sample_server_info()).list_tools(paged_list_handler);
+    let app = McpRouter::new(common::sample_server_info()).tools_list(paged_list_handler);
 
     // Page 1
     let req1 = common::build_request(

@@ -3,6 +3,7 @@
 
 use std::sync::Arc;
 
+use crate::completion::{CompletionRegistry, IntoCompletionHandler};
 use crate::prompts::{IntoPromptHandler, IntoPromptsListHandler, PromptRegistry};
 use crate::resources::{
     IntoResourceHandler, IntoResourcesListHandler, IntoResourceTemplatesListHandler,
@@ -12,7 +13,8 @@ use crate::router::{McpRouter, McpRouterInner, StateInjector};
 use crate::server::{IntoServerDiscoveryHandler, ServerConfig};
 use crate::tools::{IntoToolHandler, IntoToolsListHandler, ToolRegistry};
 use crate::types::mcp::{
-    CacheScope, Implementation, PromptsCapability, ResourcesCapability, ServerCapabilities,
+    CacheScope, CompletionsCapability, Implementation, PromptsCapability, ResourcesCapability,
+    ServerCapabilities,
     prompts::Prompt,
     resources::{Resource, ResourceTemplate},
     tools::Tool,
@@ -27,6 +29,7 @@ impl McpRouter {
                 tools: ToolRegistry::new(),
                 prompts: PromptRegistry::new(),
                 resources: ResourceRegistry::new(),
+                completion: CompletionRegistry::new(),
                 state_injectors: Vec::new(),
             }),
         }
@@ -95,33 +98,6 @@ impl McpRouter {
         self
     }
 
-    /// Alias for [`discover`](Self::discover) to register a server discovery handler.
-    pub fn discovery<H, T>(self, handler: H) -> Self
-    where
-        H: IntoServerDiscoveryHandler<T>,
-        T: 'static,
-    {
-        self.discover(handler)
-    }
-
-    /// Alias for [`discover`](Self::discover) to register a server discovery handler.
-    pub fn dynamic_discovery<H, T>(self, handler: H) -> Self
-    where
-        H: IntoServerDiscoveryHandler<T>,
-        T: 'static,
-    {
-        self.discover(handler)
-    }
-
-    /// Alias for [`discover`](Self::discover) to register a server discovery handler.
-    pub fn server_discovery_provider<H, T>(self, handler: H) -> Self
-    where
-        H: IntoServerDiscoveryHandler<T>,
-        T: 'static,
-    {
-        self.discover(handler)
-    }
-
     /// Sets the time-to-live (`ttl_ms`) and cache scope for `server/discover` responses.
     pub fn server_discover_cache(
         mut self,
@@ -185,15 +161,6 @@ impl McpRouter {
             .tools
             .set_list_handler(handler);
         self
-    }
-
-    /// Alias for [`tools_list`](Self::tools_list) to register a tools list handler function.
-    pub fn list_tools<H, T>(self, handler: H) -> Self
-    where
-        H: IntoToolsListHandler<T>,
-        T: 'static,
-    {
-        self.tools_list(handler)
     }
 
     /// Registers a tool definition alongside a typed asynchronous handler function.
@@ -289,15 +256,6 @@ impl McpRouter {
         }
         inner.prompts.set_list_handler(handler);
         self
-    }
-
-    /// Alias for [`prompts_list`](Self::prompts_list) to register a prompts list handler function.
-    pub fn list_prompts<H, T>(self, handler: H) -> Self
-    where
-        H: IntoPromptsListHandler<T>,
-        T: 'static,
-    {
-        self.prompts_list(handler)
     }
 
     /// Registers a prompt template alongside a typed asynchronous handler function.
@@ -400,15 +358,6 @@ impl McpRouter {
         self
     }
 
-    /// Alias for [`resources_list`](Self::resources_list) to register a resources list handler function.
-    pub fn list_resources<H, T>(self, handler: H) -> Self
-    where
-        H: IntoResourcesListHandler<T>,
-        T: 'static,
-    {
-        self.resources_list(handler)
-    }
-
     /// Sets the time-to-live (`ttl_ms`) and cache scope for `resources/templates/list` responses.
     pub fn resource_templates_list_cache(
         mut self,
@@ -453,15 +402,6 @@ impl McpRouter {
         }
         inner.resources.set_templates_list_handler(handler);
         self
-    }
-
-    /// Alias for [`resource_templates_list`](Self::resource_templates_list) to register a resource templates list handler function.
-    pub fn list_resource_templates<H, T>(self, handler: H) -> Self
-    where
-        H: IntoResourceTemplatesListHandler<T>,
-        T: 'static,
-    {
-        self.resource_templates_list(handler)
     }
 
     /// Registers a direct resource definition alongside a typed asynchronous handler function.
@@ -577,4 +517,127 @@ impl McpRouter {
             .set_resource_cache(uri, ttl_ms, cache_scope);
         self
     }
+
+    /// Sets the time-to-live (`ttl_ms`) and cache scope for `completion/complete` responses.
+    pub fn completion_cache(
+        mut self,
+        ttl_ms: Option<u64>,
+        cache_scope: Option<CacheScope>,
+    ) -> Self {
+        Arc::make_mut(&mut self.inner)
+            .completion
+            .set_cache(ttl_ms, cache_scope);
+        self
+    }
+
+    /// Sets the time-to-live (`ttl_ms`) in milliseconds for `completion/complete` responses.
+    pub fn completion_ttl(mut self, ttl_ms: u64) -> Self {
+        Arc::make_mut(&mut self.inner).completion.cache_ttl_ms = Some(ttl_ms);
+        self
+    }
+
+    /// Sets the cache scope for `completion/complete` responses.
+    pub fn completion_cache_scope(mut self, cache_scope: CacheScope) -> Self {
+        Arc::make_mut(&mut self.inner).completion.cache_scope = Some(cache_scope);
+        self
+    }
+
+    /// Registers a default or fallback autocompletion handler function (`completion/complete`).
+    ///
+    /// The handler function can accept request extractors, [`CompleteParams`](crate::types::mcp::completion::CompleteParams),
+    /// or [`CompleteArgument`](crate::types::mcp::completion::CompleteArgument), and return any type
+    /// implementing [`IntoCompletionResult`](crate::completion::IntoCompletionResult).
+    pub fn completion<H, T>(mut self, handler: H) -> Self
+    where
+        H: IntoCompletionHandler<T>,
+        T: 'static,
+    {
+        let inner = Arc::make_mut(&mut self.inner);
+        if inner.server.capabilities.completions.is_none() {
+            inner.server.capabilities.completions = Some(CompletionsCapability {});
+        }
+        inner.completion.set_default_handler(handler);
+        self
+    }
+
+    /// Registers an autocompletion handler function for all arguments of a prompt template.
+    pub fn register_prompt_completion<H, T>(
+        mut self,
+        prompt_name: impl Into<String>,
+        handler: H,
+    ) -> Self
+    where
+        H: IntoCompletionHandler<T>,
+        T: 'static,
+    {
+        let inner = Arc::make_mut(&mut self.inner);
+        if inner.server.capabilities.completions.is_none() {
+            inner.server.capabilities.completions = Some(CompletionsCapability {});
+        }
+        inner.completion.register_prompt(prompt_name, handler);
+        self
+    }
+
+    /// Registers an autocompletion handler function for a specific argument of a prompt template.
+    pub fn register_prompt_arg_completion<H, T>(
+        mut self,
+        prompt_name: impl Into<String>,
+        arg_name: impl Into<String>,
+        handler: H,
+    ) -> Self
+    where
+        H: IntoCompletionHandler<T>,
+        T: 'static,
+    {
+        let inner = Arc::make_mut(&mut self.inner);
+        if inner.server.capabilities.completions.is_none() {
+            inner.server.capabilities.completions = Some(CompletionsCapability {});
+        }
+        inner
+            .completion
+            .register_prompt_arg(prompt_name, arg_name, handler);
+        self
+    }
+
+    /// Registers an autocompletion handler function for all variables of a resource URI or URI template.
+    pub fn register_resource_completion<H, T>(
+        mut self,
+        uri_or_template: impl Into<String>,
+        handler: H,
+    ) -> Self
+    where
+        H: IntoCompletionHandler<T>,
+        T: 'static,
+    {
+        let inner = Arc::make_mut(&mut self.inner);
+        if inner.server.capabilities.completions.is_none() {
+            inner.server.capabilities.completions = Some(CompletionsCapability {});
+        }
+        inner
+            .completion
+            .register_resource(uri_or_template, handler);
+        self
+    }
+
+    /// Registers an autocompletion handler function for a specific variable of a resource URI or URI template.
+    pub fn register_resource_arg_completion<H, T>(
+        mut self,
+        uri_or_template: impl Into<String>,
+        arg_name: impl Into<String>,
+        handler: H,
+    ) -> Self
+    where
+        H: IntoCompletionHandler<T>,
+        T: 'static,
+    {
+        let inner = Arc::make_mut(&mut self.inner);
+        if inner.server.capabilities.completions.is_none() {
+            inner.server.capabilities.completions = Some(CompletionsCapability {});
+        }
+        inner
+            .completion
+            .register_resource_arg(uri_or_template, arg_name, handler);
+        self
+    }
 }
+

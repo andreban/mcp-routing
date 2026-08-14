@@ -26,7 +26,7 @@ use crate::utils::resolve_prompt_name;
 /// Registry managing prompt templates, typed handlers, and prompt cache configurations.
 #[derive(Clone)]
 pub struct PromptRegistry {
-    pub(crate) prompts: Vec<Prompt>,
+    pub(crate) prompts: Arc<Vec<Prompt>>,
     pub(crate) prompt_handlers: HashMap<String, Arc<dyn PromptHandler>>,
     pub(crate) prompt_cache_settings: HashMap<String, (Option<u64>, Option<CacheScope>)>,
     pub(crate) list_ttl_ms: Option<u64>,
@@ -44,7 +44,7 @@ impl PromptRegistry {
     /// Creates a new empty [`PromptRegistry`].
     pub fn new() -> Self {
         Self {
-            prompts: Vec::new(),
+            prompts: Arc::new(Vec::new()),
             prompt_handlers: HashMap::new(),
             prompt_cache_settings: HashMap::new(),
             list_ttl_ms: Some(0),
@@ -73,7 +73,7 @@ impl PromptRegistry {
         let name = prompt.name.clone();
         self.prompt_handlers
             .insert(name, handler.into_prompt_handler());
-        self.prompts.push(prompt);
+        Arc::make_mut(&mut self.prompts).push(prompt);
     }
 
     /// Registers a prompt template alongside a typed asynchronous handler and prompt-specific caching directives.
@@ -94,7 +94,7 @@ impl PromptRegistry {
             .insert(name.clone(), handler.into_prompt_handler());
         self.prompt_cache_settings
             .insert(name, (ttl_ms, cache_scope));
-        self.prompts.push(prompt);
+        Arc::make_mut(&mut self.prompts).push(prompt);
     }
 
     /// Sets caching directives for a specific registered prompt.
@@ -143,7 +143,7 @@ impl PromptRegistry {
 
         if let Some(ref handler) = self.list_handler {
             let mut extensions = (*ctx.extensions).clone();
-            extensions.insert(crate::extract::RegisteredPrompts(self.prompts.clone()));
+            extensions.insert(crate::extract::RegisteredPrompts((*self.prompts).clone()));
             let request_ctx = RequestContext::new(
                 ctx.session_id,
                 params.meta.clone(),
@@ -196,7 +196,7 @@ impl PromptRegistry {
 
             let res = crate::prompts::list::handle_list_prompts(
                 req,
-                self.prompts.clone(),
+                (*self.prompts).clone(),
                 self.list_ttl_ms,
                 self.list_cache_scope.clone(),
             );
@@ -338,7 +338,7 @@ impl PromptRegistry {
 
         let response = crate::prompts::list::handle_list_prompts(
             request,
-            self.prompts.clone(),
+            (*self.prompts).clone(),
             self.list_ttl_ms,
             self.list_cache_scope.clone(),
         );

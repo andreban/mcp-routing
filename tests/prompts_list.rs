@@ -376,7 +376,7 @@ async fn test_prompts_list_custom_handler_with_pagination_cursor() {
         }
     }
 
-    let app = McpRouter::new(common::sample_server_info()).list_prompts(paged_prompts_handler);
+    let app = McpRouter::new(common::sample_server_info()).prompts_list(paged_prompts_handler);
 
     // Page 1
     let req1 = common::build_request(

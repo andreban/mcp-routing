@@ -26,7 +26,7 @@ use crate::utils::resolve_tool_name;
 /// Registry managing tool definitions, typed handlers, and tool cache configurations.
 #[derive(Clone)]
 pub struct ToolRegistry {
-    pub(crate) tools: Vec<Tool>,
+    pub(crate) tools: Arc<Vec<Tool>>,
     pub(crate) tool_handlers: HashMap<String, Arc<dyn ToolHandler>>,
     pub(crate) tool_cache_settings: HashMap<String, (Option<u64>, Option<CacheScope>)>,
     pub(crate) tool_validators: HashMap<String, Arc<jsonschema::Validator>>,
@@ -45,7 +45,7 @@ impl ToolRegistry {
     /// Creates a new empty [`ToolRegistry`].
     pub fn new() -> Self {
         Self {
-            tools: Vec::new(),
+            tools: Arc::new(Vec::new()),
             tool_handlers: HashMap::new(),
             tool_cache_settings: HashMap::new(),
             tool_validators: HashMap::new(),
@@ -87,7 +87,7 @@ impl ToolRegistry {
             }
         }
         self.tool_handlers.insert(name, handler.into_tool_handler());
-        self.tools.push(tool);
+        Arc::make_mut(&mut self.tools).push(tool);
     }
 
     /// Registers a tool definition alongside a typed asynchronous handler and tool-specific caching directives.
@@ -120,7 +120,7 @@ impl ToolRegistry {
         self.tool_handlers
             .insert(name.clone(), handler.into_tool_handler());
         self.tool_cache_settings.insert(name, (ttl_ms, cache_scope));
-        self.tools.push(tool);
+        Arc::make_mut(&mut self.tools).push(tool);
     }
 
     /// Sets caching directives for a specific registered tool.
@@ -169,7 +169,7 @@ impl ToolRegistry {
 
         if let Some(ref handler) = self.list_handler {
             let mut extensions = (*ctx.extensions).clone();
-            extensions.insert(crate::extract::RegisteredTools(self.tools.clone()));
+            extensions.insert(crate::extract::RegisteredTools((*self.tools).clone()));
             let request_ctx = RequestContext::new(
                 ctx.session_id,
                 params.meta.clone(),
@@ -220,7 +220,7 @@ impl ToolRegistry {
 
             let res = crate::tools::list::handle_list_tools(
                 req,
-                self.tools.clone(),
+                (*self.tools).clone(),
                 self.list_ttl_ms,
                 self.list_cache_scope.clone(),
             );
@@ -368,7 +368,7 @@ impl ToolRegistry {
 
         let response = crate::tools::list::handle_list_tools(
             request,
-            self.tools.clone(),
+            (*self.tools).clone(),
             self.list_ttl_ms,
             self.list_cache_scope.clone(),
         );

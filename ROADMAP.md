@@ -122,9 +122,9 @@ This roadmap tracks all Model Context Protocol (MCP) features and capabilities f
 
 | Feature | Status | Details | Primary References |
 |---|:---:|---|---|
-| **Completions Capability Flag** | 🟡 | [`CompletionsCapability`](src/types/mcp/mod.rs) type exists in schema | [`src/types/mcp/mod.rs`](src/types/mcp/mod.rs) |
-| **`completion/complete` Endpoint** | ❌ | Autocompletion endpoint for prompt arguments and resource reference values | Planned for `src/completion/` |
-| **Completion Types & Handlers** | ❌ | `CompleteRequest`, `CompleteResult`, and completion registration APIs | Planned for `src/completion/` |
+| **Completions Capability Flag** | ✅ | [`CompletionsCapability`](src/types/mcp/mod.rs) advertised automatically upon registering completion handlers | [`src/types/mcp/mod.rs`](src/types/mcp/mod.rs), [`src/router/builder.rs`](src/router/builder.rs) |
+| **`completion/complete` Endpoint** | ✅ | Autocompletion endpoint for prompt arguments and resource reference values with caching and pagination | [`src/completion/mod.rs`](src/completion/mod.rs), [`src/completion/registry.rs`](src/completion/registry.rs) |
+| **Completion Types & Handlers** | ✅ | [`CompleteRequest`](src/types/mcp/completion/mod.rs), [`CompleteResult`](src/types/mcp/completion/mod.rs), [`IntoCompletionHandler`](src/completion/mod.rs), and registration APIs ([`.completion()`](src/router/builder.rs), [`.register_prompt_completion()`](src/router/builder.rs), [`.register_resource_completion()`](src/router/builder.rs)) | [`src/types/mcp/completion/mod.rs`](src/types/mcp/completion/mod.rs), [`src/completion/mod.rs`](src/completion/mod.rs), [`src/router/builder.rs`](src/router/builder.rs) |
 
 ---
 
@@ -153,9 +153,10 @@ gantt
     section Phase 2: Core Capabilities
     Prompts (prompts/list, prompts/get):done, p2_1, after p1_5, 5d
     Resources (resources/list, read)   :done, p2_2, after p2_1, 6d
-    Completions (completion/complete)  :p2_3, after p2_2, 4d
+    Completions (completion/complete)  :done, p2_3, after p2_2, 4d
     section Phase 3: Ergonomics & Extensibility
     Session & Context Extractors       :done, p3_1, 2026-08-15, 3d
     JSON Schema Input Pre-Validation   :done, p3_2, after p2_2, 4d
     Dynamic Tool/Prompt Providers      :done, p3_3, after p3_2, 4d
 ```
+

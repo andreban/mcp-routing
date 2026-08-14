@@ -1,0 +1,60 @@
+// Copyright 2026 André Cipriani Bandarra
+// SPDX-License-Identifier: Apache-2.0
+
+use std::sync::Arc;
+
+use crate::extract::SessionId;
+use crate::types::jsonrpc::{JsonRpcErrorResponse, JsonRpcRequestId};
+use crate::types::mcp::CacheScope;
+
+/// Represents the internal outcome of dispatching a JSON-RPC method.
+#[derive(Debug)]
+pub(crate) struct DispatchOutcome {
+    pub(crate) response: Option<serde_json::Value>,
+    pub(crate) ttl_ms: Option<u64>,
+    pub(crate) cache_scope: Option<CacheScope>,
+    pub(crate) has_cache_headers: bool,
+}
+
+impl DispatchOutcome {
+    pub(crate) fn response_with_cache(
+        val: serde_json::Value,
+        ttl_ms: Option<u64>,
+        cache_scope: Option<CacheScope>,
+    ) -> Self {
+        Self {
+            response: Some(val),
+            ttl_ms,
+            cache_scope,
+            has_cache_headers: true,
+        }
+    }
+
+    pub(crate) fn error(err: JsonRpcErrorResponse) -> Self {
+        Self {
+            response: serde_json::to_value(err).ok(),
+            ttl_ms: None,
+            cache_scope: None,
+            has_cache_headers: false,
+        }
+    }
+
+    pub(crate) fn notification() -> Self {
+        Self {
+            response: None,
+            ttl_ms: None,
+            cache_scope: None,
+            has_cache_headers: false,
+        }
+    }
+}
+
+/// Context passed to capability dispatchers containing request correlation and metadata.
+pub(crate) struct MethodContext<'a> {
+    pub(crate) req_id: Option<JsonRpcRequestId>,
+    pub(crate) is_notification: bool,
+    pub(crate) header_name: Option<&'a str>,
+    pub(crate) session_id: Option<SessionId>,
+    pub(crate) headers: &'a http::HeaderMap,
+    pub(crate) extensions: Arc<http::Extensions>,
+}

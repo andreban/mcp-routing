@@ -41,8 +41,8 @@ This roadmap tracks all Model Context Protocol (MCP) features and capabilities f
 | **JSON-RPC Success Responses** | ✅ | [`JsonRpcResultResponse<R>`](src/types/jsonrpc/response.rs) serialized with standard `jsonrpc: "2.0"` | [`src/types/jsonrpc/response.rs`](src/types/jsonrpc/response.rs) |
 | **JSON-RPC Error Structures** | ✅ | [`JsonRpcErrorResponse<E>`](src/types/jsonrpc/response.rs) with standard `error` objects and `id` mapping (including `null` on parse errors) | [`src/types/jsonrpc/response.rs`](src/types/jsonrpc/response.rs) |
 | **Standard JSON-RPC Error Codes** | ✅ | Structured error mapping for `ParseError` (`-32700`), `InvalidRequest` (`-32600`), `MethodNotFound` (`-32601`), `InvalidParams` (`-32602`), and `InternalError` (`-32603`) | [`src/types/jsonrpc/error.rs`](src/types/jsonrpc/error.rs) |
-| **JSON-RPC Batch Requests** | ❌ | Processing and batching array payloads `[JsonRpcRequest, ...]` over HTTP POST | Planned for [`src/router.rs`](src/router.rs) |
-| **JSON-RPC Notifications** | 🟡 | [`JsonRpcNotification<P>`](src/types/jsonrpc/notification.rs) type defined, but no notification dispatcher/handler in router | [`src/types/jsonrpc/notification.rs`](src/types/jsonrpc/notification.rs) |
+| **JSON-RPC Batch Requests** | ✅ | Concurrent processing and batching array payloads `[JsonRpcRequest, ...]` over HTTP POST with JSON-RPC 2.0 compliance | [`src/router.rs`](src/router.rs), [`src/types/jsonrpc/batch.rs`](src/types/jsonrpc/batch.rs) |
+| **JSON-RPC Notifications** | ✅ | Handling single and batch notifications without response generation, returning HTTP 204 No Content | [`src/types/jsonrpc/notification.rs`](src/types/jsonrpc/notification.rs), [`src/router.rs`](src/router.rs) |
 
 ---
 

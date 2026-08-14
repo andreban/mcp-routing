@@ -106,6 +106,9 @@ Incoming HTTP JSON-RPC requests are routed using HTTP headers:
 - `Mcp-Method: tools/call` and `Mcp-Name: <name>` → Invokes the registered tool `<name>`.
 - `Mcp-Method: prompts/list` → Calls the prompt discovery handler.
 - `Mcp-Method: prompts/get` and `Mcp-Name: <name>` → Invokes the registered prompt `<name>`.
+- `Mcp-Method: resources/list` → Calls the direct resource discovery handler.
+- `Mcp-Method: resources/read` and `Mcp-Uri: <uri>` → Reads the registered resource or matches URI templates.
+- `Mcp-Method: resources/templates/list` → Calls the resource template discovery handler.
 
 ## Typed Handlers
 
@@ -137,12 +140,31 @@ Return types can implement [`IntoPromptResult`](src/prompts/mod.rs):
 - `GetPromptResult`
 - `Result<T, E>` where `T: IntoPromptResult` and `E: Display`
 
+### Resource Handlers
+
+Resource handlers can accept:
+- **No arguments**: `async fn my_resource() -> &'static str`
+- **Dynamic URI**: `async fn dynamic_resource(uri: String) -> Result<ReadResourceResult, String>`
+- **Request extractors**: `async fn resource_with_ctx(session: SessionId, auth: BearerAuth, uri: String) -> Result<ReadResourceResult, String>`
+
+Return types can implement [`IntoResourceResult`](src/resources/mod.rs):
+- `String`, `&str`
+- `TextResourceContents`, `BlobResourceContents`, `ResourceContents`, `Vec<ResourceContents>`
+- `ReadResourceResult` (with fluent `.text(...)`, `.blob(...)`, `.with_cache(...)` helpers)
+- `Result<T, E>` where `T: IntoResourceResult` and `E: Display`
+
 ## Running the Examples
 
 Run the basic starter example:
 
 ```bash
 cargo run --example basic
+```
+
+Run the resources example (demonstrating direct resources, binary blobs, RFC 6570 templates, and caching):
+
+```bash
+cargo run --example resources
 ```
 
 Run the structured output example (demonstrating `Json<T>`, `output_schema`, and annotations):

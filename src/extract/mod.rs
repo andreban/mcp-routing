@@ -22,7 +22,9 @@ pub use context::RequestContext;
 pub use error::ExtractionError;
 pub use json::Json;
 pub use meta::Meta;
-pub use registered::{RegisteredPrompts, RegisteredTools};
+pub use registered::{
+    RegisteredPrompts, RegisteredResourceTemplates, RegisteredResources, RegisteredTools,
+};
 pub use session::SessionId;
 pub use state::{Extension, State};
 pub use traits::FromRequestContext;

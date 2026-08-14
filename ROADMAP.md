@@ -96,12 +96,12 @@ This roadmap tracks all Model Context Protocol (MCP) features and capabilities f
 
 | Feature | Status | Details | Primary References |
 |---|:---:|---|---|
-| **Resource Capability Flag** | 🟡 | [`ResourcesCapability`](src/types/mcp/mod.rs) type exists with `subscribe` and `list_changed` fields | [`src/types/mcp/mod.rs`](src/types/mcp/mod.rs) |
-| **Resource Definitions & Models** | ❌ | `Resource`, `ResourceTemplate`, `ResourceAnnotations` data types | Planned for `src/types/mcp/resources/` |
-| **`resources/list` Endpoint** | ❌ | Listing available direct resources with cursor pagination | Planned for `src/resources/` |
-| **`resources/read` Endpoint** | ❌ | Reading text/blob resource content by URI | Planned for `src/resources/` |
-| **`resources/templates/list` Endpoint**| ❌ | Listing URI templates for dynamic parameterized resources | Planned for `src/resources/` |
-| **Typed Resource Handlers** | ❌ | `register_resource` and `register_resource_template` router builder APIs | Planned for [`src/router.rs`](src/router.rs) |
+| **Resource Capability Flag** | ✅ | [`ResourcesCapability`](src/types/mcp/mod.rs) advertised automatically upon registering resources or templates | [`src/types/mcp/mod.rs`](src/types/mcp/mod.rs), [`src/router/builder.rs`](src/router/builder.rs) |
+| **Resource Definitions & Models** | ✅ | [`Resource`](src/types/mcp/resources/mod.rs), [`ResourceTemplate`](src/types/mcp/resources/mod.rs), [`ResourceAnnotations`](src/types/mcp/resources/mod.rs) data types and fluent builders | [`src/types/mcp/resources/mod.rs`](src/types/mcp/resources/mod.rs) |
+| **`resources/list` Endpoint** | ✅ | Listing available direct resources with built-in handler and custom [`.resources_list()`](src/router/builder.rs) handler with pagination & caching | [`src/resources/list.rs`](src/resources/list.rs), [`src/resources/registry.rs`](src/resources/registry.rs) |
+| **`resources/read` Endpoint** | ✅ | Reading text/blob resource content by direct URI or matching RFC 6570 URI templates | [`src/resources/read.rs`](src/resources/read.rs), [`src/resources/registry.rs`](src/resources/registry.rs) |
+| **`resources/templates/list` Endpoint**| ✅ | Listing URI templates with built-in handler and custom [`.resource_templates_list()`](src/router/builder.rs) handler with caching | [`src/resources/templates.rs`](src/resources/templates.rs), [`src/resources/registry.rs`](src/resources/registry.rs) |
+| **Typed Resource Handlers** | ✅ | [`IntoResourceHandler`](src/resources/mod.rs) and [`IntoResourceResult`](src/resources/mod.rs) for `async fn()` and `async fn(extractors..., uri: String)` | [`src/resources/mod.rs`](src/resources/mod.rs), [`src/router/builder.rs`](src/router/builder.rs) |
 
 ---
 
@@ -152,10 +152,10 @@ gantt
     Cache-Control header propagation   :done, p1_5, after p1_4, 2d
     section Phase 2: Core Capabilities
     Prompts (prompts/list, prompts/get):done, p2_1, after p1_5, 5d
-    Resources (resources/list, read)   :active, p2_2, after p2_1, 6d
+    Resources (resources/list, read)   :done, p2_2, after p2_1, 6d
     Completions (completion/complete)  :p2_3, after p2_2, 4d
     section Phase 3: Ergonomics & Extensibility
     Session & Context Extractors       :done, p3_1, 2026-08-15, 3d
-    JSON Schema Input Pre-Validation   :p3_2, after p2_2, 4d
-    Dynamic Tool/Prompt Providers      :p3_3, after p3_2, 4d
+    JSON Schema Input Pre-Validation   :done, p3_2, after p2_2, 4d
+    Dynamic Tool/Prompt Providers      :done, p3_3, after p3_2, 4d
 ```

@@ -193,18 +193,18 @@ async fn test_empty_tool_name_returns_invalid_params() {
     assert_eq!(err_resp.error.code.code(), INVALID_PARAMS_CODE);
 }
 
-/// Tests that an unrecognized MCP method (e.g. `resources/list` before implementation) returns `Method Not Found` (-32601).
+/// Tests that an unrecognized MCP method returns `Method Not Found` (-32601).
 #[tokio::test]
 async fn test_unknown_method_returns_method_not_found() {
     let app = McpRouter::new(common::sample_server_info());
 
     let req = common::build_request(
-        Some("resources/list"),
+        Some("unknown/method"),
         None,
         json!({
             "jsonrpc": "2.0",
             "id": 1,
-            "method": "resources/list"
+            "method": "unknown/method"
         }),
     );
 

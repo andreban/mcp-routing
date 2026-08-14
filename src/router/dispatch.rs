@@ -113,6 +113,11 @@ impl McpRouterInner {
             "tools/call" => self.tools.dispatch_call(ctx, params_val).await,
             "prompts/list" => self.prompts.dispatch_list(ctx, params_val).await,
             "prompts/get" => self.prompts.dispatch_get(ctx, params_val).await,
+            "resources/list" => self.resources.dispatch_list(ctx, params_val).await,
+            "resources/read" => self.resources.dispatch_read(ctx, params_val).await,
+            "resources/templates/list" => {
+                self.resources.dispatch_templates_list(ctx, params_val).await
+            }
             unknown_method => {
                 tracing::debug!(%unknown_method, "Method not found");
                 if ctx.is_notification {

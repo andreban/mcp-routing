@@ -20,7 +20,7 @@ pub enum IconTheme {
 /// An icon that can be displayed in a user interface.
 ///
 /// See <https://modelcontextprotocol.io/specification/2026-07-28/schema#icon>
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Icon {
     /// A standard URI (HTTPS or `data:` URI with Base64-encoded data) pointing to the icon resource.
@@ -69,7 +69,7 @@ impl Icon {
 /// An implementation structure identifying a client or server.
 ///
 /// See <https://modelcontextprotocol.io/specification/2026-07-28/schema#implementation>
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Implementation {
     /// Optional set of sized icons that the client can display in a user interface.

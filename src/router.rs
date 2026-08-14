@@ -38,7 +38,7 @@ type BoxedService = BoxCloneSyncService<Request<ResponseBody>, Response<Response
 /// `McpRouter` implements [`tower::Service`] for HTTP requests and handles routing for:
 /// - Built-in `server/discover` discovery endpoint
 /// - Built-in `tools/list` tool discovery endpoint
-/// - `tools/call` tool execution endpoints (delegating to typed handlers or custom services)
+/// - `tools/call` tool execution endpoints (delegating to typed handlers)
 /// - Custom user routes overriding default behaviors
 #[derive(Clone)]
 pub struct McpRouter {
@@ -48,7 +48,6 @@ pub struct McpRouter {
     supported_versions: Vec<String>,
     tools: Vec<Tool>,
     tool_handlers: HashMap<String, Arc<dyn ToolHandler>>,
-    tool_routes: HashMap<String, BoxedService>,
     custom_handlers: HashMap<String, BoxedService>,
 }
 
@@ -68,7 +67,6 @@ impl McpRouter {
             supported_versions: vec!["2026-07-28".to_string()],
             tools: Vec::new(),
             tool_handlers: HashMap::new(),
-            tool_routes: HashMap::new(),
             custom_handlers: HashMap::new(),
         }
     }
@@ -104,33 +102,6 @@ impl McpRouter {
         let tool = tool.into();
         let name = tool.name.clone();
         self.tool_handlers.insert(name, handler.into_tool_handler());
-        self.tools.push(tool);
-        self
-    }
-
-    /// Registers a tool definition handled by a raw [`tower::Service`].
-    pub fn register_tool_route<S, ResBody>(
-        mut self,
-        tool: impl Into<Tool>,
-        service: S,
-    ) -> Self
-    where
-        S: Service<Request<ResponseBody>, Response = Response<ResBody>, Error = Infallible>
-            + Clone
-            + Send
-            + Sync
-            + 'static,
-        S::Future: Future<Output = Result<Response<ResBody>, Infallible>> + Send + 'static,
-        ResBody: http_body::Body<Data = Bytes> + Send + 'static,
-        ResBody::Error: Into<BoxError>,
-    {
-        let tool = tool.into();
-        let name = tool.name.clone();
-        let mapped = tower::ServiceBuilder::new()
-            .map_response(|resp: Response<ResBody>| resp.map(ResponseBody::new))
-            .service(service);
-        self.tool_routes
-            .insert(name, BoxCloneSyncService::new(mapped));
         self.tools.push(tool);
         self
     }
@@ -282,12 +253,6 @@ where
                         .body(ResponseBody::empty())
                         .unwrap());
                 };
-
-                // Check raw Service tool handlers
-                if let Some(handler) = this.tool_routes.get_mut(&tool_name) {
-                    let req = req.map(ResponseBody::new);
-                    return handler.call(req).await;
-                }
 
                 // Check typed ToolHandler
                 if let Some(handler) = this.tool_handlers.get(&tool_name) {

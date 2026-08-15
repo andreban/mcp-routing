@@ -190,10 +190,10 @@ impl CallToolResult<Value> {
         if let Some(state) = request_state {
             extras.insert("requestState".to_string(), Value::String(state));
         }
-        if !input_requests.is_empty() {
-            if let Ok(v) = serde_json::to_value(input_requests) {
-                extras.insert("inputRequests".to_string(), v);
-            }
+        if !input_requests.is_empty()
+            && let Ok(v) = serde_json::to_value(input_requests)
+        {
+            extras.insert("inputRequests".to_string(), v);
         }
         Self {
             meta: None,
@@ -208,7 +208,10 @@ impl CallToolResult<Value> {
     /// Creates an `InputRequiredResult`-style [`CallToolResult`] for load shedding with only an opaque request state (MRTR).
     pub fn load_shed(request_state: impl Into<String>) -> Self {
         let mut extras = HashMap::new();
-        extras.insert("requestState".to_string(), Value::String(request_state.into()));
+        extras.insert(
+            "requestState".to_string(),
+            Value::String(request_state.into()),
+        );
         Self {
             meta: None,
             result_type: Some("input_required".to_string()),

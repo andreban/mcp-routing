@@ -123,14 +123,13 @@ impl McpRouterInner {
                 ext.insert(crate::extract::RequestState::new(rs));
                 modified = true;
             }
-            if let Some(ir) = param_obj.get("inputResponses") {
-                if let Ok(responses) = serde_json::from_value::<
+            if let Some(ir) = param_obj.get("inputResponses")
+                && let Ok(responses) = serde_json::from_value::<
                     std::collections::HashMap<String, crate::types::mcp::InputResponse>,
                 >(ir.clone())
-                {
-                    ext.insert(crate::extract::InputResponses::new(responses));
-                    modified = true;
-                }
+            {
+                ext.insert(crate::extract::InputResponses::new(responses));
+                modified = true;
             }
             if modified {
                 extensions = Arc::new(ext);

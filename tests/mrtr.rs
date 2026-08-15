@@ -42,9 +42,8 @@ async fn test_tool_call_multi_round_trip_elicitation() {
         meta: None,
     };
 
-    let router = McpRouter::new(server_info).register_tool(
-        tool,
-        |ctx: RequestContext| async move {
+    let router =
+        McpRouter::new(server_info).register_tool(tool, |ctx: RequestContext| async move {
             let state = ctx.request_state();
             let responses = ctx.input_responses();
 
@@ -78,8 +77,7 @@ async fn test_tool_call_multi_round_trip_elicitation() {
                         .into_tool_result()
                 }
             }
-        },
-    );
+        });
 
     // 1. Initial Request (Round 1)
     let req1 = build_request(
@@ -246,17 +244,15 @@ async fn test_load_shedding_mrtr() {
         meta: None,
     };
 
-    let router = McpRouter::new(server_info).register_tool(
-        tool,
-        |state: Option<RequestState>| async move {
+    let router =
+        McpRouter::new(server_info).register_tool(tool, |state: Option<RequestState>| async move {
             if let Some(state) = state {
                 assert_eq!(state.as_str(), "ticket_shed_888");
                 CallToolResult::text("Processed after load shedding resumption")
             } else {
                 InputRequiredResult::load_shed("ticket_shed_888").into_tool_result()
             }
-        },
-    );
+        });
 
     // Initial Request
     let req1 = build_request(
@@ -308,10 +304,10 @@ async fn test_load_shedding_mrtr() {
 async fn test_completion_complete_result_type() {
     let server_info = sample_server_info();
 
-    let router = McpRouter::new(server_info).register_prompt_completion(
-        "generate_code",
-        |_arg: CompleteArgument| async move { vec!["rust", "python", "typescript"] },
-    );
+    let router = McpRouter::new(server_info)
+        .register_prompt_completion("generate_code", |_arg: CompleteArgument| async move {
+            vec!["rust", "python", "typescript"]
+        });
 
     let req = build_request(
         Some("completion/complete"),
@@ -437,7 +433,8 @@ async fn test_resources_read_mrtr() {
             if let Some(state) = state {
                 assert_eq!(state.as_str(), "resource_auth_token_99");
                 let responses = responses.expect("responses required");
-                let roots: Option<serde_json::Value> = responses.get_result("roots_request").unwrap();
+                let roots: Option<serde_json::Value> =
+                    responses.get_result("roots_request").unwrap();
                 assert!(roots.is_some());
                 Ok::<_, ResourceError>(ReadResourceResult::text(
                     "custom://secure-data",

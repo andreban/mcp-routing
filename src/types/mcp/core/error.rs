@@ -340,10 +340,7 @@ mod tests {
             vec!["2026-07-28".to_string()],
             "2024-11-05",
         );
-        assert_eq!(
-            typed_unsupported.code.code(),
-            UNSUPPORTED_PROTOCOL_VERSION
-        );
+        assert_eq!(typed_unsupported.code.code(), UNSUPPORTED_PROTOCOL_VERSION);
         let payload = typed_unsupported.data.unwrap();
         assert_eq!(payload.supported, vec!["2026-07-28".to_string()]);
         assert_eq!(payload.requested, "2024-11-05");
@@ -355,10 +352,7 @@ mod tests {
             "2024-11-05",
         );
         assert_eq!(typed_resp.id, Some(42.into()));
-        assert_eq!(
-            typed_resp.error.code.code(),
-            UNSUPPORTED_PROTOCOL_VERSION
-        );
+        assert_eq!(typed_resp.error.code.code(), UNSUPPORTED_PROTOCOL_VERSION);
 
         let typed_cap_resp = JsonRpcErrorResponse::missing_required_client_capability_typed(
             Some("cap-req".into()),

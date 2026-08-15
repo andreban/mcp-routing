@@ -142,7 +142,9 @@ impl RequestContext {
     }
 
     /// Returns the MRTR client input responses from request extensions, if present.
-    pub fn input_responses(&self) -> Option<&std::collections::HashMap<String, crate::types::mcp::InputResponse>> {
+    pub fn input_responses(
+        &self,
+    ) -> Option<&std::collections::HashMap<String, crate::types::mcp::InputResponse>> {
         self.extensions
             .get::<crate::extract::mrtr::InputResponses>()
             .map(|r| &r.0)

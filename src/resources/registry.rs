@@ -427,18 +427,21 @@ impl ResourceRegistry {
         };
 
         let header_uri = extract_header_uri(ctx.headers);
-        let resource_uri =
-            match resolve_resource_uri(header_uri.as_deref(), params_uri.as_deref(), ctx.is_batch) {
-                Ok(uri) => uri,
-                Err(mut err) => {
-                    err.id = ctx.req_id;
-                    return if ctx.is_notification {
-                        DispatchOutcome::notification()
-                    } else {
-                        DispatchOutcome::error(err)
-                    };
-                }
-            };
+        let resource_uri = match resolve_resource_uri(
+            header_uri.as_deref(),
+            params_uri.as_deref(),
+            ctx.is_batch,
+        ) {
+            Ok(uri) => uri,
+            Err(mut err) => {
+                err.id = ctx.req_id;
+                return if ctx.is_notification {
+                    DispatchOutcome::notification()
+                } else {
+                    DispatchOutcome::error(err)
+                };
+            }
+        };
 
         // 1. Check exact resource handler match
         let matched_handler: Option<MatchedResourceHandler> =
@@ -769,4 +772,3 @@ mod tests {
         );
     }
 }
-

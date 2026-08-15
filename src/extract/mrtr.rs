@@ -93,7 +93,9 @@ impl FromRequestContext for RequestState {
         ctx.extensions()
             .get::<RequestState>()
             .cloned()
-            .ok_or_else(|| ExtractionError("Missing required 'requestState' in request".to_string()))
+            .ok_or_else(|| {
+                ExtractionError("Missing required 'requestState' in request".to_string())
+            })
     }
 }
 
@@ -137,7 +139,10 @@ impl InputResponses {
     }
 
     /// Deserializes the result payload for the given input request key.
-    pub fn get_result<T: DeserializeOwned>(&self, key: &str) -> Result<Option<T>, serde_json::Error> {
+    pub fn get_result<T: DeserializeOwned>(
+        &self,
+        key: &str,
+    ) -> Result<Option<T>, serde_json::Error> {
         match self.0.get(key) {
             Some(resp) => resp.get_result(),
             None => Ok(None),
@@ -171,7 +176,9 @@ impl FromRequestContext for InputResponses {
         ctx.extensions()
             .get::<InputResponses>()
             .cloned()
-            .ok_or_else(|| ExtractionError("Missing required 'inputResponses' in request".to_string()))
+            .ok_or_else(|| {
+                ExtractionError("Missing required 'inputResponses' in request".to_string())
+            })
     }
 }
 
@@ -186,9 +193,9 @@ impl FromRequestContext for Option<InputResponses> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Arc;
     use http::HeaderMap;
     use serde_json::json;
+    use std::sync::Arc;
 
     #[test]
     fn test_request_state_extractor() {
@@ -204,7 +211,12 @@ mod tests {
         let optional = Option::<RequestState>::from_request_context(&ctx).unwrap();
         assert_eq!(optional.as_deref(), Some("state_abc_123"));
 
-        let empty_ctx = RequestContext::new(None, None, HeaderMap::new(), Arc::new(http::Extensions::new()));
+        let empty_ctx = RequestContext::new(
+            None,
+            None,
+            HeaderMap::new(),
+            Arc::new(http::Extensions::new()),
+        );
         assert!(RequestState::from_request_context(&empty_ctx).is_err());
         assert_eq!(
             Option::<RequestState>::from_request_context(&empty_ctx).unwrap(),
@@ -233,8 +245,17 @@ mod tests {
         let opt = Option::<InputResponses>::from_request_context(&ctx).unwrap();
         assert!(opt.is_some());
 
-        let empty_ctx = RequestContext::new(None, None, HeaderMap::new(), Arc::new(http::Extensions::new()));
+        let empty_ctx = RequestContext::new(
+            None,
+            None,
+            HeaderMap::new(),
+            Arc::new(http::Extensions::new()),
+        );
         assert!(InputResponses::from_request_context(&empty_ctx).is_err());
-        assert!(Option::<InputResponses>::from_request_context(&empty_ctx).unwrap().is_none());
+        assert!(
+            Option::<InputResponses>::from_request_context(&empty_ctx)
+                .unwrap()
+                .is_none()
+        );
     }
 }

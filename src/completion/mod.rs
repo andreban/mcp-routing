@@ -88,10 +88,10 @@ impl IntoCompletionResult for crate::types::mcp::InputRequiredResult {
         if let Some(state) = self.request_state {
             extras.insert("requestState".to_string(), serde_json::Value::String(state));
         }
-        if !self.input_requests.is_empty() {
-            if let Ok(reqs) = serde_json::to_value(&self.input_requests) {
-                extras.insert("inputRequests".to_string(), reqs);
-            }
+        if !self.input_requests.is_empty()
+            && let Ok(reqs) = serde_json::to_value(&self.input_requests)
+        {
+            extras.insert("inputRequests".to_string(), reqs);
         }
         Ok(CompleteResult {
             meta: self.meta,

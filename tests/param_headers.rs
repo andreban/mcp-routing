@@ -96,7 +96,8 @@ fn typed_params_tool() -> Tool {
 
 #[tokio::test]
 async fn test_param_header_matching_success() {
-    let app = McpRouter::new(sample_server_info()).register_tool(file_query_tool(), handle_file_query);
+    let app =
+        McpRouter::new(sample_server_info()).register_tool(file_query_tool(), handle_file_query);
 
     let req = Request::builder()
         .method("POST")
@@ -133,7 +134,8 @@ async fn test_param_header_matching_success() {
 
 #[tokio::test]
 async fn test_param_header_missing_returns_header_mismatch() {
-    let app = McpRouter::new(sample_server_info()).register_tool(file_query_tool(), handle_file_query);
+    let app =
+        McpRouter::new(sample_server_info()).register_tool(file_query_tool(), handle_file_query);
 
     // Missing required Mcp-Param-Repo header
     let req = Request::builder()
@@ -177,7 +179,8 @@ async fn test_param_header_missing_returns_header_mismatch() {
 
 #[tokio::test]
 async fn test_param_header_value_mismatch_returns_header_mismatch() {
-    let app = McpRouter::new(sample_server_info()).register_tool(file_query_tool(), handle_file_query);
+    let app =
+        McpRouter::new(sample_server_info()).register_tool(file_query_tool(), handle_file_query);
 
     let req = Request::builder()
         .method("POST")
@@ -217,7 +220,8 @@ async fn test_param_header_value_mismatch_returns_header_mismatch() {
 
 #[tokio::test]
 async fn test_param_header_sentinel_encoded_success() {
-    let app = McpRouter::new(sample_server_info()).register_tool(file_query_tool(), handle_file_query);
+    let app =
+        McpRouter::new(sample_server_info()).register_tool(file_query_tool(), handle_file_query);
 
     // "mcp-routing / workspace 🚀" in base64: "bWNwLXJvdXRpbmcgLyB3b3Jrc3BhY2Ug8J+agA=="
     let req = Request::builder()
@@ -258,7 +262,8 @@ async fn test_param_header_sentinel_encoded_success() {
 
 #[tokio::test]
 async fn test_param_header_sentinel_encoded_mismatch() {
-    let app = McpRouter::new(sample_server_info()).register_tool(file_query_tool(), handle_file_query);
+    let app =
+        McpRouter::new(sample_server_info()).register_tool(file_query_tool(), handle_file_query);
 
     // Sentinel encoding of "wrong-repo" in base64: "d3JvbmctcmVwbw=="
     let req = Request::builder()
@@ -293,8 +298,8 @@ async fn test_param_header_sentinel_encoded_mismatch() {
 
 #[tokio::test]
 async fn test_param_header_typed_numeric_and_boolean() {
-    let app =
-        McpRouter::new(sample_server_info()).register_tool(typed_params_tool(), handle_typed_params);
+    let app = McpRouter::new(sample_server_info())
+        .register_tool(typed_params_tool(), handle_typed_params);
 
     let req = Request::builder()
         .method("POST")
@@ -324,12 +329,16 @@ async fn test_param_header_typed_numeric_and_boolean() {
 
     let (status, _, body) = execute_request(app, req).await;
     assert_eq!(status, StatusCode::OK);
-    assert_eq!(body["result"]["content"][0]["text"], "count=42, active=true");
+    assert_eq!(
+        body["result"]["content"][0]["text"],
+        "count=42, active=true"
+    );
 }
 
 #[tokio::test]
 async fn test_param_header_optional_field_omitted_success() {
-    let app = McpRouter::new(sample_server_info()).register_tool(file_query_tool(), handle_file_query);
+    let app =
+        McpRouter::new(sample_server_info()).register_tool(file_query_tool(), handle_file_query);
 
     // Optional field "branch" has x-mcp-header: true, but is omitted in both body and headers
     let req = Request::builder()
@@ -367,7 +376,8 @@ async fn test_param_header_optional_field_omitted_success() {
 
 #[tokio::test]
 async fn test_param_header_optional_field_provided_in_both_success() {
-    let app = McpRouter::new(sample_server_info()).register_tool(file_query_tool(), handle_file_query);
+    let app =
+        McpRouter::new(sample_server_info()).register_tool(file_query_tool(), handle_file_query);
 
     // Optional field "branch" is provided in both body and header
     let req = Request::builder()
@@ -407,7 +417,8 @@ async fn test_param_header_optional_field_provided_in_both_success() {
 
 #[tokio::test]
 async fn test_param_header_provided_without_body_param_returns_mismatch() {
-    let app = McpRouter::new(sample_server_info()).register_tool(file_query_tool(), handle_file_query);
+    let app =
+        McpRouter::new(sample_server_info()).register_tool(file_query_tool(), handle_file_query);
 
     // Mcp-Param-Branch provided in header, but "branch" omitted in body arguments
     let req = Request::builder()
@@ -443,7 +454,8 @@ async fn test_param_header_provided_without_body_param_returns_mismatch() {
 
 #[tokio::test]
 async fn test_param_header_batch_request_without_header_success() {
-    let app = McpRouter::new(sample_server_info()).register_tool(file_query_tool(), handle_file_query);
+    let app =
+        McpRouter::new(sample_server_info()).register_tool(file_query_tool(), handle_file_query);
 
     // Batch requests do not enforce top-level Mcp-Param-* headers if omitted
     let req = Request::builder()

@@ -91,7 +91,12 @@ mod tests {
         let extracted_ctx = RequestContext::from_request_context(&ctx).unwrap();
         assert_eq!(extracted_ctx.session_id_str(), Some("sess-999"));
         assert_eq!(extracted_ctx.request_state(), Some("step2_token"));
-        assert!(extracted_ctx.input_responses().unwrap().contains_key("sample_1"));
+        assert!(
+            extracted_ctx
+                .input_responses()
+                .unwrap()
+                .contains_key("sample_1")
+        );
         assert_eq!(extracted_ctx.client_info().unwrap().name, "client-a");
         assert_eq!(extracted_ctx.protocol_version(), Some("2026-07-28"));
         assert_eq!(extracted_ctx.log_level(), Some(&LoggingLevel::Debug));

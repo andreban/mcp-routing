@@ -496,10 +496,7 @@ mod tests {
             json_val["inputRequests"]["sampling_1"]["method"],
             "sampling/createMessage"
         );
-        assert_eq!(
-            json_val["inputRequests"]["roots_1"]["method"],
-            "roots/list"
-        );
+        assert_eq!(json_val["inputRequests"]["roots_1"]["method"], "roots/list");
 
         let deserialized: InputRequiredResult = serde_json::from_value(json_val).unwrap();
         assert_eq!(deserialized.result_type, "input_required");
@@ -508,10 +505,7 @@ mod tests {
             Some("opaque_state_12345")
         );
         assert_eq!(
-            deserialized
-                .get_input_request("roots_1")
-                .unwrap()
-                .method(),
+            deserialized.get_input_request("roots_1").unwrap().method(),
             Some("roots/list")
         );
     }

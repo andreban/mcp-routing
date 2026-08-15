@@ -3,17 +3,15 @@
 
 //! # Logging & Diagnostics Example
 //!
-//! Demonstrates configuring dynamic server logging thresholds (`logging/setLevel`),
-//! handling per-request `_meta.logLevel`, and inspecting current server log levels.
+//! Demonstrates configuring default server logging thresholds, advertising logging capabilities,
+//! handling per-request `_meta.io.modelcontextprotocol/logLevel`, and inspecting server log levels.
 
 use std::error::Error;
 
 use axum::Router;
 use mcp_routing::{
     CurrentLoggingLevel, McpRouter,
-    extract::SessionId,
-    logging::{LoggingError, SetLevelParams},
-    types::mcp::{CacheScope, Implementation, LoggingLevel, tools::Tool},
+    types::mcp::{Implementation, LoggingLevel, tools::Tool},
 };
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -71,34 +69,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let mcp_router = McpRouter::new(server_info)
         .instructions(
-            "MCP server demonstrating dynamic logging/setLevel and per-request log levels",
+            "MCP server demonstrating logging capabilities and per-request log levels",
         )
-        // Initialize default logging level to Info
+        // Initialize default logging level to Info and advertise logging capability
         .logging_level(LoggingLevel::Info)
-        // Cache logging/setLevel response for 1 minute
-        .logging_cache(Some(60_000), Some(CacheScope::Private))
-        // Register a custom logging handler that audits level changes
-        .logging_handler(
-            |opt_session: Option<SessionId>, params: SetLevelParams| async move {
-                let session = opt_session
-                    .map(|s| s.to_string())
-                    .unwrap_or_else(|| "anonymous".to_string());
-                tracing::info!(
-                    new_level = %params.level,
-                    session = %session,
-                    "Client requested dynamic log level update"
-                );
-
-                // Business logic: reject debug level if requested anonymously
-                if params.level == LoggingLevel::Debug && session == "anonymous" {
-                    return Err(LoggingError::InvalidParams(
-                        "Debug logging requires an authenticated Mcp-Session-Id".to_string(),
-                    ));
-                }
-
-                Ok(())
-            },
-        )
         .register_tool(process_tool, process_task);
 
     let app = Router::new().nest_service("/mcp", mcp_router);

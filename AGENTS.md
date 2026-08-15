@@ -20,6 +20,7 @@ All contributions to this codebase must adhere strictly to the workspace rules d
 ## 2. MCP Protocol Strictness & Tower Architecture (`.agents/rules/mcp_development_guidelines.md`)
 - **Strict Schema Validation & Deserialization**: Strict adherence to MCP `2026-07-28` JSON Schema. Omitted required parameters must fail immediately with `-32602` (`InvalidParams`).
 - **Exact Method Matching**: Match JSON-RPC method strings exactly (`server/discover`, `tools/list`, etc.).
+- **No Deprecated Features**: Features deprecated as of the MCP `2026-07-28` specification (such as `logging/setLevel` via SEP-2577) MUST NOT be implemented or supported.
 - **Clean Protocol Layering**: Keep generic JSON-RPC types in `src/types/jsonrpc/` pure; define MCP-specific schemas in `src/types/mcp/`.
 - **Modular Subsystems**: Keep files under ~250–300 lines by decomposing into submodules.
 - **Separation of Utilities**: Keep utility and helper functions in dedicated utility modules (`src/utils/`).

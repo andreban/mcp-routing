@@ -68,7 +68,6 @@
 pub mod body;
 pub mod completion;
 pub mod extract;
-pub mod logging;
 pub mod prompts;
 pub mod resources;
 pub mod router;
@@ -89,10 +88,6 @@ pub use extract::{
     Authorization, BearerAuth, CurrentLoggingLevel, Extension, ExtractionError, FromRequestContext,
     InputResponses, Json, Meta, RegisteredPrompts, RegisteredResourceTemplates,
     RegisteredResources, RegisteredTools, RequestContext, RequestState, SessionId, State,
-};
-pub use logging::{
-    IntoSetLevelHandler, IntoSetLevelResult, LoggingError, LoggingRegistry, SetLevelHandler,
-    SetLevelParams, SetLevelResult,
 };
 pub use prompts::{
     IntoPromptHandler, IntoPromptResult, IntoPromptsListHandler, IntoPromptsListResult,

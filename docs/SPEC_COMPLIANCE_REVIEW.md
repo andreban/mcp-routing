@@ -197,9 +197,9 @@ This document itemizes all required changes and recommendations, categorized by 
 - **Spec Requirement**:
   - `logging/setLevel` was removed from the active MCP specification as of `2026-07-28` in favor of per-request log levels via `_meta["io.modelcontextprotocol/logLevel"]`. It remains temporarily in the deprecated features registry.
 - **Current Implementation**:
-  - `mcp-routing` currently supports both `logging/setLevel` and per-request `_meta["io.modelcontextprotocol/logLevel"]`.
+  - `mcp-routing` does not implement deprecated features per workspace guidelines. `logging/setLevel` has been completely removed in favor of per-request log levels via `_meta["io.modelcontextprotocol/logLevel"]`.
 - **Action Items**:
-  - [ ] Mark `logging/setLevel` router method and types with `#[deprecated]` documentation indicating preference for per-request `_meta["io.modelcontextprotocol/logLevel"]`.
+  - [x] Remove `logging/setLevel` router method, types, and handlers in accordance with MCP `2026-07-28` specification (SEP-2577) and workspace rules prohibiting deprecated features.
 
 ---
 
@@ -243,6 +243,6 @@ This document itemizes all required changes and recommendations, categorized by 
 | **Custom Header Params (`x-mcp-header`)** | ✅ Compliant | `streamable-http.md` | Support `Mcp-Param-{Name}` matching |
 | **Multi Round-Trip Requests (MRTR)** | 💡 Missing Feature | `schema.ts:580-618` | Implement `InputRequiredResult` & retry params |
 | **Capabilities Extensions & Roots** | ✅ Compliant | `schema.ts:1018,1056` | Add `extensions` & `roots` to capability structs |
-| **`logging/setLevel` Sunset** | ℹ️ Modernization | SEP-2577 | Mark deprecated in favor of per-request `_meta` |
+| **`logging/setLevel` Sunset** | ✅ Compliant | SEP-2577 | Removed deprecated endpoint in favor of per-request `_meta` |
 | **Sessionless Transport (`Mcp-Session-Id`)** | ℹ️ Modernization | SEP-2567 | Demote from mandatory protocol state |
 | **`subscriptions/listen` Stream** | ℹ️ Future Roadmap | SEP-2575 | Implement long-lived SSE channel |

@@ -54,11 +54,11 @@ impl McpRouterInner {
             return attach_session(unsupported_media_type());
         }
 
-        if let Some(ref allowed) = self.server.allowed_origins {
-            if !is_origin_header_allowed(req.headers(), allowed) {
-                tracing::debug!("Rejected untrusted Origin header with 403 Forbidden");
-                return attach_session(forbidden());
-            }
+        if let Some(ref allowed) = self.server.allowed_origins
+            && !is_origin_header_allowed(req.headers(), allowed)
+        {
+            tracing::debug!("Rejected untrusted Origin header with 403 Forbidden");
+            return attach_session(forbidden());
         }
 
         if self.server.validate_protocol_version {
@@ -98,9 +98,9 @@ impl McpRouterInner {
             .get::<crate::extract::CurrentLoggingLevel>()
             .is_none()
         {
-            parts.extensions.insert(crate::extract::CurrentLoggingLevel(
-                self.logging.current_level(),
-            ));
+            parts
+                .extensions
+                .insert(crate::extract::CurrentLoggingLevel(self.logging_level));
         }
         for injector in &self.state_injectors {
             injector(&mut parts.extensions);

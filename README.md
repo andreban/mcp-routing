@@ -118,7 +118,6 @@ Incoming HTTP JSON-RPC requests are dispatched using headers with body fallback:
 | `resources/read` | `Mcp-Method: resources/read`<br>`Mcp-Uri: <uri>` | `method: "resources/read"`<br>`params.uri: "<uri>"` | Reads resource content or matches URI template |
 | `resources/templates/list` | `Mcp-Method: resources/templates/list` | `method: "resources/templates/list"` | Discovers RFC 6570 resource templates |
 | `completion/complete` | `Mcp-Method: completion/complete` | `method: "completion/complete"` | Autocompletes prompt arguments & URI templates |
-| `logging/setLevel` | `Mcp-Method: logging/setLevel` | `method: "logging/setLevel"` | Sets runtime server logging threshold |
 
 ---
 
@@ -208,15 +207,11 @@ let router = McpRouter::new(server_info)
 
 ### 5. Logging & Diagnostics (`logging/*`)
 
-Configure dynamic server logging thresholds and audit log level updates:
+Configure server logging capabilities and initial default thresholds:
 
 ```rust
 let router = McpRouter::new(server_info)
-    .logging_level(LoggingLevel::Info)
-    .logging_handler(|session: Option<SessionId>, params: SetLevelParams| async move {
-        tracing::info!(level = %params.level, "Updated logging threshold");
-        Ok(())
-    });
+    .logging_level(LoggingLevel::Info);
 ```
 
 Inspect per-request `_meta.io.modelcontextprotocol/logLevel` and current server log thresholds in any tool or handler:
@@ -271,7 +266,7 @@ Run any of the included examples with `cargo run --example <name>`:
 | **Completions** | `cargo run --example completions` | Autocompletion for prompt arguments and resource template variables |
 | **Extractors** | `cargo run --example extractors` | Sharing application state (`State<T>`), session IDs, and auth tokens |
 | **Discovery** | `cargo run --example discovery` | Dynamic capability advertisement and contextual server instructions |
-| **Logging** | `cargo run --example logging` | Dynamic `logging/setLevel` thresholds and per-request log level handling |
+| **Logging** | `cargo run --example logging` | Server logging level advertisement and per-request log level handling |
 
 ---
 

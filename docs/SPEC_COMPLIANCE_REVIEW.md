@@ -154,10 +154,12 @@ This document itemizes all required changes and recommendations, categorized by 
   - In `server/tools.md` and `basic/transports/streamable-http.md`: Tool arguments can specify `x-mcp-header: true` in their JSON Schema. When calling the tool via HTTP POST, the client MUST supply `Mcp-Param-{Name}` matching the argument value.
   - Server MUST validate that `Mcp-Param-{Name}` headers match the arguments in the request body, returning `-32020` (`HeaderMismatch`) if mismatched.
 - **Current Implementation**:
-  - Tool arguments validation currently inspects only the JSON payload against `jsonschema::Validator`.
+  - Tool input schemas are inspected for `"x-mcp-header": true` property annotations during tool registration.
+  - `Mcp-Param-{Name}` HTTP headers are extracted, sentinel-decoded, and verified against request body arguments during `tools/call` dispatching.
+  - Any missing required parameter headers or value mismatches return HTTP `400 Bad Request` with error code `-32020` (`HeaderMismatch`).
 - **Action Items**:
-  - [ ] Inspect tool input schemas for `x-mcp-header: true` during tool validation.
-  - [ ] Verify corresponding `Mcp-Param-{Name}` HTTP headers against arguments.
+  - [x] Inspect tool input schemas for `x-mcp-header: true` during tool validation.
+  - [x] Verify corresponding `Mcp-Param-{Name}` HTTP headers against arguments.
 
 ---
 
@@ -236,7 +238,7 @@ This document itemizes all required changes and recommendations, categorized by 
 | **`CompleteResult.resultType`** | ⚠️ Fix Required | `schema.ts:2644` | Add `result_type` field |
 | **Standard MCP Error Codes (`-32020..-32022`)** | ✅ Compliant | `schema.ts:435-535` | Defined in `mcp::core::error` with typed constructors |
 | **`Origin` Header Security** | 💡 Missing Feature | `streamable-http.md` | Validate `Origin` header to prevent DNS rebinding |
-| **Custom Header Params (`x-mcp-header`)** | 💡 Missing Feature | `streamable-http.md` | Support `Mcp-Param-{Name}` matching |
+| **Custom Header Params (`x-mcp-header`)** | ✅ Compliant | `streamable-http.md` | Support `Mcp-Param-{Name}` matching |
 | **Multi Round-Trip Requests (MRTR)** | 💡 Missing Feature | `schema.ts:580-618` | Implement `InputRequiredResult` & retry params |
 | **Capabilities Extensions & Roots** | 💡 Missing Feature | `schema.ts:1018,1056` | Add `extensions` & `roots` to capability structs |
 | **`logging/setLevel` Sunset** | ℹ️ Modernization | SEP-2577 | Mark deprecated in favor of per-request `_meta` |

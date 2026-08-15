@@ -30,6 +30,7 @@ pub struct ToolRegistry {
     pub(crate) tool_handlers: HashMap<String, Arc<dyn ToolHandler>>,
     pub(crate) tool_cache_settings: HashMap<String, (Option<u64>, Option<CacheScope>)>,
     pub(crate) tool_validators: HashMap<String, Arc<jsonschema::Validator>>,
+    pub(crate) tool_header_params: HashMap<String, Vec<String>>,
     pub(crate) list_ttl_ms: Option<u64>,
     pub(crate) list_cache_scope: Option<CacheScope>,
     pub(crate) list_handler: Option<Arc<dyn ToolsListHandler>>,
@@ -49,6 +50,7 @@ impl ToolRegistry {
             tool_handlers: HashMap::new(),
             tool_cache_settings: HashMap::new(),
             tool_validators: HashMap::new(),
+            tool_header_params: HashMap::new(),
             list_ttl_ms: Some(0),
             list_cache_scope: Some(CacheScope::Public),
             list_handler: None,
@@ -86,6 +88,10 @@ impl ToolRegistry {
                 );
             }
         }
+        let header_params = crate::utils::extract_header_params_from_schema(&tool.input_schema);
+        if !header_params.is_empty() {
+            self.tool_header_params.insert(name.clone(), header_params);
+        }
         self.tool_handlers.insert(name, handler.into_tool_handler());
         Arc::make_mut(&mut self.tools).push(tool);
     }
@@ -116,6 +122,10 @@ impl ToolRegistry {
                     "Failed to compile input schema validator for tool"
                 );
             }
+        }
+        let header_params = crate::utils::extract_header_params_from_schema(&tool.input_schema);
+        if !header_params.is_empty() {
+            self.tool_header_params.insert(name.clone(), header_params);
         }
         self.tool_handlers
             .insert(name.clone(), handler.into_tool_handler());
@@ -300,6 +310,27 @@ impl ToolRegistry {
             .cloned()
             .unwrap_or((None, None));
 
+        let empty_header_params = Vec::new();
+        let header_params = self
+            .tool_header_params
+            .get(tool_name)
+            .unwrap_or(&empty_header_params);
+
+        if let Err(mut err) = crate::utils::validate_tool_header_params(
+            ctx.req_id.clone(),
+            header_params,
+            arguments.as_ref(),
+            ctx.headers,
+            ctx.is_batch,
+        ) {
+            err.id = ctx.req_id;
+            return if ctx.is_notification {
+                DispatchOutcome::notification()
+            } else {
+                DispatchOutcome::error(err)
+            };
+        }
+
         if let Some(validator) = self.tool_validators.get(tool_name)
             && let Err(err_msg) = validate_tool_arguments(validator, arguments.as_ref())
         {
@@ -420,6 +451,25 @@ impl ToolRegistry {
                 Some(p) => (p.meta, p.arguments),
                 None => (None, None),
             };
+
+            let empty_header_params = Vec::new();
+            let header_params = self
+                .tool_header_params
+                .get(tool_name.as_str())
+                .unwrap_or(&empty_header_params);
+
+            if let Err(mut err) = crate::utils::validate_tool_header_params(
+                Some(req_id.clone()),
+                header_params,
+                raw_args.as_ref(),
+                headers,
+                false,
+            ) {
+                err.id = Some(req_id);
+                let status =
+                    crate::types::mcp::mcp_error_code_to_http_status(err.error.code.code());
+                return crate::body::json_response_with_status(status, &err);
+            }
 
             if let Some(validator) = self.tool_validators.get(tool_name.as_str())
                 && let Err(err_msg) = validate_tool_arguments(validator, raw_args.as_ref())
@@ -550,4 +600,3 @@ mod tests {
         );
     }
 }
-

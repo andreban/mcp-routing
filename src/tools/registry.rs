@@ -438,9 +438,9 @@ impl ToolRegistry {
         }
 
         tracing::debug!(tool_name, "Tool not found");
-        let error_response = JsonRpcErrorResponse::method_not_found(
+        let error_response = JsonRpcErrorResponse::invalid_params(
             Some(request.id),
-            format!("Method not found: tool '{tool_name}' not found"),
+            format!("Invalid params: tool '{tool_name}' not found"),
         );
         json_response(&error_response)
     }
@@ -471,3 +471,83 @@ fn validate_tool_arguments(
         ))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use http_body_util::BodyExt;
+
+    #[tokio::test]
+    async fn test_tool_registry_dispatch_call_unknown_tool_returns_invalid_params() {
+        let registry = ToolRegistry::new();
+        let headers = http::HeaderMap::new();
+        let extensions = Arc::new(http::Extensions::new());
+        let ctx = MethodContext {
+            req_id: Some(JsonRpcRequestId::Number(42.0)),
+            is_notification: false,
+            is_batch: false,
+            header_name: Some(std::borrow::Cow::Borrowed("non_existent_tool")),
+            session_id: None,
+            headers: &headers,
+            extensions,
+        };
+
+        let params = serde_json::json!({
+            "name": "non_existent_tool"
+        });
+
+        let outcome = registry.dispatch_call(ctx, Some(params)).await;
+        let resp = outcome.response.expect("expected error response");
+        assert_eq!(
+            resp["error"]["code"],
+            crate::types::jsonrpc::INVALID_PARAMS_CODE
+        );
+        assert!(
+            resp["error"]["message"]
+                .as_str()
+                .unwrap()
+                .contains("tool 'non_existent_tool' not found")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_tool_registry_handle_call_unknown_tool_returns_invalid_params() {
+        let registry = ToolRegistry::new();
+        let headers = http::HeaderMap::new();
+        let extensions = Arc::new(http::Extensions::new());
+        let body = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/call",
+            "params": {
+                "name": "non_existent_tool"
+            }
+        });
+        let body_bytes = serde_json::to_vec(&body).unwrap();
+
+        let response = registry
+            .handle_call(
+                Some(JsonRpcRequestId::Number(1.0)),
+                Some("non_existent_tool"),
+                None,
+                &headers,
+                extensions,
+                &body_bytes,
+            )
+            .await;
+
+        let bytes = response.into_body().collect().await.unwrap().to_bytes();
+        let err_resp: JsonRpcErrorResponse = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(
+            err_resp.error.code.code(),
+            crate::types::jsonrpc::INVALID_PARAMS_CODE
+        );
+        assert!(
+            err_resp
+                .error
+                .message
+                .contains("tool 'non_existent_tool' not found")
+        );
+    }
+}
+

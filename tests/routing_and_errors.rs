@@ -11,7 +11,7 @@
 //! - Missing or empty tool name rejection for `tools/call` (`-32602 Invalid Params`)
 //! - Unknown method rejection (`-32601 Method Not Found`)
 //! - Non-standard method path suffixes (`-32601 Method Not Found`)
-//! - Unregistered tool execution attempts (`-32601 Method Not Found`)
+//! - Unregistered tool execution attempts (`-32602 Invalid Params`)
 //! - Malformed JSON payloads across all endpoints (`-32700 Parse Error` with `id: null`)
 
 mod common;

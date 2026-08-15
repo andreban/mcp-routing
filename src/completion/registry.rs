@@ -240,7 +240,7 @@ impl CompletionRegistry {
                 JsonRpcErrorResponse::invalid_params(ctx.req_id, format!("Invalid params: {err}")),
             ),
             Err(CompletionError::NotFound(err)) => DispatchOutcome::error(
-                JsonRpcErrorResponse::method_not_found(ctx.req_id, format!("Not found: {err}")),
+                JsonRpcErrorResponse::invalid_params(ctx.req_id, format!("Invalid params: {err}")),
             ),
             Err(CompletionError::Internal(err)) => {
                 DispatchOutcome::error(JsonRpcErrorResponse::internal_error(

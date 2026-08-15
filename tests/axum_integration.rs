@@ -308,7 +308,7 @@ async fn test_axum_real_tcp_server_e2e() {
         panic!("Expected text block");
     }
 
-    // 3. Test JSON-RPC Method Not Found error (-32601) for unknown tool over real TCP
+    // 3. Test JSON-RPC Invalid Params error (-32602) for unknown tool over real TCP
     let (status, _headers, body) = common::send_raw_http_request(
         addr,
         "POST",

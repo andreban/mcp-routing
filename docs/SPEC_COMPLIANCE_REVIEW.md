@@ -94,8 +94,8 @@ This document itemizes all required changes and recommendations, categorized by 
   - `src/prompts/registry.rs:271` returns `-32601` when a prompt is not found.
   - `src/resources/registry.rs:361, 488` returns `-32601` when a resource or resource template is not found.
 - **Action Items**:
-  - [ ] Change not-found handler outcomes in `ToolRegistry`, `PromptRegistry`, and `ResourceRegistry` to return `JsonRpcErrorResponse::invalid_params` (`-32602`) instead of `method_not_found` (`-32601`).
-  - [ ] Reserve `method_not_found` (`-32601`) exclusively for `Router::dispatch` when the top-level JSON-RPC `method` string is unknown.
+  - [x] Change not-found handler outcomes in `ToolRegistry`, `PromptRegistry`, and `ResourceRegistry` to return `JsonRpcErrorResponse::invalid_params` (`-32602`) instead of `method_not_found` (`-32601`).
+  - [x] Reserve `method_not_found` (`-32601`) exclusively for `Router::dispatch` when the top-level JSON-RPC `method` string is unknown.
 
 ---
 

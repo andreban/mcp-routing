@@ -253,9 +253,9 @@ impl ResourceRegistry {
                     ))
                 }
                 Err(ResourceError::NotFound(err)) => {
-                    DispatchOutcome::error(JsonRpcErrorResponse::method_not_found(
+                    DispatchOutcome::error(JsonRpcErrorResponse::invalid_params(
                         ctx.req_id,
-                        format!("Method not found: {err}"),
+                        format!("Invalid params: {err}"),
                     ))
                 }
                 Err(ResourceError::Internal(err)) => {
@@ -513,9 +513,9 @@ impl ResourceRegistry {
                     ))
                 }
                 Err(ResourceError::NotFound(err)) => {
-                    DispatchOutcome::error(JsonRpcErrorResponse::method_not_found(
+                    DispatchOutcome::error(JsonRpcErrorResponse::invalid_params(
                         ctx.req_id,
-                        format!("Method not found: {err}"),
+                        format!("Invalid params: {err}"),
                     ))
                 }
                 Err(ResourceError::Internal(err)) => {
@@ -665,9 +665,9 @@ impl ResourceRegistry {
                     return json_response(&error_response);
                 }
                 Err(ResourceError::NotFound(err)) => {
-                    let error_response = JsonRpcErrorResponse::method_not_found(
+                    let error_response = JsonRpcErrorResponse::invalid_params(
                         Some(req_id),
-                        format!("Method not found: {err}"),
+                        format!("Invalid params: {err}"),
                     );
                     return json_response(&error_response);
                 }
@@ -682,10 +682,91 @@ impl ResourceRegistry {
         }
 
         tracing::debug!(resource_uri, "Resource not found");
-        let error_response = JsonRpcErrorResponse::method_not_found(
+        let error_response = JsonRpcErrorResponse::invalid_params(
             Some(request.id),
-            format!("Method not found: resource '{resource_uri}' not found"),
+            format!("Invalid params: resource '{resource_uri}' not found"),
         );
         json_response(&error_response)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use http_body_util::BodyExt;
+
+    #[tokio::test]
+    async fn test_resource_registry_dispatch_read_unknown_resource_returns_invalid_params() {
+        let registry = ResourceRegistry::new();
+        let mut headers = http::HeaderMap::new();
+        headers.insert("mcp-uri", "file:///non_existent.txt".parse().unwrap());
+        let extensions = Arc::new(http::Extensions::new());
+        let ctx = MethodContext {
+            req_id: Some(JsonRpcRequestId::Number(42.0)),
+            is_notification: false,
+            is_batch: false,
+            header_name: None,
+            session_id: None,
+            headers: &headers,
+            extensions,
+        };
+
+        let params = serde_json::json!({
+            "uri": "file:///non_existent.txt"
+        });
+
+        let outcome = registry.dispatch_read(ctx, Some(params)).await;
+        let resp = outcome.response.expect("expected error response");
+        assert_eq!(
+            resp["error"]["code"],
+            crate::types::jsonrpc::INVALID_PARAMS_CODE
+        );
+        assert!(
+            resp["error"]["message"]
+                .as_str()
+                .unwrap()
+                .contains("resource 'file:///non_existent.txt' not found")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_resource_registry_handle_read_unknown_resource_returns_invalid_params() {
+        let registry = ResourceRegistry::new();
+        let headers = http::HeaderMap::new();
+        let extensions = Arc::new(http::Extensions::new());
+        let body = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "resources/read",
+            "params": {
+                "uri": "file:///non_existent.txt"
+            }
+        });
+        let body_bytes = serde_json::to_vec(&body).unwrap();
+
+        let response = registry
+            .handle_read(
+                Some(JsonRpcRequestId::Number(1.0)),
+                Some("file:///non_existent.txt"),
+                None,
+                &headers,
+                extensions,
+                &body_bytes,
+            )
+            .await;
+
+        let bytes = response.into_body().collect().await.unwrap().to_bytes();
+        let err_resp: JsonRpcErrorResponse = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(
+            err_resp.error.code.code(),
+            crate::types::jsonrpc::INVALID_PARAMS_CODE
+        );
+        assert!(
+            err_resp
+                .error
+                .message
+                .contains("resource 'file:///non_existent.txt' not found")
+        );
+    }
+}
+

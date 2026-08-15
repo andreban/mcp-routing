@@ -157,6 +157,7 @@ async fn test_server_discover_custom_capabilities_and_versions() {
         completions: Some(CompletionsCapability {}),
         logging: None,
         experimental: Some(experimental),
+        extensions: None,
     };
 
     let app = McpRouter::new(server_info)
@@ -457,6 +458,7 @@ async fn test_server_discover_dynamic_provider_with_extractors() {
             completions: None,
             logging: None,
             experimental: None,
+            extensions: None,
         };
 
         Ok((caps, instructions))
@@ -524,6 +526,7 @@ async fn test_server_discover_dynamic_provider_returning_result_with_cache() {
                 completions: Some(CompletionsCapability {}),
                 logging: None,
                 experimental: None,
+                extensions: None,
             },
             vec!["2026-07-28".to_string()],
         )

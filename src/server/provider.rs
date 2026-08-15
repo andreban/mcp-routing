@@ -307,6 +307,7 @@ mod tests {
                 completions: None,
                 logging: None,
                 experimental: None,
+                extensions: None,
             })
         }
 

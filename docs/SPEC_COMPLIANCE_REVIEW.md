@@ -185,8 +185,8 @@ This document itemizes all required changes and recommendations, categorized by 
 - **Current Implementation**:
   - `ClientCapabilities` and `ServerCapabilities` in `src/types/mcp/core/capabilities.rs` lack the `extensions` map and `roots` capability.
 - **Action Items**:
-  - [ ] Add `pub roots: Option<RootsCapability>` and `pub extensions: Option<HashMap<String, Value>>` to `ClientCapabilities`.
-  - [ ] Add `pub extensions: Option<HashMap<String, Value>>` to `ServerCapabilities`.
+  - [x] Add `pub roots: Option<RootsCapability>` and `pub extensions: Option<HashMap<String, Value>>` to `ClientCapabilities`.
+  - [x] Add `pub extensions: Option<HashMap<String, Value>>` to `ServerCapabilities`.
 
 ---
 
@@ -242,7 +242,7 @@ This document itemizes all required changes and recommendations, categorized by 
 | **`Origin` Header Security** | ✅ Compliant | `streamable-http.md` | Validate `Origin` header to prevent DNS rebinding (`403 Forbidden`) |
 | **Custom Header Params (`x-mcp-header`)** | ✅ Compliant | `streamable-http.md` | Support `Mcp-Param-{Name}` matching |
 | **Multi Round-Trip Requests (MRTR)** | 💡 Missing Feature | `schema.ts:580-618` | Implement `InputRequiredResult` & retry params |
-| **Capabilities Extensions & Roots** | 💡 Missing Feature | `schema.ts:1018,1056` | Add `extensions` & `roots` to capability structs |
+| **Capabilities Extensions & Roots** | ✅ Compliant | `schema.ts:1018,1056` | Add `extensions` & `roots` to capability structs |
 | **`logging/setLevel` Sunset** | ℹ️ Modernization | SEP-2577 | Mark deprecated in favor of per-request `_meta` |
 | **Sessionless Transport (`Mcp-Session-Id`)** | ℹ️ Modernization | SEP-2567 | Demote from mandatory protocol state |
 | **`subscriptions/listen` Stream** | ℹ️ Future Roadmap | SEP-2575 | Implement long-lived SSE channel |

@@ -22,6 +22,23 @@ pub struct ClientCapabilities {
     /// Present if the client supports server-driven elicitation.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub elicitation: Option<ElicitationCapability>,
+    /// Present if the client supports listing roots.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub roots: Option<RootsCapability>,
+    /// Standardized extensions that the client supports.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub extensions: Option<HashMap<String, Value>>,
+}
+
+/// Capability configuration for root operations.
+///
+/// See <https://modelcontextprotocol.io/specification/2026-07-28/schema#clientcapabilities>
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RootsCapability {
+    /// Optional hint indicating whether the client emits notifications when its list of roots changes.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub list_changed: Option<bool>,
 }
 
 /// Capability configuration for sampling LLM completions.
@@ -63,6 +80,9 @@ pub struct ServerCapabilities {
     /// Experimental, non-standard capabilities that the server supports.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub experimental: Option<HashMap<String, Value>>,
+    /// Standardized extensions that the server supports.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub extensions: Option<HashMap<String, Value>>,
 }
 
 impl Default for ServerCapabilities {
@@ -81,6 +101,7 @@ impl ServerCapabilities {
             completions: None,
             logging: None,
             experimental: None,
+            extensions: None,
         }
     }
 
@@ -176,32 +197,61 @@ pub struct LoggingCapability {}
 
 #[cfg(test)]
 mod tests {
+    //! Unit tests for MCP client and server capability structures and serialization.
+
     use super::*;
 
-    /// Tests serialization and deserialization of [`ClientCapabilities`].
+    /// Tests serialization and deserialization of [`ClientCapabilities`] including roots and extensions.
     #[test]
     fn test_client_capabilities_serde() {
+        let mut extensions = HashMap::new();
+        extensions.insert(
+            "io.modelcontextprotocol/oauth".to_string(),
+            serde_json::json!({"version": "1.0"}),
+        );
+
         let json_data = serde_json::json!({
             "sampling": {},
-            "elicitation": {}
+            "elicitation": {},
+            "roots": {
+                "listChanged": true
+            },
+            "extensions": {
+                "io.modelcontextprotocol/oauth": {
+                    "version": "1.0"
+                }
+            }
         });
 
         let caps: ClientCapabilities = serde_json::from_value(json_data).unwrap();
         assert!(caps.sampling.is_some());
         assert!(caps.elicitation.is_some());
         assert!(caps.experimental.is_none());
+        assert_eq!(caps.roots.as_ref().and_then(|r| r.list_changed), Some(true));
+        assert!(caps.extensions.is_some());
 
         let reserialized = serde_json::to_value(&caps).unwrap();
         assert!(reserialized.get("sampling").is_some());
+        assert_eq!(reserialized["roots"]["listChanged"], true);
+        assert_eq!(
+            reserialized["extensions"]["io.modelcontextprotocol/oauth"]["version"],
+            "1.0"
+        );
     }
 
-    /// Tests serialization and deserialization of [`ServerCapabilities`].
+    /// Tests serialization and deserialization of [`ServerCapabilities`] including extensions.
     #[test]
     fn test_server_capabilities_serde() {
         let mut exp = HashMap::new();
         exp.insert(
             "customFeature".to_string(),
             serde_json::json!({"enabled": true}),
+        );
+
+        let mut extensions = HashMap::new();
+        extensions.insert(
+            "io.modelcontextprotocol/customExt".to_string(),
+            serde_json::json!({"supported": true}),
         );
 
         let server_caps = ServerCapabilities {
@@ -218,6 +268,7 @@ mod tests {
             completions: Some(CompletionsCapability {}),
             logging: Some(LoggingCapability {}),
             experimental: Some(exp),
+            extensions: Some(extensions),
         };
         let s_val = serde_json::to_value(&server_caps).unwrap();
         assert_eq!(s_val["tools"]["listChanged"], true);
@@ -226,5 +277,25 @@ mod tests {
         assert_eq!(s_val["prompts"]["listChanged"], true);
         assert!(s_val.get("completions").is_some());
         assert!(s_val.get("logging").is_some());
+        assert_eq!(
+            s_val["extensions"]["io.modelcontextprotocol/customExt"]["supported"],
+            true
+        );
+
+        let deserialized: ServerCapabilities = serde_json::from_value(s_val).unwrap();
+        assert_eq!(deserialized.tools.as_ref().and_then(|t| t.list_changed), Some(true));
+        assert_eq!(
+            deserialized.resources.as_ref().and_then(|r| r.subscribe),
+            Some(true)
+        );
+        assert_eq!(
+            deserialized.resources.as_ref().and_then(|r| r.list_changed),
+            Some(false)
+        );
+        assert_eq!(deserialized.prompts.as_ref().and_then(|p| p.list_changed), Some(true));
+        assert!(deserialized.completions.is_some());
+        assert!(deserialized.logging.is_some());
+        assert!(deserialized.experimental.is_some());
+        assert!(deserialized.extensions.is_some());
     }
 }

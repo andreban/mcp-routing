@@ -322,6 +322,8 @@ mod tests {
                 experimental: None,
                 sampling: Some(crate::types::mcp::SamplingCapability {}),
                 elicitation: None,
+                roots: None,
+                extensions: None,
             },
         );
         assert_eq!(
@@ -361,6 +363,8 @@ mod tests {
                 experimental: None,
                 sampling: None,
                 elicitation: Some(crate::types::mcp::ElicitationCapability {}),
+                roots: None,
+                extensions: None,
             },
         );
         assert_eq!(

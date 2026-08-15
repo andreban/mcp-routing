@@ -106,6 +106,7 @@ async fn server_discover_handler(
         completions: None,
         logging: None,
         experimental: None,
+        extensions: None,
     };
 
     let instructions = format!(

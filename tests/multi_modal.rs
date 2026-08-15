@@ -209,7 +209,7 @@ async fn test_multi_modal_single_image_block() {
 /// Tests returning a multi-modal composite tool result containing all 6 content block types.
 ///
 /// Verifies:
-/// - Correct tag-based discriminators (`type: "text"`, `"image"`, `"audio"`, `"resource"`, `"resourceLink"`)
+/// - Correct tag-based discriminators (`type: "text"`, `"image"`, `"audio"`, `"resource"`, `"resource_link"`)
 /// - Text embedded resources containing string text and URI
 /// - Binary blob embedded resources containing Base64 data and URI
 /// - Resource links containing name, description, and target URI
@@ -233,7 +233,14 @@ async fn test_multi_modal_comprehensive_result() {
     let (status, _headers, body) = common::execute_request(app, req).await;
 
     assert_eq!(status, StatusCode::OK);
-    let res: CallToolResultResponse = serde_json::from_value(body).unwrap();
+    assert_eq!(body["result"]["content"][0]["type"], "text");
+    assert_eq!(body["result"]["content"][1]["type"], "image");
+    assert_eq!(body["result"]["content"][2]["type"], "audio");
+    assert_eq!(body["result"]["content"][3]["type"], "resource");
+    assert_eq!(body["result"]["content"][4]["type"], "resource");
+    assert_eq!(body["result"]["content"][5]["type"], "resource_link");
+
+    let res: CallToolResultResponse = serde_json::from_value(body.clone()).unwrap();
     assert_eq!(res.id, 888.into());
     assert_eq!(res.result.is_error, Some(false));
     assert_eq!(res.result.content.len(), 6);

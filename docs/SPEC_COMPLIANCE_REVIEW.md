@@ -107,8 +107,8 @@ This document itemizes all required changes and recommendations, categorized by 
 - **Current Implementation**:
   - In `src/types/mcp/content.rs:79-86`, `ContentBlock` derives `#[serde(rename_all = "camelCase")]`, serializing `ContentBlock::ResourceLink` as `"type": "resourceLink"` instead of `"type": "resource_link"`.
 - **Action Items**:
-  - [ ] Add `#[serde(rename = "resource_link")]` to `ContentBlock::ResourceLink` in `src/types/mcp/content.rs`.
-  - [ ] Update unit tests in `src/types/mcp/content.rs` to verify `"type": "resource_link"`.
+  - [x] Add `#[serde(rename = "resource_link")]` to `ContentBlock::ResourceLink` in `src/types/mcp/content.rs`.
+  - [x] Update unit tests in `src/types/mcp/content.rs` to verify `"type": "resource_link"`.
 
 ---
 
@@ -232,7 +232,7 @@ This document itemizes all required changes and recommendations, categorized by 
 | **Header Enforcement (`MCP-Protocol-Version`)** | ⚠️ Fix Required | `streamable-http.md` | Require & validate header on all POST requests |
 | **Header Verification (`Mcp-Method`, `Mcp-Name`)** | ⚠️ Fix Required | `streamable-http.md` | Reject missing / mismatched headers with `-32020` |
 | **Sentinel Encoding (`=?base64?...?=`)** | ✅ Compliant | `streamable-http.md` | Decode RFC 2047 sentinel values in headers |
-| **`ResourceLink` Discriminator Tag** | ⚠️ Fix Required | `schema.ts:1720` | Rename tag `"resourceLink"` -> `"resource_link"` |
+| **`ResourceLink` Discriminator Tag** | ✅ Compliant | `schema.ts:1720` | Rename tag `"resourceLink"` -> `"resource_link"` |
 | **`CompleteResult.resultType`** | ⚠️ Fix Required | `schema.ts:2644` | Add `result_type` field |
 | **Standard MCP Error Codes (`-32020..-32022`)** | ✅ Compliant | `schema.ts:435-535` | Defined in `mcp::core::error` with typed constructors |
 | **`Origin` Header Security** | 💡 Missing Feature | `streamable-http.md` | Validate `Origin` header to prevent DNS rebinding |

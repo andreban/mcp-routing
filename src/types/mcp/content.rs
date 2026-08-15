@@ -82,6 +82,7 @@ pub enum ContentBlock {
     Image(ImageContent),
     Audio(AudioContent),
     Resource(EmbeddedResource),
+    #[serde(rename = "resource_link")]
     ResourceLink(ResourceLink),
 }
 
@@ -196,7 +197,7 @@ mod tests {
         assert_eq!(val[2]["type"], "audio");
         assert_eq!(val[3]["type"], "resource");
         assert_eq!(val[4]["type"], "resource");
-        assert_eq!(val[5]["type"], "resourceLink");
+        assert_eq!(val[5]["type"], "resource_link");
 
         let deserialized: Vec<ContentBlock> = serde_json::from_value(val).unwrap();
         assert_eq!(deserialized.len(), 6);

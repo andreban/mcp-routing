@@ -242,7 +242,7 @@ impl PromptRegistry {
         };
 
         let prompt_name = match resolve_prompt_name(
-            ctx.header_name,
+            ctx.header_name.as_deref(),
             params_name.as_deref(),
             ctx.is_batch,
             "prompt name",
@@ -360,8 +360,9 @@ impl PromptRegistry {
             }
         };
 
+        let decoded_header_name = header_name.map(crate::utils::decode_sentinel_header);
         let prompt_name = match resolve_prompt_name(
-            header_name,
+            decoded_header_name.as_deref(),
             request.params.as_ref().map(|p| p.name.as_str()),
             false,
             "prompt name",

@@ -1,6 +1,7 @@
 // Copyright 2026 André Cipriani Bandarra
 // SPDX-License-Identifier: Apache-2.0
 
+use std::borrow::Cow;
 use std::sync::Arc;
 
 use http::StatusCode;
@@ -61,7 +62,7 @@ pub(crate) struct MethodContext<'a> {
     pub(crate) req_id: Option<JsonRpcRequestId>,
     pub(crate) is_notification: bool,
     pub(crate) is_batch: bool,
-    pub(crate) header_name: Option<&'a str>,
+    pub(crate) header_name: Option<Cow<'a, str>>,
     pub(crate) session_id: Option<SessionId>,
     pub(crate) headers: &'a http::HeaderMap,
     pub(crate) extensions: Arc<http::Extensions>,

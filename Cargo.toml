@@ -5,6 +5,7 @@ edition = "2024"
 license = "Apache-2.0"
 
 [dependencies]
+base64 = "0.22"
 bytes = "1"
 http = "1"
 http-body = "1"

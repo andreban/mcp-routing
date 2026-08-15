@@ -78,8 +78,8 @@ This document itemizes all required changes and recommendations, categorized by 
 - **Current Implementation**:
   - `src/utils.rs:extract_header_name`, `extract_header_uri` read the header value directly as plain UTF-8 strings without decoding `=?base64?...?=`.
 - **Action Items**:
-  - [ ] Implement RFC 2047-style sentinel decoding helper in `src/utils.rs`: `decode_sentinel_header(raw_value: &str) -> Cow<'_, str>`.
-  - [ ] Apply sentinel decoding when extracting `Mcp-Name` and custom `Mcp-Param-*` headers.
+  - [x] Implement RFC 2047-style sentinel decoding helper in `src/utils.rs`: `decode_sentinel_header(raw_value: &str) -> Cow<'_, str>`.
+  - [x] Apply sentinel decoding when extracting `Mcp-Name` and `Mcp-Uri` headers.
 
 ---
 
@@ -231,7 +231,7 @@ This document itemizes all required changes and recommendations, categorized by 
 | **Not Found Error Codes** | ✅ Compliant | `schema.ts:430-432` | Returns `-32602` (`Invalid params`) for missing tools/prompts/resources |
 | **Header Enforcement (`MCP-Protocol-Version`)** | ⚠️ Fix Required | `streamable-http.md` | Require & validate header on all POST requests |
 | **Header Verification (`Mcp-Method`, `Mcp-Name`)** | ⚠️ Fix Required | `streamable-http.md` | Reject missing / mismatched headers with `-32020` |
-| **Sentinel Encoding (`=?base64?...?=`)** | ⚠️ Fix Required | `streamable-http.md` | Decode RFC 2047 sentinel values in headers |
+| **Sentinel Encoding (`=?base64?...?=`)** | ✅ Compliant | `streamable-http.md` | Decode RFC 2047 sentinel values in headers |
 | **`ResourceLink` Discriminator Tag** | ⚠️ Fix Required | `schema.ts:1720` | Rename tag `"resourceLink"` -> `"resource_link"` |
 | **`CompleteResult.resultType`** | ⚠️ Fix Required | `schema.ts:2644` | Add `result_type` field |
 | **Standard MCP Error Codes (`-32020..-32022`)** | ✅ Compliant | `schema.ts:435-535` | Defined in `mcp::core::error` with typed constructors |

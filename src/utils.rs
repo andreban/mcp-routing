@@ -6,6 +6,9 @@
 //! Internal helper functions for HTTP header extraction, MIME type negotiation,
 //! URI template matching, and method / parameter resolution.
 
+use std::borrow::Cow;
+
+use base64::prelude::*;
 use http::HeaderMap;
 
 use crate::extract::SessionId;
@@ -26,21 +29,68 @@ pub(crate) fn is_json_content_type(headers: &HeaderMap) -> bool {
     media_type.eq_ignore_ascii_case("application/json")
 }
 
-/// Extracts the tool or prompt name from the `Mcp-Name` HTTP header, trimming leading and trailing slashes.
-pub(crate) fn extract_header_name(headers: &HeaderMap) -> Option<&str> {
+/// Decodes an RFC 2047-style Base64 sentinel encoded header value (`=?base64?<encoded>?=`).
+///
+/// According to the MCP Streamable HTTP specification, values of `Mcp-Name` and `Mcp-Param-*`
+/// headers containing non-ASCII characters, spaces, or control characters must use this sentinel format.
+///
+/// If `raw_value` matches `=?base64?...?=` and the Base64 payload decodes to valid UTF-8,
+/// this returns `Cow::Owned(decoded_string)`. Otherwise, it returns `Cow::Borrowed(raw_value)`.
+pub(crate) fn decode_sentinel_header(raw_value: &str) -> Cow<'_, str> {
+    let trimmed = raw_value.trim();
+    if trimmed.len() >= 11
+        && (trimmed.starts_with("=?base64?") || trimmed[..9].eq_ignore_ascii_case("=?base64?"))
+        && trimmed.ends_with("?=")
+    {
+        let b64_str = trimmed[9..trimmed.len() - 2].trim();
+        let decoded = BASE64_STANDARD
+            .decode(b64_str)
+            .or_else(|_| BASE64_URL_SAFE.decode(b64_str))
+            .or_else(|_| BASE64_STANDARD_NO_PAD.decode(b64_str))
+            .or_else(|_| BASE64_URL_SAFE_NO_PAD.decode(b64_str));
+        if let Ok(bytes) = decoded {
+            if let Ok(utf8_str) = String::from_utf8(bytes) {
+                return Cow::Owned(utf8_str);
+            }
+        }
+    }
+    Cow::Borrowed(raw_value)
+}
+
+/// Extracts the tool or prompt name from the `Mcp-Name` HTTP header, trimming leading and trailing slashes
+/// and decoding any RFC 2047-style Base64 sentinel value (`=?base64?...?=`).
+pub(crate) fn extract_header_name(headers: &HeaderMap) -> Option<Cow<'_, str>> {
     headers
         .get("Mcp-Name")
         .and_then(|v| v.to_str().ok())
-        .map(|s| s.trim_matches('/'))
+        .map(|s| {
+            let trimmed = s.trim().trim_matches('/');
+            let decoded = decode_sentinel_header(trimmed);
+            match decoded {
+                Cow::Borrowed(b) => Cow::Borrowed(b.trim_matches('/')),
+                Cow::Owned(o) => {
+                    let trimmed_owned = o.trim_matches('/').to_string();
+                    Cow::Owned(trimmed_owned)
+                }
+            }
+        })
 }
 
-/// Extracts the resource URI from HTTP headers (`Mcp-Uri` or `Mcp-Name`), trimming whitespace.
-pub(crate) fn extract_header_uri(headers: &HeaderMap) -> Option<&str> {
+/// Extracts the resource URI from HTTP headers (`Mcp-Uri` or `Mcp-Name`), trimming whitespace
+/// and decoding any RFC 2047-style Base64 sentinel value (`=?base64?...?=`).
+pub(crate) fn extract_header_uri(headers: &HeaderMap) -> Option<Cow<'_, str>> {
     headers
         .get("Mcp-Uri")
         .or_else(|| headers.get("Mcp-Name"))
         .and_then(|v| v.to_str().ok())
-        .map(|s| s.trim())
+        .map(|s| {
+            let trimmed = s.trim();
+            let decoded = decode_sentinel_header(trimmed);
+            match decoded {
+                Cow::Borrowed(b) => Cow::Borrowed(b.trim()),
+                Cow::Owned(o) => Cow::Owned(o.trim().to_string()),
+            }
+        })
 }
 
 /// Extracts the MCP method from the `Mcp-Method` HTTP header, trimming leading and trailing slashes.
@@ -424,20 +474,64 @@ mod tests {
         assert!(!is_json_content_type(&headers));
     }
 
-    /// Tests extracting the `Mcp-Name` header and trimming slashes.
+    /// Tests RFC 2047-style Base64 sentinel header decoding.
+    #[test]
+    fn test_decode_sentinel_header() {
+        // Plain ASCII string (no sentinel) -> borrowed
+        assert_eq!(decode_sentinel_header("my_tool"), "my_tool");
+        assert!(matches!(decode_sentinel_header("my_tool"), Cow::Borrowed(_)));
+
+        // Base64 sentinel encoding
+        assert_eq!(decode_sentinel_header("=?base64?bXlfdG9vbA==?="), "my_tool");
+        assert!(matches!(decode_sentinel_header("=?base64?bXlfdG9vbA==?="), Cow::Owned(_)));
+
+        // Non-ASCII UTF-8 string: "Hello, 世界!" in base64 is "SGVsbG8sIOS4lueVjCE="
+        assert_eq!(
+            decode_sentinel_header("=?base64?SGVsbG8sIOS4lueVjCE=?="),
+            "Hello, 世界!"
+        );
+
+        // Spaces and symbols: "custom param with spaces & symbols" in base64 is "Y3VzdG9tIHBhcmFtIHdpdGggc3BhY2VzICYgc3ltYm9scw=="
+        assert_eq!(
+            decode_sentinel_header("=?base64?Y3VzdG9tIHBhcmFtIHdpdGggc3BhY2VzICYgc3ltYm9scw==?="),
+            "custom param with spaces & symbols"
+        );
+
+        // Case-insensitive sentinel prefix
+        assert_eq!(decode_sentinel_header("=?BASE64?bXlfdG9vbA==?="), "my_tool");
+
+        // Malformed / incomplete sentinels -> returned as-is (borrowed)
+        assert_eq!(decode_sentinel_header("=?base64?incomplete"), "=?base64?incomplete");
+        assert_eq!(decode_sentinel_header("=?base64?invalid!@#base64?="), "=?base64?invalid!@#base64?=");
+        assert_eq!(decode_sentinel_header(""), "");
+    }
+
+    /// Tests extracting the `Mcp-Name` header and trimming slashes with sentinel decoding.
     #[test]
     fn test_extract_header_name() {
         let mut headers = HeaderMap::new();
         assert_eq!(extract_header_name(&headers), None);
 
         headers.insert("Mcp-Name", "/my_tool/".parse().unwrap());
-        assert_eq!(extract_header_name(&headers), Some("my_tool"));
+        assert_eq!(extract_header_name(&headers).as_deref(), Some("my_tool"));
 
         headers.insert("Mcp-Name", "///".parse().unwrap());
-        assert_eq!(extract_header_name(&headers), Some(""));
+        assert_eq!(extract_header_name(&headers).as_deref(), Some(""));
+
+        // Sentinel encoded tool name
+        headers.insert("Mcp-Name", "=?base64?bXlfdG9vbA==?=".parse().unwrap());
+        assert_eq!(extract_header_name(&headers).as_deref(), Some("my_tool"));
+
+        // Sentinel encoded tool name with leading/trailing slashes in decoded value
+        headers.insert("Mcp-Name", "=?base64?L215X3Rvb2wv?=".parse().unwrap());
+        assert_eq!(extract_header_name(&headers).as_deref(), Some("my_tool"));
+
+        // Sentinel encoded unicode tool name ("echo_世界" -> "ZWNob1/kuJbnlYw=")
+        headers.insert("Mcp-Name", "=?base64?ZWNob1/kuJbnlYw=?=".parse().unwrap());
+        assert_eq!(extract_header_name(&headers).as_deref(), Some("echo_世界"));
     }
 
-    /// Tests extracting the `Mcp-Uri` and `Mcp-Name` headers for resources.
+    /// Tests extracting the `Mcp-Uri` and `Mcp-Name` headers for resources with sentinel decoding.
     #[test]
     fn test_extract_header_uri() {
         let mut headers = HeaderMap::new();
@@ -445,15 +539,25 @@ mod tests {
 
         headers.insert("Mcp-Uri", "file:///app/config.json".parse().unwrap());
         assert_eq!(
-            extract_header_uri(&headers),
+            extract_header_uri(&headers).as_deref(),
             Some("file:///app/config.json")
         );
 
         headers.remove("Mcp-Uri");
         headers.insert("Mcp-Name", "file:///app/config.json".parse().unwrap());
         assert_eq!(
-            extract_header_uri(&headers),
+            extract_header_uri(&headers).as_deref(),
             Some("file:///app/config.json")
+        );
+
+        // Sentinel encoded URI ("file:///app/doc with space.txt" -> "ZmlsZTovLy9hcHAvZG9jIHdpdGggc3BhY2UudHh0")
+        headers.insert(
+            "Mcp-Uri",
+            "=?base64?ZmlsZTovLy9hcHAvZG9jIHdpdGggc3BhY2UudHh0?=".parse().unwrap(),
+        );
+        assert_eq!(
+            extract_header_uri(&headers).as_deref(),
+            Some("file:///app/doc with space.txt")
         );
     }
 

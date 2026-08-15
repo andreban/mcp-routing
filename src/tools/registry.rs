@@ -266,7 +266,7 @@ impl ToolRegistry {
         };
 
         let tool_name = match resolve_tool_name(
-            ctx.header_name,
+            ctx.header_name.as_deref(),
             params_name.as_deref(),
             ctx.is_batch,
             "tool name",
@@ -393,8 +393,9 @@ impl ToolRegistry {
             }
         };
 
+        let decoded_header_name = header_name.map(crate::utils::decode_sentinel_header);
         let tool_name = match resolve_tool_name(
-            header_name,
+            decoded_header_name.as_deref(),
             request.params.as_ref().map(|p| p.name.as_str()),
             false,
             "tool name",

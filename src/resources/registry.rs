@@ -428,7 +428,7 @@ impl ResourceRegistry {
 
         let header_uri = extract_header_uri(ctx.headers);
         let resource_uri =
-            match resolve_resource_uri(header_uri, params_uri.as_deref(), ctx.is_batch) {
+            match resolve_resource_uri(header_uri.as_deref(), params_uri.as_deref(), ctx.is_batch) {
                 Ok(uri) => uri,
                 Err(mut err) => {
                     err.id = ctx.req_id;
@@ -606,8 +606,9 @@ impl ResourceRegistry {
             }
         };
 
+        let decoded_header_uri = header_uri.map(crate::utils::decode_sentinel_header);
         let resource_uri = match resolve_resource_uri(
-            header_uri,
+            decoded_header_uri.as_deref(),
             request.params.as_ref().map(|p| p.uri.as_str()),
             false,
         ) {

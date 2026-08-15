@@ -64,8 +64,10 @@ impl CompletionRegistry {
         H: IntoCompletionHandler<T>,
         T: 'static,
     {
-        self.prompt_handlers
-            .insert((prompt_name.into(), None), handler.into_completion_handler());
+        self.prompt_handlers.insert(
+            (prompt_name.into(), None),
+            handler.into_completion_handler(),
+        );
     }
 
     /// Registers a completion handler for a specific argument of a prompt template.
@@ -90,8 +92,11 @@ impl CompletionRegistry {
         H: IntoCompletionHandler<T>,
         T: 'static,
     {
-        self.resource_handlers
-            .push((uri_or_template.into(), None, handler.into_completion_handler()));
+        self.resource_handlers.push((
+            uri_or_template.into(),
+            None,
+            handler.into_completion_handler(),
+        ));
     }
 
     /// Registers a completion handler for a specific variable of a resource URI or URI template.
@@ -151,19 +156,13 @@ impl CompletionRegistry {
                     .get(&(name.clone(), Some(params.argument.name.clone())))
                     .cloned()
                     // 2. Try prompt name + any arg
-                    .or_else(|| {
-                        self.prompt_handlers
-                            .get(&(name.clone(), None))
-                            .cloned()
-                    })
+                    .or_else(|| self.prompt_handlers.get(&(name.clone(), None)).cloned())
             }
             Reference::Resource { uri } => {
                 // 1. Try exact uri + specific arg name
                 self.resource_handlers
                     .iter()
-                    .find(|(u, arg, _)| {
-                        u == uri && arg.as_deref() == Some(&params.argument.name)
-                    })
+                    .find(|(u, arg, _)| u == uri && arg.as_deref() == Some(&params.argument.name))
                     .map(|(_, _, h)| h.clone())
                     // 2. Try exact uri + any arg
                     .or_else(|| {
@@ -237,18 +236,12 @@ impl CompletionRegistry {
                     )),
                 }
             }
-            Err(CompletionError::InvalidParams(err)) => {
-                DispatchOutcome::error(JsonRpcErrorResponse::invalid_params(
-                    ctx.req_id,
-                    format!("Invalid params: {err}"),
-                ))
-            }
-            Err(CompletionError::NotFound(err)) => {
-                DispatchOutcome::error(JsonRpcErrorResponse::method_not_found(
-                    ctx.req_id,
-                    format!("Not found: {err}"),
-                ))
-            }
+            Err(CompletionError::InvalidParams(err)) => DispatchOutcome::error(
+                JsonRpcErrorResponse::invalid_params(ctx.req_id, format!("Invalid params: {err}")),
+            ),
+            Err(CompletionError::NotFound(err)) => DispatchOutcome::error(
+                JsonRpcErrorResponse::method_not_found(ctx.req_id, format!("Not found: {err}")),
+            ),
             Err(CompletionError::Internal(err)) => {
                 DispatchOutcome::error(JsonRpcErrorResponse::internal_error(
                     ctx.req_id,
@@ -282,6 +275,7 @@ mod tests {
         let ctx = MethodContext {
             req_id: Some(JsonRpcRequestId::Number(1.0)),
             is_notification: false,
+            is_batch: false,
             header_name: None,
             session_id: Some(SessionId::new("sess-1")),
             headers: &headers,
@@ -295,7 +289,10 @@ mod tests {
 
         let outcome = registry.dispatch_complete(ctx, Some(params)).await;
         let resp = outcome.response.expect("expected response");
-        assert_eq!(resp["result"]["completion"]["values"], serde_json::json!(["rust", "ruby"]));
+        assert_eq!(
+            resp["result"]["completion"]["values"],
+            serde_json::json!(["rust", "ruby"])
+        );
     }
 
     #[tokio::test]
@@ -305,7 +302,10 @@ mod tests {
             "db://{schema}/{table}",
             "table",
             |arg: CompleteArgument, ctx: Option<CompleteContext>| async move {
-                let schema = ctx.as_ref().and_then(|c| c.get_argument("schema")).unwrap_or("public");
+                let schema = ctx
+                    .as_ref()
+                    .and_then(|c| c.get_argument("schema"))
+                    .unwrap_or("public");
                 vec![format!("{schema}_{}", arg.value)]
             },
         );
@@ -315,6 +315,7 @@ mod tests {
         let ctx = MethodContext {
             req_id: Some(JsonRpcRequestId::Number(2.0)),
             is_notification: false,
+            is_batch: false,
             header_name: None,
             session_id: None,
             headers: &headers,
@@ -333,7 +334,10 @@ mod tests {
 
         let outcome = registry.dispatch_complete(ctx, Some(params)).await;
         let resp = outcome.response.expect("expected response");
-        assert_eq!(resp["result"]["completion"]["values"], serde_json::json!(["analytics_users"]));
+        assert_eq!(
+            resp["result"]["completion"]["values"],
+            serde_json::json!(["analytics_users"])
+        );
     }
 
     #[tokio::test]
@@ -345,6 +349,7 @@ mod tests {
         let ctx = MethodContext {
             req_id: Some(JsonRpcRequestId::Number(3.0)),
             is_notification: false,
+            is_batch: false,
             header_name: None,
             session_id: None,
             headers: &headers,
@@ -358,6 +363,9 @@ mod tests {
 
         let outcome = registry.dispatch_complete(ctx, Some(params)).await;
         let resp = outcome.response.expect("expected error response");
-        assert_eq!(resp["error"]["code"], crate::types::jsonrpc::INVALID_PARAMS_CODE);
+        assert_eq!(
+            resp["error"]["code"],
+            crate::types::jsonrpc::INVALID_PARAMS_CODE
+        );
     }
 }

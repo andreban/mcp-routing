@@ -65,7 +65,11 @@ pub fn header_mismatch_error(
 ) -> JsonRpcErrorResponse {
     JsonRpcErrorResponse::new(
         id,
-        JsonRpcError::new(JsonRpcErrorCode::ServerError(HEADER_MISMATCH), message, None),
+        JsonRpcError::new(
+            JsonRpcErrorCode::ServerError(HEADER_MISMATCH),
+            message,
+            None,
+        ),
     )
 }
 

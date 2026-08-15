@@ -65,8 +65,8 @@ This document itemizes all required changes and recommendations, categorized by 
 - **Current Implementation**:
   - `src/utils.rs:resolve_tool_name`, `resolve_prompt_name`, `resolve_resource_uri` implement fallback resolution (`header.or(body)`), meaning requests without headers or with conflicting headers silently pass.
 - **Action Items**:
-  - [ ] Add strict validation: if `Mcp-Method` or `Mcp-Name` is missing or conflicts with body values, return HTTP `400 Bad Request` with `-32020` `HeaderMismatch`.
-  - [ ] Provide a configurable strictness mode (e.g. `RouterConfig::strict_headers(true/false)`) to allow backward-compatible or loose testing modes if desired.
+  - [x] Add strict validation: if `Mcp-Method` or `Mcp-Name` / `Mcp-Uri` is missing or conflicts with body values, return HTTP `400 Bad Request` with `-32020` `HeaderMismatch`.
+  - [x] Strictly enforce header routing requirements directly per 2026-07-28 Streamable HTTP specification.
 
 ---
 

@@ -109,7 +109,10 @@ impl RequestContext {
     /// If the request specifies a `log_level` in `_meta`, that threshold is used; otherwise,
     /// the server's current dynamic log level is used.
     pub fn should_log(&self, message_level: LoggingLevel) -> bool {
-        let threshold = self.log_level().copied().unwrap_or_else(|| self.current_log_level());
+        let threshold = self
+            .log_level()
+            .copied()
+            .unwrap_or_else(|| self.current_log_level());
         message_level.is_at_least(threshold)
     }
 

@@ -33,6 +33,7 @@ async fn test_resources_list_empty() {
         .uri("/mcp")
         .header("Content-Type", "application/json")
         .header("MCP-Protocol-Version", "2026-07-28")
+        .header("Mcp-Method", "resources/list")
         .body(req_body.to_string())
         .unwrap();
 
@@ -82,6 +83,7 @@ async fn test_resources_list_multiple_rich_resources() {
         .uri("/mcp")
         .header("Content-Type", "application/json")
         .header("MCP-Protocol-Version", "2026-07-28")
+        .header("Mcp-Method", "resources/list")
         .body(req_body.to_string())
         .unwrap();
 
@@ -132,7 +134,7 @@ async fn test_resources_list_via_header_and_body_fallback() {
     assert_eq!(val["id"], 1.0);
     assert_eq!(val["result"]["resources"][0]["uri"], "memo://insights");
 
-    // Body fallback
+    // Missing header returns HeaderMismatch
     let req_body = Request::builder()
         .method("POST")
         .uri("/mcp")
@@ -149,11 +151,13 @@ async fn test_resources_list_via_header_and_body_fallback() {
         .unwrap();
 
     let resp_body = router.call(req_body).await.unwrap();
-    assert_eq!(resp_body.status(), 200);
+    assert_eq!(resp_body.status(), 400);
     let bytes2 = resp_body.into_body().collect().await.unwrap().to_bytes();
     let val2: serde_json::Value = serde_json::from_slice(&bytes2).unwrap();
-    assert_eq!(val2["id"], 2.0);
-    assert_eq!(val2["result"]["resources"][0]["uri"], "memo://insights");
+    assert_eq!(
+        val2["error"]["code"],
+        mcp_routing::types::mcp::HEADER_MISMATCH
+    );
 }
 
 #[tokio::test]
@@ -198,7 +202,12 @@ async fn test_resources_list_caching_directives() {
     let response = router.call(request).await.unwrap();
     assert_eq!(response.status(), 200);
     assert_eq!(
-        response.headers().get("Cache-Control").unwrap().to_str().unwrap(),
+        response
+            .headers()
+            .get("Cache-Control")
+            .unwrap()
+            .to_str()
+            .unwrap(),
         "public, max-age=120"
     );
 
@@ -214,14 +223,12 @@ async fn test_resources_list_custom_handler_with_extractors_and_filtering() {
     struct TenantId(String);
 
     let mut router = McpRouter::new(create_test_server())
-        .register_resource(
-            Resource::new("tenant://alpha/doc", "Alpha Doc"),
-            || async { "alpha doc" },
-        )
-        .register_resource(
-            Resource::new("tenant://beta/doc", "Beta Doc"),
-            || async { "beta doc" },
-        )
+        .register_resource(Resource::new("tenant://alpha/doc", "Alpha Doc"), || async {
+            "alpha doc"
+        })
+        .register_resource(Resource::new("tenant://beta/doc", "Beta Doc"), || async {
+            "beta doc"
+        })
         .with_state(TenantId("alpha".to_string()))
         .resources_list(
             |Extension(tenant): Extension<TenantId>,
@@ -257,8 +264,8 @@ async fn test_resources_list_custom_handler_with_extractors_and_filtering() {
 
 #[tokio::test]
 async fn test_resources_list_custom_handler_with_pagination_cursor() {
-    let mut router = McpRouter::new(create_test_server()).resources_list(
-        |cursor: Option<String>| async move {
+    let mut router =
+        McpRouter::new(create_test_server()).resources_list(|cursor: Option<String>| async move {
             if cursor.as_deref() == Some("page_2") {
                 Ok::<_, String>(
                     ListResourcesResult::new(vec![Resource::new(
@@ -268,16 +275,13 @@ async fn test_resources_list_custom_handler_with_pagination_cursor() {
                     .with_cache(Some(30_000), Some(CacheScope::Private)),
                 )
             } else {
-                Ok(
-                    ListResourcesResult::new(vec![Resource::new(
-                        "file:///project/part1.txt",
-                        "Part 1",
-                    )])
-                    .with_next_cursor("page_2"),
-                )
+                Ok(ListResourcesResult::new(vec![Resource::new(
+                    "file:///project/part1.txt",
+                    "Part 1",
+                )])
+                .with_next_cursor("page_2"))
             }
-        },
-    );
+        });
 
     // First page
     let req1 = Request::builder()
@@ -285,6 +289,7 @@ async fn test_resources_list_custom_handler_with_pagination_cursor() {
         .uri("/mcp")
         .header("Content-Type", "application/json")
         .header("MCP-Protocol-Version", "2026-07-28")
+        .header("Mcp-Method", "resources/list")
         .body(
             serde_json::json!({
                 "jsonrpc": "2.0",
@@ -308,6 +313,7 @@ async fn test_resources_list_custom_handler_with_pagination_cursor() {
         .uri("/mcp")
         .header("Content-Type", "application/json")
         .header("MCP-Protocol-Version", "2026-07-28")
+        .header("Mcp-Method", "resources/list")
         .body(
             serde_json::json!({
                 "jsonrpc": "2.0",
@@ -340,6 +346,7 @@ async fn test_resources_list_custom_handler_error_propagation() {
         .uri("/mcp")
         .header("Content-Type", "application/json")
         .header("MCP-Protocol-Version", "2026-07-28")
+        .header("Mcp-Method", "resources/list")
         .body(
             serde_json::json!({
                 "jsonrpc": "2.0",

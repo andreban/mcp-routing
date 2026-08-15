@@ -35,6 +35,45 @@ async fn send_mcp_request(
         .header("Content-Type", "application/json")
         .header("MCP-Protocol-Version", "2026-07-28");
 
+    let mut has_mcp_method = false;
+    let mut has_mcp_name = false;
+    let mut has_mcp_uri = false;
+    if let Some(ref hdrs) = headers {
+        for (k, _) in hdrs {
+            if k.eq_ignore_ascii_case("Mcp-Method") {
+                has_mcp_method = true;
+            }
+            if k.eq_ignore_ascii_case("Mcp-Name") {
+                has_mcp_name = true;
+            }
+            if k.eq_ignore_ascii_case("Mcp-Uri") {
+                has_mcp_uri = true;
+            }
+        }
+    }
+
+    if !has_mcp_method && let Some(m) = body.get("method").and_then(|v| v.as_str()) {
+        req_builder = req_builder.header("Mcp-Method", m);
+    }
+
+    if !has_mcp_name
+        && let Some(name) = body
+            .get("params")
+            .and_then(|p| p.get("name"))
+            .and_then(|v| v.as_str())
+    {
+        req_builder = req_builder.header("Mcp-Name", name);
+    }
+
+    if !has_mcp_uri
+        && let Some(uri) = body
+            .get("params")
+            .and_then(|p| p.get("uri"))
+            .and_then(|v| v.as_str())
+    {
+        req_builder = req_builder.header("Mcp-Uri", uri);
+    }
+
     if let Some(hdrs) = headers {
         for (k, v) in hdrs {
             req_builder = req_builder.header(k, v);
@@ -46,7 +85,11 @@ async fn send_mcp_request(
     let status = response.status();
     let resp_headers = response.headers().clone();
     let resp_bytes = response.into_body().collect().await.unwrap().to_bytes();
-    let json: serde_json::Value = serde_json::from_slice(&resp_bytes).unwrap();
+    let json: serde_json::Value = if resp_bytes.is_empty() {
+        serde_json::Value::Null
+    } else {
+        serde_json::from_slice(&resp_bytes).unwrap_or(serde_json::Value::Null)
+    };
     (status, json, resp_headers)
 }
 
@@ -367,7 +410,12 @@ async fn test_completion_unhandled_target_returns_invalid_params() {
     let (status, body, _) = send_mcp_request(&mut router, payload, None).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["error"]["code"], -32602);
-    assert!(body["error"]["message"].as_str().unwrap().contains("no completion handler registered"));
+    assert!(
+        body["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("no completion handler registered")
+    );
 }
 
 #[tokio::test]
@@ -433,8 +481,14 @@ async fn test_completion_batch_request() {
     assert_eq!(status, StatusCode::OK);
     let array = body.as_array().unwrap();
     assert_eq!(array.len(), 2);
-    assert_eq!(array[0]["result"]["completion"]["values"], serde_json::json!(["res_first"]));
-    assert_eq!(array[1]["result"]["completion"]["values"], serde_json::json!(["res_second"]));
+    assert_eq!(
+        array[0]["result"]["completion"]["values"],
+        serde_json::json!(["res_first"])
+    );
+    assert_eq!(
+        array[1]["result"]["completion"]["values"],
+        serde_json::json!(["res_second"])
+    );
 }
 
 #[tokio::test]

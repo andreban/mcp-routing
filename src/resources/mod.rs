@@ -9,8 +9,7 @@ use crate::extract::{FromRequestContext, RequestContext};
 use crate::types::mcp::{
     CacheScope,
     resources::{
-        BlobResourceContents, ResourceContents, TextResourceContents,
-        read::ReadResourceResult,
+        BlobResourceContents, ResourceContents, TextResourceContents, read::ReadResourceResult,
     },
 };
 
@@ -23,8 +22,7 @@ pub use list::{IntoResourcesListHandler, IntoResourcesListResult, ResourcesListH
 pub use read::handle_read_resource;
 pub use registry::ResourceRegistry;
 pub use templates::{
-    IntoResourceTemplatesListHandler, IntoResourceTemplatesListResult,
-    ResourceTemplatesListHandler,
+    IntoResourceTemplatesListHandler, IntoResourceTemplatesListResult, ResourceTemplatesListHandler,
 };
 
 /// Error type encountered during resource reading or listing operations.
@@ -88,8 +86,10 @@ impl IntoResourceResult for ResourceContents {
         base_ttl_ms: Option<u64>,
         base_cache_scope: Option<CacheScope>,
     ) -> Result<ReadResourceResult, ResourceError> {
-        Ok(ReadResourceResult::new(vec![self])
-            .with_cache(base_ttl_ms.or(Some(0)), base_cache_scope.or(Some(CacheScope::Public))))
+        Ok(ReadResourceResult::new(vec![self]).with_cache(
+            base_ttl_ms.or(Some(0)),
+            base_cache_scope.or(Some(CacheScope::Public)),
+        ))
     }
 }
 
@@ -100,8 +100,10 @@ impl IntoResourceResult for Vec<ResourceContents> {
         base_ttl_ms: Option<u64>,
         base_cache_scope: Option<CacheScope>,
     ) -> Result<ReadResourceResult, ResourceError> {
-        Ok(ReadResourceResult::new(self)
-            .with_cache(base_ttl_ms.or(Some(0)), base_cache_scope.or(Some(CacheScope::Public))))
+        Ok(ReadResourceResult::new(self).with_cache(
+            base_ttl_ms.or(Some(0)),
+            base_cache_scope.or(Some(CacheScope::Public)),
+        ))
     }
 }
 
@@ -112,8 +114,12 @@ impl IntoResourceResult for TextResourceContents {
         base_ttl_ms: Option<u64>,
         base_cache_scope: Option<CacheScope>,
     ) -> Result<ReadResourceResult, ResourceError> {
-        Ok(ReadResourceResult::new(vec![ResourceContents::Text(self)])
-            .with_cache(base_ttl_ms.or(Some(0)), base_cache_scope.or(Some(CacheScope::Public))))
+        Ok(
+            ReadResourceResult::new(vec![ResourceContents::Text(self)]).with_cache(
+                base_ttl_ms.or(Some(0)),
+                base_cache_scope.or(Some(CacheScope::Public)),
+            ),
+        )
     }
 }
 
@@ -124,8 +130,12 @@ impl IntoResourceResult for BlobResourceContents {
         base_ttl_ms: Option<u64>,
         base_cache_scope: Option<CacheScope>,
     ) -> Result<ReadResourceResult, ResourceError> {
-        Ok(ReadResourceResult::new(vec![ResourceContents::Blob(self)])
-            .with_cache(base_ttl_ms.or(Some(0)), base_cache_scope.or(Some(CacheScope::Public))))
+        Ok(
+            ReadResourceResult::new(vec![ResourceContents::Blob(self)]).with_cache(
+                base_ttl_ms.or(Some(0)),
+                base_cache_scope.or(Some(CacheScope::Public)),
+            ),
+        )
     }
 }
 
@@ -136,8 +146,12 @@ impl IntoResourceResult for String {
         base_ttl_ms: Option<u64>,
         base_cache_scope: Option<CacheScope>,
     ) -> Result<ReadResourceResult, ResourceError> {
-        Ok(ReadResourceResult::text(uri, self, None::<String>)
-            .with_cache(base_ttl_ms.or(Some(0)), base_cache_scope.or(Some(CacheScope::Public))))
+        Ok(
+            ReadResourceResult::text(uri, self, None::<String>).with_cache(
+                base_ttl_ms.or(Some(0)),
+                base_cache_scope.or(Some(CacheScope::Public)),
+            ),
+        )
     }
 }
 
@@ -148,8 +162,12 @@ impl IntoResourceResult for &str {
         base_ttl_ms: Option<u64>,
         base_cache_scope: Option<CacheScope>,
     ) -> Result<ReadResourceResult, ResourceError> {
-        Ok(ReadResourceResult::text(uri, self.to_string(), None::<String>)
-            .with_cache(base_ttl_ms.or(Some(0)), base_cache_scope.or(Some(CacheScope::Public))))
+        Ok(
+            ReadResourceResult::text(uri, self.to_string(), None::<String>).with_cache(
+                base_ttl_ms.or(Some(0)),
+                base_cache_scope.or(Some(CacheScope::Public)),
+            ),
+        )
     }
 }
 
@@ -204,7 +222,10 @@ where
         base_cache_scope: Option<CacheScope>,
     ) -> Pin<Box<dyn Future<Output = Result<ReadResourceResult, ResourceError>> + Send>> {
         let fut = (self.0)();
-        Box::pin(async move { fut.await.into_resource_result(&uri, base_ttl_ms, base_cache_scope) })
+        Box::pin(async move {
+            fut.await
+                .into_resource_result(&uri, base_ttl_ms, base_cache_scope)
+        })
     }
 }
 
@@ -236,7 +257,10 @@ where
         base_cache_scope: Option<CacheScope>,
     ) -> Pin<Box<dyn Future<Output = Result<ReadResourceResult, ResourceError>> + Send>> {
         let fut = (self.0)(uri.clone());
-        Box::pin(async move { fut.await.into_resource_result(&uri, base_ttl_ms, base_cache_scope) })
+        Box::pin(async move {
+            fut.await
+                .into_resource_result(&uri, base_ttl_ms, base_cache_scope)
+        })
     }
 }
 
@@ -355,7 +379,9 @@ mod tests {
     #[test]
     fn test_into_resource_result() {
         // String
-        let res_str = "resource text".into_resource_result("file:///a.txt", None, None).unwrap();
+        let res_str = "resource text"
+            .into_resource_result("file:///a.txt", None, None)
+            .unwrap();
         assert_eq!(res_str.contents.len(), 1);
         assert_eq!(res_str.ttl_ms, Some(0));
         assert_eq!(res_str.cache_scope, Some(CacheScope::Public));
@@ -368,14 +394,18 @@ mod tests {
 
         // Result::Ok
         let res_ok: Result<&str, &str> = Ok("success content");
-        let res = res_ok.into_resource_result("memo://1", Some(60000), Some(CacheScope::Private)).unwrap();
+        let res = res_ok
+            .into_resource_result("memo://1", Some(60000), Some(CacheScope::Private))
+            .unwrap();
         assert_eq!(res.contents.len(), 1);
         assert_eq!(res.ttl_ms, Some(60000));
         assert_eq!(res.cache_scope, Some(CacheScope::Private));
 
         // Result::Err
         let res_err: Result<&str, &str> = Err("file not found");
-        let err = res_err.into_resource_result("memo://1", None, None).unwrap_err();
+        let err = res_err
+            .into_resource_result("memo://1", None, None)
+            .unwrap_err();
         assert!(matches!(err, ResourceError::Internal(ref s) if s == "file not found"));
     }
 

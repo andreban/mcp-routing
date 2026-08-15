@@ -9,8 +9,8 @@ use http::Response;
 use crate::body::{ResponseBody, json_response, json_response_with_caching};
 use crate::extract::{RequestContext, SessionId};
 use crate::resources::{
-    IntoResourceHandler, IntoResourcesListHandler, IntoResourceTemplatesListHandler,
-    ResourceError, ResourceHandler, ResourcesListHandler, ResourceTemplatesListHandler,
+    IntoResourceHandler, IntoResourceTemplatesListHandler, IntoResourcesListHandler, ResourceError,
+    ResourceHandler, ResourceTemplatesListHandler, ResourcesListHandler,
 };
 use crate::router::{DispatchOutcome, MethodContext};
 use crate::types::jsonrpc::{JsonRpcErrorResponse, JsonRpcRequestId};
@@ -213,7 +213,9 @@ impl ResourceRegistry {
 
         if let Some(ref handler) = self.list_handler {
             let mut extensions = (*ctx.extensions).clone();
-            extensions.insert(crate::extract::RegisteredResources((*self.resources).clone()));
+            extensions.insert(crate::extract::RegisteredResources(
+                (*self.resources).clone(),
+            ));
             let request_ctx = RequestContext::new(
                 ctx.session_id,
                 params.meta.clone(),
@@ -425,34 +427,18 @@ impl ResourceRegistry {
         };
 
         let header_uri = extract_header_uri(ctx.headers);
-        let resource_uri = resolve_resource_uri(
-            header_uri.as_deref().or(ctx.header_name),
-            params_uri.as_deref(),
-        );
-
-        let Some(resource_uri) = resource_uri else {
-            tracing::debug!("Missing resource uri for resources/read");
-            return if ctx.is_notification {
-                DispatchOutcome::notification()
-            } else {
-                DispatchOutcome::error(JsonRpcErrorResponse::invalid_params(
-                    ctx.req_id,
-                    "Invalid params: missing resource uri",
-                ))
+        let resource_uri =
+            match resolve_resource_uri(header_uri, params_uri.as_deref(), ctx.is_batch) {
+                Ok(uri) => uri,
+                Err(mut err) => {
+                    err.id = ctx.req_id;
+                    return if ctx.is_notification {
+                        DispatchOutcome::notification()
+                    } else {
+                        DispatchOutcome::error(err)
+                    };
+                }
             };
-        };
-
-        if resource_uri.is_empty() {
-            tracing::debug!("Empty resource uri for resources/read");
-            return if ctx.is_notification {
-                DispatchOutcome::notification()
-            } else {
-                DispatchOutcome::error(JsonRpcErrorResponse::invalid_params(
-                    ctx.req_id,
-                    "Invalid params: empty resource uri",
-                ))
-            };
-        }
 
         // 1. Check exact resource handler match
         let matched_handler: Option<MatchedResourceHandler> =
@@ -495,7 +481,12 @@ impl ResourceRegistry {
         let request_ctx =
             RequestContext::new(ctx.session_id, meta, ctx.headers.clone(), ctx.extensions);
         let result = handler
-            .call(request_ctx, resource_uri.to_string(), res_ttl, res_scope.clone())
+            .call(
+                request_ctx,
+                resource_uri.to_string(),
+                res_ttl,
+                res_scope.clone(),
+            )
             .await;
 
         if ctx.is_notification {
@@ -615,28 +606,19 @@ impl ResourceRegistry {
             }
         };
 
-        let resource_uri = resolve_resource_uri(
+        let resource_uri = match resolve_resource_uri(
             header_uri,
             request.params.as_ref().map(|p| p.uri.as_str()),
-        );
-
-        let Some(resource_uri) = resource_uri else {
-            tracing::debug!("Missing resource uri for resources/read");
-            let error_response = JsonRpcErrorResponse::invalid_params(
-                Some(request.id),
-                "Invalid params: missing resource uri",
-            );
-            return json_response(&error_response);
+            false,
+        ) {
+            Ok(uri) => uri,
+            Err(mut err) => {
+                err.id = req_id.or(Some(request.id));
+                let status =
+                    crate::types::mcp::mcp_error_code_to_http_status(err.error.code.code());
+                return crate::body::json_response_with_status(status, &err);
+            }
         };
-
-        if resource_uri.is_empty() {
-            tracing::debug!("Empty resource uri for resources/read");
-            let error_response = JsonRpcErrorResponse::invalid_params(
-                Some(request.id),
-                "Invalid params: empty resource uri",
-            );
-            return json_response(&error_response);
-        }
 
         let matched_handler: Option<MatchedResourceHandler> =
             if let Some(handler) = self.resource_handlers.get(resource_uri) {
@@ -672,11 +654,7 @@ impl ResourceRegistry {
             {
                 Ok(result) => {
                     let response = ReadResourceResultResponse::new(req_id, result);
-                    return json_response_with_caching(
-                        &response,
-                        res_ttl,
-                        res_scope.as_ref(),
-                    );
+                    return json_response_with_caching(&response, res_ttl, res_scope.as_ref());
                 }
                 Err(ResourceError::InvalidParams(err)) => {
                     let error_response = JsonRpcErrorResponse::invalid_params(

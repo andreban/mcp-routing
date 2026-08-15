@@ -162,6 +162,7 @@ async fn test_mcp_session_id_header_propagation_on_discover() {
         .method(http::Method::POST)
         .header(http::header::CONTENT_TYPE, "application/json")
         .header("MCP-Protocol-Version", "2026-07-28")
+        .header("Mcp-Method", "server/discover")
         .header("Mcp-Session-Id", "sess-alpha-123")
         .body(Full::new(Bytes::from(
             serde_json::to_vec(&request_payload).unwrap(),
@@ -195,6 +196,7 @@ async fn test_mcp_session_id_header_propagation_on_tools_list() {
         .method(http::Method::POST)
         .header(http::header::CONTENT_TYPE, "application/json")
         .header("MCP-Protocol-Version", "2026-07-28")
+        .header("Mcp-Method", "tools/list")
         .header("Mcp-Session-Id", "sess-beta-456")
         .body(Full::new(Bytes::from(
             serde_json::to_vec(&request_payload).unwrap(),
@@ -293,6 +295,8 @@ async fn test_multiple_extractors_with_extensions_and_session() {
         .method(http::Method::POST)
         .header(http::header::CONTENT_TYPE, "application/json")
         .header("MCP-Protocol-Version", "2026-07-28")
+        .header("Mcp-Method", "tools/call")
+        .header("Mcp-Name", "query_db")
         .header("Mcp-Session-Id", "sess-db-777")
         .body(Full::new(Bytes::from(
             serde_json::to_vec(&request_payload).unwrap(),
@@ -350,6 +354,8 @@ async fn test_missing_extension_returns_extraction_error() {
         .method(http::Method::POST)
         .header(http::header::CONTENT_TYPE, "application/json")
         .header("MCP-Protocol-Version", "2026-07-28")
+        .header("Mcp-Method", "tools/call")
+        .header("Mcp-Name", "query_db")
         .header("Mcp-Session-Id", "sess-db-777")
         .body(Full::new(Bytes::from(
             serde_json::to_vec(&request_payload).unwrap(),
@@ -388,6 +394,8 @@ async fn test_missing_required_session_id_returns_extraction_error() {
         .method(http::Method::POST)
         .header(http::header::CONTENT_TYPE, "application/json")
         .header("MCP-Protocol-Version", "2026-07-28")
+        .header("Mcp-Method", "tools/call")
+        .header("Mcp-Name", "session_info")
         .body(Full::new(Bytes::from(
             serde_json::to_vec(&request_payload).unwrap(),
         )))
@@ -425,6 +433,8 @@ async fn test_per_request_meta_propagation_in_prompts_get() {
         .method(http::Method::POST)
         .header(http::header::CONTENT_TYPE, "application/json")
         .header("MCP-Protocol-Version", "2026-07-28")
+        .header("Mcp-Method", "prompts/get")
+        .header("Mcp-Name", "format_prompt")
         .header("Mcp-Session-Id", "sess-prompt-99")
         .body(Full::new(Bytes::from(
             serde_json::to_vec(&request_payload).unwrap(),
@@ -482,6 +492,8 @@ async fn test_request_context_extractor_comprehensive() {
         .method(http::Method::POST)
         .header(http::header::CONTENT_TYPE, "application/json")
         .header("MCP-Protocol-Version", "2026-07-28")
+        .header("Mcp-Method", "tools/call")
+        .header("Mcp-Name", "context_info")
         .header("Mcp-Session-Id", "sess-ctx-1")
         .header("X-Custom-Trace", "trace-xyz")
         .body(Full::new(Bytes::from(
@@ -567,6 +579,8 @@ async fn test_with_state_and_state_extractor() {
         .method(http::Method::POST)
         .header(http::header::CONTENT_TYPE, "application/json")
         .header("MCP-Protocol-Version", "2026-07-28")
+        .header("Mcp-Method", "tools/call")
+        .header("Mcp-Name", "get_config")
         .body(Full::new(Bytes::from(
             serde_json::to_vec(&request_payload).unwrap(),
         )))
@@ -657,6 +671,8 @@ async fn test_axum_shared_state_between_web_and_mcp() {
         .method(http::Method::POST)
         .header(http::header::CONTENT_TYPE, "application/json")
         .header("MCP-Protocol-Version", "2026-07-28")
+        .header("Mcp-Method", "tools/call")
+        .header("Mcp-Name", "increment")
         .body(axum::body::Body::from(
             serde_json::to_vec(&mcp_payload).unwrap(),
         ))

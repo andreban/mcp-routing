@@ -289,6 +289,7 @@ async fn test_single_notification_returns_202() {
     let req = Request::builder()
         .method("POST")
         .uri("/")
+        .header("Mcp-Method", "notifications/initialized")
         .header("Content-Type", "application/json")
         .header("MCP-Protocol-Version", "2026-07-28")
         .body(Body::from(notif_req.to_string()))
@@ -523,12 +524,13 @@ async fn test_batch_header_fallback() {
     let app = create_test_app();
 
     let batch_req = json!([
-        // 1. Omit tool name in body -> Falls back to Mcp-Name: echo
+        // 1. Tool call with matching Mcp-Name header
         {
             "jsonrpc": "2.0",
             "id": "fallback-1",
             "method": "tools/call",
             "params": {
+                "name": "echo",
                 "arguments": { "message": "from fallback" }
             }
         },

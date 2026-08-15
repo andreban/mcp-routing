@@ -114,7 +114,8 @@ where
         _cursor: Option<String>,
         base_ttl_ms: Option<u64>,
         base_cache_scope: Option<CacheScope>,
-    ) -> Pin<Box<dyn Future<Output = Result<ListResourceTemplatesResult, ResourceError>> + Send>> {
+    ) -> Pin<Box<dyn Future<Output = Result<ListResourceTemplatesResult, ResourceError>> + Send>>
+    {
         let fut = (self.0)();
         Box::pin(async move {
             fut.await
@@ -149,7 +150,8 @@ where
         cursor: Option<String>,
         base_ttl_ms: Option<u64>,
         base_cache_scope: Option<CacheScope>,
-    ) -> Pin<Box<dyn Future<Output = Result<ListResourceTemplatesResult, ResourceError>> + Send>> {
+    ) -> Pin<Box<dyn Future<Output = Result<ListResourceTemplatesResult, ResourceError>> + Send>>
+    {
         let fut = (self.0)(cursor);
         Box::pin(async move {
             fut.await

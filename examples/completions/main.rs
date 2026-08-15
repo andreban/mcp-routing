@@ -43,7 +43,12 @@ const SUPPORTED_LANGUAGES: &[&str] = &[
 /// Database tables per schema for resource autocompletion.
 fn get_schema_tables(schema: &str) -> &'static [&'static str] {
     match schema {
-        "analytics" => &["daily_active_users", "page_views", "funnels", "retention_cohorts"],
+        "analytics" => &[
+            "daily_active_users",
+            "page_views",
+            "funnels",
+            "retention_cohorts",
+        ],
         "production" => &["users", "accounts", "orders", "subscriptions", "payments"],
         "staging" => &["users_staging", "test_fixtures", "mock_orders"],
         _ => &["public_data", "system_logs"],
@@ -63,7 +68,9 @@ struct CodeReviewParams {
 
 async fn code_review_prompt(params: CodeReviewParams) -> Result<GetPromptResult, String> {
     let language = params.language.unwrap_or_else(|| "rust".to_string());
-    let style = params.review_style.unwrap_or_else(|| "idiomatic".to_string());
+    let style = params
+        .review_style
+        .unwrap_or_else(|| "idiomatic".to_string());
     let prompt = format!(
         "Please review the following {language} code adhering to {style} guidelines:\n\n```\n{}\n```",
         params.code
@@ -93,10 +100,24 @@ async fn complete_review_style(
         .unwrap_or("general");
 
     let styles: &[&str] = match language {
-        "rust" => &["idiomatic", "clippy-pedantic", "zero-copy-audit", "unsafe-free"],
-        "python" => &["pep8-strict", "type-annotated", "black-formatting", "asyncio-audit"],
+        "rust" => &[
+            "idiomatic",
+            "clippy-pedantic",
+            "zero-copy-audit",
+            "unsafe-free",
+        ],
+        "python" => &[
+            "pep8-strict",
+            "type-annotated",
+            "black-formatting",
+            "asyncio-audit",
+        ],
         "typescript" => &["strict-typescript", "functional-pure", "eslint-airbnb"],
-        _ => &["general-cleanliness", "performance-focused", "security-audit"],
+        _ => &[
+            "general-cleanliness",
+            "performance-focused",
+            "security-audit",
+        ],
     };
 
     let prefix = arg.value.to_lowercase();
@@ -172,7 +193,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let code_review_def = Prompt::new("code_review")
         .title("Code Review Assistant")
         .description("Generates an expert code review prompt template")
-        .argument(PromptArgument::new("code").description("Source code to review").required(true))
+        .argument(
+            PromptArgument::new("code")
+                .description("Source code to review")
+                .required(true),
+        )
         .argument(PromptArgument::new("language").description("Programming language"))
         .argument(PromptArgument::new("review_style").description("Style guidelines"));
 

@@ -8,7 +8,8 @@ use crate::router::{DispatchOutcome, McpRouterInner, MethodContext};
 use crate::types::jsonrpc::{JsonRpcErrorResponse, JsonRpcRequestId};
 use crate::types::mcp::header_mismatch_error;
 use crate::utils::{
-    extract_body_protocol_version, extract_header_name, extract_method, extract_protocol_version,
+    extract_body_protocol_version, extract_header_method, extract_header_name,
+    extract_protocol_version, resolve_method,
 };
 
 impl McpRouterInner {
@@ -23,7 +24,7 @@ impl McpRouterInner {
         match item {
             serde_json::Value::Object(map) => {
                 let outcome = self
-                    .dispatch_object(map, headers, session_id, extensions)
+                    .dispatch_object(map, headers, session_id, extensions, true)
                     .await;
                 outcome.response
             }
@@ -44,6 +45,7 @@ impl McpRouterInner {
         headers: &http::HeaderMap,
         session_id: Option<SessionId>,
         extensions: Arc<http::Extensions>,
+        is_batch: bool,
     ) -> DispatchOutcome {
         let (req_id, is_notification) = match map.remove("id") {
             None => (None, true),
@@ -99,22 +101,14 @@ impl McpRouterInner {
             None => None,
         };
 
-        let method = extract_method(headers, method_opt.as_deref());
-        let Some(method) = method else {
-            tracing::debug!("Missing method in both Mcp-Method header and JSON-RPC body");
-            return DispatchOutcome::error(JsonRpcErrorResponse::invalid_request(
-                req_id,
-                "Invalid Request: missing method",
-            ));
+        let header_method = extract_header_method(headers);
+        let method = match resolve_method(header_method, method_opt.as_deref(), is_batch) {
+            Ok(m) => m,
+            Err(mut err) => {
+                err.id = req_id;
+                return DispatchOutcome::error(err);
+            }
         };
-
-        if method.is_empty() {
-            tracing::debug!("Empty method provided");
-            return DispatchOutcome::error(JsonRpcErrorResponse::invalid_request(
-                req_id,
-                "Invalid Request: empty method",
-            ));
-        }
 
         let params_val = map.remove("params");
         let header_name = extract_header_name(headers);
@@ -122,13 +116,14 @@ impl McpRouterInner {
         let ctx = MethodContext {
             req_id,
             is_notification,
-            header_name: header_name.as_deref(),
+            is_batch,
+            header_name,
             session_id,
             headers,
             extensions,
         };
 
-        match method.as_str() {
+        match method {
             "server/discover" => self.server.dispatch_discover(ctx, params_val).await,
             "tools/list" => self.tools.dispatch_list(ctx, params_val).await,
             "tools/call" => self.tools.dispatch_call(ctx, params_val).await,
@@ -137,7 +132,9 @@ impl McpRouterInner {
             "resources/list" => self.resources.dispatch_list(ctx, params_val).await,
             "resources/read" => self.resources.dispatch_read(ctx, params_val).await,
             "resources/templates/list" => {
-                self.resources.dispatch_templates_list(ctx, params_val).await
+                self.resources
+                    .dispatch_templates_list(ctx, params_val)
+                    .await
             }
             "completion/complete" => self.completion.dispatch_complete(ctx, params_val).await,
             "logging/setLevel" => self.logging.dispatch_set_level(ctx, params_val).await,

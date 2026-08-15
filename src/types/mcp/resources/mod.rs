@@ -3,10 +3,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::types::mcp::{
-    Icon, MetaObject, Role,
-    content::ContentAnnotations,
-};
+use crate::types::mcp::{Icon, MetaObject, Role, content::ContentAnnotations};
 
 pub mod list;
 pub mod read;

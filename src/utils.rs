@@ -9,6 +9,8 @@
 use http::HeaderMap;
 
 use crate::extract::SessionId;
+use crate::types::jsonrpc::JsonRpcErrorResponse;
+use crate::types::mcp::header_mismatch_error;
 
 /// Validates whether the `Content-Type` header specifies `application/json`.
 ///
@@ -25,20 +27,28 @@ pub(crate) fn is_json_content_type(headers: &HeaderMap) -> bool {
 }
 
 /// Extracts the tool or prompt name from the `Mcp-Name` HTTP header, trimming leading and trailing slashes.
-pub(crate) fn extract_header_name(headers: &HeaderMap) -> Option<String> {
+pub(crate) fn extract_header_name(headers: &HeaderMap) -> Option<&str> {
     headers
         .get("Mcp-Name")
         .and_then(|v| v.to_str().ok())
-        .map(|s| s.trim_matches('/').to_string())
+        .map(|s| s.trim_matches('/'))
 }
 
 /// Extracts the resource URI from HTTP headers (`Mcp-Uri` or `Mcp-Name`), trimming whitespace.
-pub(crate) fn extract_header_uri(headers: &HeaderMap) -> Option<String> {
+pub(crate) fn extract_header_uri(headers: &HeaderMap) -> Option<&str> {
     headers
         .get("Mcp-Uri")
         .or_else(|| headers.get("Mcp-Name"))
         .and_then(|v| v.to_str().ok())
-        .map(|s| s.trim().to_string())
+        .map(|s| s.trim())
+}
+
+/// Extracts the MCP method from the `Mcp-Method` HTTP header, trimming leading and trailing slashes.
+pub(crate) fn extract_header_method(headers: &HeaderMap) -> Option<&str> {
+    headers
+        .get("Mcp-Method")
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.trim_matches('/'))
 }
 
 /// Extracts the session ID from the `Mcp-Session-Id` HTTP header, trimming whitespace.
@@ -84,43 +94,234 @@ pub(crate) fn extract_body_protocol_version(
     None
 }
 
-/// Extracts the MCP method to dispatch, prioritizing `Mcp-Method` header and falling back to the body method.
+/// Resolves and validates the MCP method against the `Mcp-Method` header and body method.
 ///
-/// Leading and trailing slashes are trimmed for normalization.
-pub(crate) fn extract_method(headers: &HeaderMap, body_method: Option<&str>) -> Option<String> {
-    // 1. Prefer Mcp-Method HTTP header
-    if let Some(header_method) = headers.get("Mcp-Method").and_then(|v| v.to_str().ok()) {
-        return Some(header_method.trim_matches('/').to_string());
+/// In strict MCP Streamable HTTP:
+/// - Single requests MUST include an `Mcp-Method` HTTP header.
+/// - If the body also contains a `method`, it MUST match the header.
+/// - Batch request items can specify a `method` inside each JSON-RPC body object, but if `Mcp-Method`
+///   header is present, any body method must match the header.
+pub(crate) fn resolve_method<'a>(
+    header_method: Option<&'a str>,
+    body_method: Option<&'a str>,
+    is_batch: bool,
+) -> Result<&'a str, JsonRpcErrorResponse> {
+    if !is_batch {
+        let Some(header_m) = header_method else {
+            return Err(header_mismatch_error(
+                None,
+                "Header mismatch: missing required Mcp-Method header",
+            ));
+        };
+        let h_trim = header_m.trim_matches('/');
+        if h_trim.is_empty() {
+            return Err(JsonRpcErrorResponse::invalid_request(
+                None,
+                "Invalid Request: empty method",
+            ));
+        }
+        if let Some(body_m) = body_method {
+            let b_trim = body_m.trim_matches('/');
+            if h_trim != b_trim {
+                return Err(header_mismatch_error(
+                    None,
+                    format!(
+                        "Header mismatch: Mcp-Method header value '{h_trim}' does not match body method '{b_trim}'"
+                    ),
+                ));
+            }
+        }
+        Ok(h_trim)
+    } else if let Some(header_m) = header_method {
+        let h_trim = header_m.trim_matches('/');
+        if h_trim.is_empty() {
+            return Err(JsonRpcErrorResponse::invalid_request(
+                None,
+                "Invalid Request: empty method",
+            ));
+        }
+        if let Some(body_m) = body_method {
+            let b_trim = body_m.trim_matches('/');
+            if h_trim != b_trim {
+                return Err(header_mismatch_error(
+                    None,
+                    format!(
+                        "Header mismatch: Mcp-Method header value '{h_trim}' does not match body method '{b_trim}'"
+                    ),
+                ));
+            }
+        }
+        Ok(h_trim)
+    } else if let Some(body_m) = body_method {
+        let b_trim = body_m.trim_matches('/');
+        if b_trim.is_empty() {
+            return Err(JsonRpcErrorResponse::invalid_request(
+                None,
+                "Invalid Request: empty method",
+            ));
+        }
+        Ok(b_trim)
+    } else {
+        Err(JsonRpcErrorResponse::invalid_request(
+            None,
+            "Invalid Request: missing method",
+        ))
     }
-
-    // 2. Fall back to JSON-RPC request body method
-    body_method.map(|m| m.trim_matches('/').to_string())
 }
 
-/// Resolves the target name for `tools/call` or `prompts/get`, prioritizing the header over body parameters.
-pub(crate) fn resolve_name<'a>(
+/// Resolves and validates the target name for `tools/call` or `prompts/get`.
+///
+/// In strict MCP Streamable HTTP:
+/// - Single requests MUST include an `Mcp-Name` HTTP header.
+/// - If the body also contains a `name` parameter, it MUST match the header.
+/// - Batch request items can specify a `name` inside the body parameters if `Mcp-Name` header is not present.
+pub(crate) fn resolve_required_name<'a>(
     header_name: Option<&'a str>,
-    params_name: Option<&'a str>,
-) -> Option<&'a str> {
-    if let Some(h) = header_name {
-        return Some(h.trim_matches('/'));
+    body_name: Option<&'a str>,
+    is_batch: bool,
+    target_kind: &'static str,
+) -> Result<&'a str, JsonRpcErrorResponse> {
+    if !is_batch {
+        let Some(header_n) = header_name else {
+            return Err(header_mismatch_error(
+                None,
+                format!("Header mismatch: missing required Mcp-Name header for {target_kind}"),
+            ));
+        };
+        let h_trim = header_n.trim_matches('/');
+        if h_trim.is_empty() {
+            return Err(JsonRpcErrorResponse::invalid_params(
+                None,
+                format!("Invalid params: empty {target_kind}"),
+            ));
+        }
+        if let Some(body_n) = body_name {
+            let b_trim = body_n.trim_matches('/');
+            if h_trim != b_trim {
+                return Err(header_mismatch_error(
+                    None,
+                    format!(
+                        "Header mismatch: Mcp-Name header value '{h_trim}' does not match body {target_kind} '{b_trim}'"
+                    ),
+                ));
+            }
+        }
+        Ok(h_trim)
+    } else if let Some(header_n) = header_name {
+        let h_trim = header_n.trim_matches('/');
+        if h_trim.is_empty() {
+            return Err(JsonRpcErrorResponse::invalid_params(
+                None,
+                format!("Invalid params: empty {target_kind}"),
+            ));
+        }
+        if let Some(body_n) = body_name {
+            let b_trim = body_n.trim_matches('/');
+            if h_trim != b_trim {
+                return Err(header_mismatch_error(
+                    None,
+                    format!(
+                        "Header mismatch: Mcp-Name header value '{h_trim}' does not match body {target_kind} '{b_trim}'"
+                    ),
+                ));
+            }
+        }
+        Ok(h_trim)
+    } else if let Some(body_n) = body_name {
+        let b_trim = body_n.trim_matches('/');
+        if b_trim.is_empty() {
+            return Err(JsonRpcErrorResponse::invalid_params(
+                None,
+                format!("Invalid params: empty {target_kind}"),
+            ));
+        }
+        Ok(b_trim)
+    } else {
+        Err(JsonRpcErrorResponse::invalid_params(
+            None,
+            format!("Invalid params: missing {target_kind}"),
+        ))
     }
-    params_name.map(|n| n.trim_matches('/'))
 }
 
-pub(crate) use resolve_name as resolve_tool_name;
-pub(crate) use resolve_name as resolve_prompt_name;
+pub(crate) use resolve_required_name as resolve_tool_name;
+pub(crate) use resolve_required_name as resolve_prompt_name;
 
-/// Resolves the resource URI for `resources/read`, prioritizing the header over body parameters.
-pub(crate) fn resolve_resource_uri<'a>(
+/// Resolves and validates the resource URI for `resources/read`.
+///
+/// In strict MCP Streamable HTTP:
+/// - Single requests MUST include an `Mcp-Uri` (or `Mcp-Name`) HTTP header.
+/// - If the body also contains a `uri` parameter, it MUST match the header.
+/// - Batch request items can specify a `uri` inside body parameters if header is not present.
+pub(crate) fn resolve_required_uri<'a>(
     header_uri: Option<&'a str>,
-    params_uri: Option<&'a str>,
-) -> Option<&'a str> {
-    if let Some(h) = header_uri {
-        return Some(h.trim());
+    body_uri: Option<&'a str>,
+    is_batch: bool,
+) -> Result<&'a str, JsonRpcErrorResponse> {
+    if !is_batch {
+        let Some(header_u) = header_uri else {
+            return Err(header_mismatch_error(
+                None,
+                "Header mismatch: missing required Mcp-Uri header for resources/read",
+            ));
+        };
+        let h_trim = header_u.trim();
+        if h_trim.is_empty() {
+            return Err(JsonRpcErrorResponse::invalid_params(
+                None,
+                "Invalid params: empty resource uri",
+            ));
+        }
+        if let Some(body_u) = body_uri {
+            let b_trim = body_u.trim();
+            if h_trim != b_trim {
+                return Err(header_mismatch_error(
+                    None,
+                    format!(
+                        "Header mismatch: Mcp-Uri header value '{h_trim}' does not match body resource uri '{b_trim}'"
+                    ),
+                ));
+            }
+        }
+        Ok(h_trim)
+    } else if let Some(header_u) = header_uri {
+        let h_trim = header_u.trim();
+        if h_trim.is_empty() {
+            return Err(JsonRpcErrorResponse::invalid_params(
+                None,
+                "Invalid params: empty resource uri",
+            ));
+        }
+        if let Some(body_u) = body_uri {
+            let b_trim = body_u.trim();
+            if h_trim != b_trim {
+                return Err(header_mismatch_error(
+                    None,
+                    format!(
+                        "Header mismatch: Mcp-Uri header value '{h_trim}' does not match body resource uri '{b_trim}'"
+                    ),
+                ));
+            }
+        }
+        Ok(h_trim)
+    } else if let Some(body_u) = body_uri {
+        let b_trim = body_u.trim();
+        if b_trim.is_empty() {
+            return Err(JsonRpcErrorResponse::invalid_params(
+                None,
+                "Invalid params: empty resource uri",
+            ));
+        }
+        Ok(b_trim)
+    } else {
+        Err(JsonRpcErrorResponse::invalid_params(
+            None,
+            "Invalid params: missing resource uri",
+        ))
     }
-    params_uri.map(|u| u.trim())
 }
+
+pub(crate) use resolve_required_uri as resolve_resource_uri;
 
 /// Matches a URI against an RFC 6570 URI template (e.g., `file:///{path}`, `postgres://{schema}/{table}`).
 pub(crate) fn match_uri_template(template: &str, uri: &str) -> bool {
@@ -230,10 +431,10 @@ mod tests {
         assert_eq!(extract_header_name(&headers), None);
 
         headers.insert("Mcp-Name", "/my_tool/".parse().unwrap());
-        assert_eq!(extract_header_name(&headers), Some("my_tool".to_string()));
+        assert_eq!(extract_header_name(&headers), Some("my_tool"));
 
         headers.insert("Mcp-Name", "///".parse().unwrap());
-        assert_eq!(extract_header_name(&headers), Some("".to_string()));
+        assert_eq!(extract_header_name(&headers), Some(""));
     }
 
     /// Tests extracting the `Mcp-Uri` and `Mcp-Name` headers for resources.
@@ -245,14 +446,14 @@ mod tests {
         headers.insert("Mcp-Uri", "file:///app/config.json".parse().unwrap());
         assert_eq!(
             extract_header_uri(&headers),
-            Some("file:///app/config.json".to_string())
+            Some("file:///app/config.json")
         );
 
         headers.remove("Mcp-Uri");
         headers.insert("Mcp-Name", "file:///app/config.json".parse().unwrap());
         assert_eq!(
             extract_header_uri(&headers),
-            Some("file:///app/config.json".to_string())
+            Some("file:///app/config.json")
         );
     }
 
@@ -278,76 +479,120 @@ mod tests {
         assert_eq!(extract_session_id(&headers), None);
     }
 
-    /// Tests extracting the method from `Mcp-Method` header or JSON body.
+    /// Tests extracting the `Mcp-Method` header and trimming slashes.
     #[test]
-    fn test_extract_method() {
+    fn test_extract_header_method() {
         let mut headers = HeaderMap::new();
+        assert_eq!(extract_header_method(&headers), None);
 
-        // Preference: header over body
-        headers.insert("Mcp-Method", "server/discover".parse().unwrap());
-        assert_eq!(
-            extract_method(&headers, Some("tools/list")),
-            Some("server/discover".to_string())
-        );
+        headers.insert("Mcp-Method", "/tools/call/".parse().unwrap());
+        assert_eq!(extract_header_method(&headers), Some("tools/call"));
 
-        // Fallback to body when header is absent
-        headers.remove("Mcp-Method");
-        assert_eq!(
-            extract_method(&headers, Some("tools/list")),
-            Some("tools/list".to_string())
-        );
-
-        // Slash normalization
-        assert_eq!(
-            extract_method(&headers, Some("/tools/call/")),
-            Some("tools/call".to_string())
-        );
-
-        // Invalid / absent method
-        assert_eq!(extract_method(&headers, None), None);
+        headers.insert("Mcp-Method", "///".parse().unwrap());
+        assert_eq!(extract_header_method(&headers), Some(""));
     }
 
-    /// Tests resolving tool name between header preference and body parameter fallback.
+    /// Tests resolving method against header and body.
+    #[test]
+    fn test_resolve_method() {
+        // Single request (is_batch: false)
+        assert_eq!(
+            resolve_method(Some("server/discover"), Some("server/discover"), false).unwrap(),
+            "server/discover"
+        );
+        assert_eq!(
+            resolve_method(Some("/server/discover/"), Some("server/discover"), false).unwrap(),
+            "server/discover"
+        );
+        assert_eq!(
+            resolve_method(Some("server/discover"), None, false).unwrap(),
+            "server/discover"
+        );
+
+        // Missing Mcp-Method header on single request -> HeaderMismatch (-32020)
+        let err = resolve_method(None, Some("server/discover"), false).unwrap_err();
+        assert_eq!(err.error.code.code(), crate::types::mcp::HEADER_MISMATCH);
+
+        // Header and body method mismatch -> HeaderMismatch (-32020)
+        let err = resolve_method(Some("tools/call"), Some("server/discover"), false).unwrap_err();
+        assert_eq!(err.error.code.code(), crate::types::mcp::HEADER_MISMATCH);
+
+        // Batch request (is_batch: true)
+        assert_eq!(
+            resolve_method(None, Some("tools/list"), true).unwrap(),
+            "tools/list"
+        );
+        assert_eq!(
+            resolve_method(Some("tools/list"), Some("tools/list"), true).unwrap(),
+            "tools/list"
+        );
+        let err = resolve_method(Some("tools/list"), Some("prompts/list"), true).unwrap_err();
+        assert_eq!(err.error.code.code(), crate::types::mcp::HEADER_MISMATCH);
+    }
+
+    /// Tests resolving tool or prompt name.
     #[test]
     fn test_resolve_tool_name() {
+        // Single request (is_batch: false)
         assert_eq!(
-            resolve_tool_name(Some("/header_tool/"), Some("body_tool")),
-            Some("header_tool")
+            resolve_tool_name(Some("/my_tool/"), Some("my_tool"), false, "tool name").unwrap(),
+            "my_tool"
         );
         assert_eq!(
-            resolve_tool_name(None, Some("/body_tool/")),
-            Some("body_tool")
+            resolve_tool_name(Some("my_tool"), None, false, "tool name").unwrap(),
+            "my_tool"
         );
-        assert_eq!(resolve_tool_name(Some(""), Some("body_tool")), Some(""));
-        assert_eq!(resolve_tool_name(None, None), None);
-        assert_eq!(resolve_tool_name(Some("///"), Some("///")), Some(""));
+
+        // Missing Mcp-Name header on single request -> HeaderMismatch (-32020)
+        let err = resolve_tool_name(None, Some("my_tool"), false, "tool name").unwrap_err();
+        assert_eq!(err.error.code.code(), crate::types::mcp::HEADER_MISMATCH);
+
+        // Header and body tool name mismatch -> HeaderMismatch (-32020)
+        let err =
+            resolve_tool_name(Some("tool_a"), Some("tool_b"), false, "tool name").unwrap_err();
+        assert_eq!(err.error.code.code(), crate::types::mcp::HEADER_MISMATCH);
+
+        // Batch request (is_batch: true)
+        assert_eq!(
+            resolve_tool_name(None, Some("tool_b"), true, "tool name").unwrap(),
+            "tool_b"
+        );
     }
 
-    /// Tests resolving resource URI between header preference and body parameter fallback.
+    /// Tests resolving resource URI.
     #[test]
     fn test_resolve_resource_uri() {
+        // Single request (is_batch: false)
         assert_eq!(
-            resolve_resource_uri(Some("file:///header.txt"), Some("file:///body.txt")),
-            Some("file:///header.txt")
+            resolve_resource_uri(Some("file:///doc.txt"), Some("file:///doc.txt"), false).unwrap(),
+            "file:///doc.txt"
         );
         assert_eq!(
-            resolve_resource_uri(None, Some("file:///body.txt")),
-            Some("file:///body.txt")
+            resolve_resource_uri(Some("file:///doc.txt"), None, false).unwrap(),
+            "file:///doc.txt"
         );
-        assert_eq!(resolve_resource_uri(None, None), None);
+
+        // Missing Mcp-Uri header on single request -> HeaderMismatch (-32020)
+        let err = resolve_resource_uri(None, Some("file:///doc.txt"), false).unwrap_err();
+        assert_eq!(err.error.code.code(), crate::types::mcp::HEADER_MISMATCH);
+
+        // Header and body URI mismatch -> HeaderMismatch (-32020)
+        let err =
+            resolve_resource_uri(Some("file:///a.txt"), Some("file:///b.txt"), false).unwrap_err();
+        assert_eq!(err.error.code.code(), crate::types::mcp::HEADER_MISMATCH);
+
+        // Batch request (is_batch: true)
+        assert_eq!(
+            resolve_resource_uri(None, Some("file:///b.txt"), true).unwrap(),
+            "file:///b.txt"
+        );
     }
 
     /// Tests URI template matching.
     #[test]
     fn test_match_uri_template() {
-        assert!(match_uri_template(
-            "file:///{path}",
-            "file:///src/main.rs"
-        ));
-        assert!(match_uri_template(
-            "file:///{+path}",
-            "file:///a/b/c/d.txt"
-        ));
+        assert!(match_uri_template("file:///{path}", "file:///src/main.rs"));
+        assert!(match_uri_template("file:///{+path}", "file:///a/b/c/d.txt"));
         assert!(match_uri_template(
             "postgres://{schema}/{table}",
             "postgres://public/users"
@@ -376,25 +621,37 @@ mod tests {
 
     #[test]
     fn test_extract_body_protocol_version() {
-        let body_with_params_meta: serde_json::Map<String, serde_json::Value> = serde_json::from_value(serde_json::json!({
-            "params": {
+        let body_with_params_meta: serde_json::Map<String, serde_json::Value> =
+            serde_json::from_value(serde_json::json!({
+                "params": {
+                    "_meta": {
+                        "io.modelcontextprotocol/protocolVersion": "2026-07-28"
+                    }
+                }
+            }))
+            .unwrap();
+        assert_eq!(
+            extract_body_protocol_version(&body_with_params_meta),
+            Some("2026-07-28")
+        );
+
+        let body_with_top_level_meta: serde_json::Map<String, serde_json::Value> =
+            serde_json::from_value(serde_json::json!({
                 "_meta": {
                     "io.modelcontextprotocol/protocolVersion": "2026-07-28"
                 }
-            }
-        })).unwrap();
-        assert_eq!(extract_body_protocol_version(&body_with_params_meta), Some("2026-07-28"));
+            }))
+            .unwrap();
+        assert_eq!(
+            extract_body_protocol_version(&body_with_top_level_meta),
+            Some("2026-07-28")
+        );
 
-        let body_with_top_level_meta: serde_json::Map<String, serde_json::Value> = serde_json::from_value(serde_json::json!({
-            "_meta": {
-                "io.modelcontextprotocol/protocolVersion": "2026-07-28"
-            }
-        })).unwrap();
-        assert_eq!(extract_body_protocol_version(&body_with_top_level_meta), Some("2026-07-28"));
-
-        let body_without_meta: serde_json::Map<String, serde_json::Value> = serde_json::from_value(serde_json::json!({
-            "params": {}
-        })).unwrap();
+        let body_without_meta: serde_json::Map<String, serde_json::Value> =
+            serde_json::from_value(serde_json::json!({
+                "params": {}
+            }))
+            .unwrap();
         assert_eq!(extract_body_protocol_version(&body_without_meta), None);
     }
 }

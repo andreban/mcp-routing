@@ -54,7 +54,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
         icons: Vec::new(),
         name: "process_task".to_string(),
         title: Some("Process Task".to_string()),
-        description: Some("Processes a task while respecting client/server log level thresholds".to_string()),
+        description: Some(
+            "Processes a task while respecting client/server log level thresholds".to_string(),
+        ),
         input_schema: json!({
             "type": "object",
             "properties": {
@@ -68,31 +70,35 @@ async fn main() -> Result<(), Box<dyn Error>> {
     };
 
     let mcp_router = McpRouter::new(server_info)
-        .instructions("MCP server demonstrating dynamic logging/setLevel and per-request log levels")
+        .instructions(
+            "MCP server demonstrating dynamic logging/setLevel and per-request log levels",
+        )
         // Initialize default logging level to Info
         .logging_level(LoggingLevel::Info)
         // Cache logging/setLevel response for 1 minute
         .logging_cache(Some(60_000), Some(CacheScope::Private))
         // Register a custom logging handler that audits level changes
-        .logging_handler(|opt_session: Option<SessionId>, params: SetLevelParams| async move {
-            let session = opt_session
-                .map(|s| s.to_string())
-                .unwrap_or_else(|| "anonymous".to_string());
-            tracing::info!(
-                new_level = %params.level,
-                session = %session,
-                "Client requested dynamic log level update"
-            );
+        .logging_handler(
+            |opt_session: Option<SessionId>, params: SetLevelParams| async move {
+                let session = opt_session
+                    .map(|s| s.to_string())
+                    .unwrap_or_else(|| "anonymous".to_string());
+                tracing::info!(
+                    new_level = %params.level,
+                    session = %session,
+                    "Client requested dynamic log level update"
+                );
 
-            // Business logic: reject debug level if requested anonymously
-            if params.level == LoggingLevel::Debug && session == "anonymous" {
-                return Err(LoggingError::InvalidParams(
-                    "Debug logging requires an authenticated Mcp-Session-Id".to_string(),
-                ));
-            }
+                // Business logic: reject debug level if requested anonymously
+                if params.level == LoggingLevel::Debug && session == "anonymous" {
+                    return Err(LoggingError::InvalidParams(
+                        "Debug logging requires an authenticated Mcp-Session-Id".to_string(),
+                    ));
+                }
 
-            Ok(())
-        })
+                Ok(())
+            },
+        )
         .register_tool(process_tool, process_task);
 
     let app = Router::new().nest_service("/mcp", mcp_router);

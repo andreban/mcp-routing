@@ -260,35 +260,29 @@ impl ToolRegistry {
             None => None,
         };
 
-        let tool_name =
-            resolve_tool_name(ctx.header_name, params.as_ref().map(|p| p.name.as_str()))
-                .map(String::from);
-
-        let Some(tool_name) = tool_name else {
-            tracing::debug!("Missing tool name for tools/call");
-            return if ctx.is_notification {
-                DispatchOutcome::notification()
-            } else {
-                DispatchOutcome::error(JsonRpcErrorResponse::invalid_params(
-                    ctx.req_id,
-                    "Invalid params: missing tool name",
-                ))
-            };
+        let (meta, arguments, params_name) = match params {
+            Some(p) => (p.meta, p.arguments, Some(p.name)),
+            None => (None, None, None),
         };
 
-        if tool_name.is_empty() {
-            tracing::debug!("Empty tool name for tools/call");
-            return if ctx.is_notification {
-                DispatchOutcome::notification()
-            } else {
-                DispatchOutcome::error(JsonRpcErrorResponse::invalid_params(
-                    ctx.req_id,
-                    "Invalid params: empty tool name",
-                ))
-            };
-        }
+        let tool_name = match resolve_tool_name(
+            ctx.header_name,
+            params_name.as_deref(),
+            ctx.is_batch,
+            "tool name",
+        ) {
+            Ok(name) => name,
+            Err(mut err) => {
+                err.id = ctx.req_id;
+                return if ctx.is_notification {
+                    DispatchOutcome::notification()
+                } else {
+                    DispatchOutcome::error(err)
+                };
+            }
+        };
 
-        let Some(handler) = self.tool_handlers.get(&tool_name) else {
+        let Some(handler) = self.tool_handlers.get(tool_name) else {
             tracing::debug!(tool_name, "Tool not found");
             return if ctx.is_notification {
                 DispatchOutcome::notification()
@@ -302,15 +296,11 @@ impl ToolRegistry {
 
         let (tool_ttl, tool_scope) = self
             .tool_cache_settings
-            .get(&tool_name)
+            .get(tool_name)
             .cloned()
             .unwrap_or((None, None));
-        let (meta, arguments) = match params {
-            Some(p) => (p.meta, p.arguments),
-            None => (None, None),
-        };
 
-        if let Some(validator) = self.tool_validators.get(&tool_name)
+        if let Some(validator) = self.tool_validators.get(tool_name)
             && let Err(err_msg) = validate_tool_arguments(validator, arguments.as_ref())
         {
             if ctx.is_notification {
@@ -330,8 +320,12 @@ impl ToolRegistry {
             }
         }
 
-        let request_ctx =
-            RequestContext::new(ctx.session_id, meta, ctx.headers.clone(), ctx.extensions);
+        let request_ctx = RequestContext::new(
+            ctx.session_id,
+            meta,
+            ctx.headers.clone(),
+            Arc::clone(&ctx.extensions),
+        );
         let result = handler.call(request_ctx, arguments).await;
         if ctx.is_notification {
             DispatchOutcome::notification()
@@ -399,34 +393,25 @@ impl ToolRegistry {
             }
         };
 
-        let tool_name = resolve_tool_name(
+        let tool_name = match resolve_tool_name(
             header_name,
             request.params.as_ref().map(|p| p.name.as_str()),
-        )
-        .map(String::from);
-
-        let Some(tool_name) = tool_name else {
-            tracing::debug!("Missing tool name for tools/call");
-            let error_response = JsonRpcErrorResponse::invalid_params(
-                Some(request.id),
-                "Invalid params: missing tool name",
-            );
-            return json_response(&error_response);
+            false,
+            "tool name",
+        ) {
+            Ok(name) => name.to_string(),
+            Err(mut err) => {
+                err.id = req_id.or(Some(request.id));
+                let status =
+                    crate::types::mcp::mcp_error_code_to_http_status(err.error.code.code());
+                return crate::body::json_response_with_status(status, &err);
+            }
         };
 
-        if tool_name.is_empty() {
-            tracing::debug!("Empty tool name for tools/call");
-            let error_response = JsonRpcErrorResponse::invalid_params(
-                Some(request.id),
-                "Invalid params: empty tool name",
-            );
-            return json_response(&error_response);
-        }
-
-        if let Some(handler) = self.tool_handlers.get(&tool_name) {
+        if let Some(handler) = self.tool_handlers.get(tool_name.as_str()) {
             let (tool_ttl, tool_scope) = self
                 .tool_cache_settings
-                .get(&tool_name)
+                .get(tool_name.as_str())
                 .cloned()
                 .unwrap_or((None, None));
             let req_id = request.id.clone();
@@ -435,7 +420,7 @@ impl ToolRegistry {
                 None => (None, None),
             };
 
-            if let Some(validator) = self.tool_validators.get(&tool_name)
+            if let Some(validator) = self.tool_validators.get(tool_name.as_str())
                 && let Err(err_msg) = validate_tool_arguments(validator, raw_args.as_ref())
             {
                 let response = CallToolResultResponse::new(

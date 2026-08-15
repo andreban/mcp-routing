@@ -3,8 +3,8 @@
 
 mod common;
 
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use axum::body::Body;
 use http::{HeaderMap, Request, StatusCode};
@@ -13,7 +13,9 @@ use mcp_routing::{
     CurrentLoggingLevel, McpRouter,
     extract::{BearerAuth, SessionId, State},
     logging::{LoggingError, SetLevelParams, SetLevelResult},
-    types::mcp::{CacheScope, Implementation, LoggingLevel, server::discover::ServerDiscoverResultResponse},
+    types::mcp::{
+        CacheScope, Implementation, LoggingLevel, server::discover::ServerDiscoverResultResponse,
+    },
 };
 use serde_json::json;
 use tower::Service;
@@ -32,6 +34,45 @@ async fn send_mcp_request(
     let mut req_builder = Request::post("/")
         .header("Content-Type", "application/json")
         .header("MCP-Protocol-Version", "2026-07-28");
+
+    let mut has_mcp_method = false;
+    let mut has_mcp_name = false;
+    let mut has_mcp_uri = false;
+    if let Some(ref hdrs) = headers {
+        for (k, _) in hdrs {
+            if k.eq_ignore_ascii_case("Mcp-Method") {
+                has_mcp_method = true;
+            }
+            if k.eq_ignore_ascii_case("Mcp-Name") {
+                has_mcp_name = true;
+            }
+            if k.eq_ignore_ascii_case("Mcp-Uri") {
+                has_mcp_uri = true;
+            }
+        }
+    }
+
+    if !has_mcp_method && let Some(m) = body.get("method").and_then(|v| v.as_str()) {
+        req_builder = req_builder.header("Mcp-Method", m);
+    }
+
+    if !has_mcp_name
+        && let Some(name) = body
+            .get("params")
+            .and_then(|p| p.get("name"))
+            .and_then(|v| v.as_str())
+    {
+        req_builder = req_builder.header("Mcp-Name", name);
+    }
+
+    if !has_mcp_uri
+        && let Some(uri) = body
+            .get("params")
+            .and_then(|p| p.get("uri"))
+            .and_then(|v| v.as_str())
+    {
+        req_builder = req_builder.header("Mcp-Uri", uri);
+    }
 
     if let Some(hdrs) = headers {
         for (k, v) in hdrs {
@@ -221,7 +262,8 @@ async fn test_logging_set_level_custom_handler_errors() {
         }
     });
 
-    let (status, body, _) = send_mcp_request(&mut router_invalid_params, payload_invalid, None).await;
+    let (status, body, _) =
+        send_mcp_request(&mut router_invalid_params, payload_invalid, None).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["error"]["code"], -32602);
     assert!(
@@ -233,7 +275,9 @@ async fn test_logging_set_level_custom_handler_errors() {
 
     let mut router_internal =
         create_base_router().logging_handler(|_params: SetLevelParams| async move {
-            Err::<(), LoggingError>(LoggingError::Internal("Database logger crashed".to_string()))
+            Err::<(), LoggingError>(LoggingError::Internal(
+                "Database logger crashed".to_string(),
+            ))
         });
 
     let payload_internal = json!({

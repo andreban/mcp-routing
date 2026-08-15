@@ -112,10 +112,7 @@ mod tests {
 
         let result: ListResourceTemplatesResult = serde_json::from_value(json_data).unwrap();
         assert_eq!(result.resource_templates.len(), 1);
-        assert_eq!(
-            result.resource_templates[0].uri_template,
-            "file:///{path}"
-        );
+        assert_eq!(result.resource_templates[0].uri_template, "file:///{path}");
         assert_eq!(result.resource_templates[0].name, "Local Files");
         assert_eq!(result.ttl_ms, Some(30000));
         assert!(matches!(result.cache_scope, Some(CacheScope::Private)));

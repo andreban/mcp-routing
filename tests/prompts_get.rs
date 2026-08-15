@@ -156,9 +156,9 @@ async fn test_prompts_get_header_routing_with_name() {
     }
 }
 
-/// Tests header method with body prompt name fallback when `Mcp-Name` header is omitted.
+/// Tests that omitting `Mcp-Name` header on `prompts/get` returns HTTP 400 Bad Request with HeaderMismatch (-32020).
 #[tokio::test]
-async fn test_prompts_get_header_method_body_prompt_name_fallback() {
+async fn test_prompts_get_header_method_missing_name_returns_header_mismatch() {
     let app = McpRouter::new(common::sample_server_info())
         .register_prompt("code_review", handle_code_review);
 
@@ -181,25 +181,22 @@ async fn test_prompts_get_header_method_body_prompt_name_fallback() {
 
     let (status, _headers, body) = common::execute_request(app, req).await;
 
-    assert_eq!(status, StatusCode::OK);
-    let res: GetPromptResultResponse = serde_json::from_value(body).unwrap();
-    assert_eq!(res.id, 2.into());
-    assert_eq!(res.result.messages.len(), 1);
-    if let ContentBlock::Text(ref t) = res.result.messages[0].content {
-        assert!(t.text.contains("Please review the following rust code"));
-        assert!(t.text.contains("fn main() {}"));
-    }
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert_eq!(
+        body["error"]["code"],
+        mcp_routing::types::mcp::HEADER_MISMATCH
+    );
 }
 
-/// Tests pure body-based fallback routing (when both headers are omitted).
+/// Tests that omitting `Mcp-Method` header returns HTTP 400 Bad Request with HeaderMismatch (-32020).
 #[tokio::test]
-async fn test_prompts_get_body_fallback() {
+async fn test_prompts_get_missing_method_header_returns_header_mismatch() {
     let app =
         McpRouter::new(common::sample_server_info()).register_prompt("translate", handle_translate);
 
     let req = common::build_request(
         None,
-        None,
+        Some("translate"),
         json!({
             "jsonrpc": "2.0",
             "id": "body-fallback-prompt",
@@ -216,15 +213,11 @@ async fn test_prompts_get_body_fallback() {
 
     let (status, _headers, body) = common::execute_request(app, req).await;
 
-    assert_eq!(status, StatusCode::OK);
-    let res: GetPromptResultResponse = serde_json::from_value(body).unwrap();
-    assert_eq!(res.id, "body-fallback-prompt".into());
-    if let ContentBlock::Text(ref t) = res.result.messages[0].content {
-        assert_eq!(
-            t.text,
-            "Translate the following text into Spanish:\nHello world"
-        );
-    }
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert_eq!(
+        body["error"]["code"],
+        mcp_routing::types::mcp::HEADER_MISMATCH
+    );
 }
 
 /// Tests no-args prompt handlers returning various types (string, PromptMessage, Vec<PromptMessage>, GetPromptResult).
@@ -370,8 +363,8 @@ async fn test_prompts_get_missing_prompt_name_returns_invalid_params() {
 
     let req = common::build_request(
         Some("prompts/get"),
-        None,
-        json!({ "jsonrpc": "2.0", "id": "missing-name", "method": "prompts/get", "params": {} }),
+        Some(""),
+        json!({ "jsonrpc": "2.0", "id": "missing-name", "method": "prompts/get", "params": { "name": "" } }),
     );
 
     let (status, _headers, body) = common::execute_request(app, req).await;

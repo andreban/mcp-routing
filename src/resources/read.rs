@@ -11,8 +11,5 @@ pub fn handle_read_resource(
     req: ReadResourceRequest,
     contents: Vec<ResourceContents>,
 ) -> ReadResourceResultResponse {
-    ReadResourceResultResponse::new(
-        req.id,
-        ReadResourceResult::new(contents),
-    )
+    ReadResourceResultResponse::new(req.id, ReadResourceResult::new(contents))
 }

@@ -159,12 +159,8 @@ async fn test_tools_call_header_routing_with_name() {
 }
 
 /// Tests tool call routing when `Mcp-Method: tools/call` is present, but `Mcp-Name` header is omitted.
-///
-/// Verifies:
-/// - Router extracts the target tool name from `params.name` inside the JSON-RPC body
-/// - Handler executes and returns the expected result
 #[tokio::test]
-async fn test_tools_call_header_method_body_tool_name_fallback() {
+async fn test_tools_call_header_method_missing_name_returns_header_mismatch() {
     let app = McpRouter::new(common::sample_server_info()).register_tool("echo", handle_echo);
 
     // Mcp-Method header is present, but Mcp-Name header is OMITTED
@@ -186,33 +182,23 @@ async fn test_tools_call_header_method_body_tool_name_fallback() {
 
     let (status, _headers, body) = common::execute_request(app, req).await;
 
-    assert_eq!(status, StatusCode::OK);
-    let res: CallToolResultResponse = serde_json::from_value(body).unwrap();
-    assert_eq!(res.id, 100.into());
-    assert_eq!(res.result.is_error, Some(false));
-
-    if let ContentBlock::Text(ref text_block) = res.result.content[0] {
-        assert_eq!(text_block.text, "Echo: Fallback tool name from body");
-    } else {
-        panic!("Expected ContentBlock::Text");
-    }
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert_eq!(
+        body["error"]["code"],
+        mcp_routing::types::mcp::HEADER_MISMATCH
+    );
 }
 
-/// Tests pure body-based tool dispatch when neither `Mcp-Method` nor `Mcp-Name` headers are provided.
-///
-/// Verifies:
-/// - Router falls back to `method` and `params.name` in JSON-RPC payload
-/// - Float request IDs (`200.5`) are supported
-/// - Arithmetic handler executes and returns correct calculation output
+/// Tests that omitting `Mcp-Method` header on `tools/call` returns HeaderMismatch (-32020).
 #[tokio::test]
-async fn test_tools_call_body_method_and_body_name_fallback() {
+async fn test_tools_call_missing_method_header_returns_header_mismatch() {
     let app =
         McpRouter::new(common::sample_server_info()).register_tool("calculator", handle_calculator);
 
     // Both Mcp-Method and Mcp-Name headers are OMITTED
     let req = common::build_request(
         None,
-        None,
+        Some("calculator"),
         json!({
             "jsonrpc": "2.0",
             "id": 200.5,
@@ -230,16 +216,11 @@ async fn test_tools_call_body_method_and_body_name_fallback() {
 
     let (status, _headers, body) = common::execute_request(app, req).await;
 
-    assert_eq!(status, StatusCode::OK);
-    let res: CallToolResultResponse = serde_json::from_value(body).unwrap();
-    assert_eq!(res.id, 200.5.into());
-    assert_eq!(res.result.is_error, Some(false));
-
-    if let ContentBlock::Text(ref text_block) = res.result.content[0] {
-        assert_eq!(text_block.text, "45");
-    } else {
-        panic!("Expected ContentBlock::Text");
-    }
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert_eq!(
+        body["error"]["code"],
+        mcp_routing::types::mcp::HEADER_MISMATCH
+    );
 }
 
 /// Tests registering and invoking handlers with no arguments across return types (`&str`, `String`, `Result<T, E>`).

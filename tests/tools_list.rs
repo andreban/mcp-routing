@@ -168,13 +168,9 @@ async fn test_tools_list_multiple_rich_tools() {
     assert_eq!(t3.name, "cow_tool");
 }
 
-/// Tests `tools/list` dispatch when the `Mcp-Method` HTTP header is omitted.
-///
-/// Verifies:
-/// - Request is successfully routed based on `"method": "tools/list"` inside the JSON-RPC body
-/// - Numeric JSON-RPC request IDs (`42`) are preserved
+/// Tests that omitting `Mcp-Method` HTTP header on `tools/list` returns HTTP 400 Bad Request with HeaderMismatch (-32020).
 #[tokio::test]
-async fn test_tools_list_via_body_fallback() {
+async fn test_tools_list_missing_method_header_returns_header_mismatch() {
     let app = McpRouter::new(common::sample_server_info())
         .register_tool(common::sample_tool("fallback_tool"), dummy_handler);
 
@@ -191,11 +187,11 @@ async fn test_tools_list_via_body_fallback() {
 
     let (status, _headers, body) = common::execute_request(app, req).await;
 
-    assert_eq!(status, StatusCode::OK);
-    let res: ListToolsResultResponse = serde_json::from_value(body).unwrap();
-    assert_eq!(res.id, 42.into());
-    assert_eq!(res.result.tools.len(), 1);
-    assert_eq!(res.result.tools[0].name, "fallback_tool");
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert_eq!(
+        body["error"]["code"],
+        mcp_routing::types::mcp::HEADER_MISMATCH
+    );
 }
 
 /// Tests that passing pagination `cursor` and protocol `_meta` in `tools/list` requests executes without error.

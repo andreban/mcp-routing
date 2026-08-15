@@ -7,7 +7,7 @@ use crate::completion::{CompletionRegistry, IntoCompletionHandler};
 use crate::logging::{IntoSetLevelHandler, LoggingRegistry};
 use crate::prompts::{IntoPromptHandler, IntoPromptsListHandler, PromptRegistry};
 use crate::resources::{
-    IntoResourceHandler, IntoResourcesListHandler, IntoResourceTemplatesListHandler,
+    IntoResourceHandler, IntoResourceTemplatesListHandler, IntoResourcesListHandler,
     ResourceRegistry,
 };
 use crate::router::{McpRouter, McpRouterInner, StateInjector};
@@ -374,7 +374,9 @@ impl McpRouter {
 
     /// Sets the time-to-live (`ttl_ms`) in milliseconds for `resources/templates/list` responses.
     pub fn resource_templates_list_ttl(mut self, ttl_ms: u64) -> Self {
-        Arc::make_mut(&mut self.inner).resources.templates_list_ttl_ms = Some(ttl_ms);
+        Arc::make_mut(&mut self.inner)
+            .resources
+            .templates_list_ttl_ms = Some(ttl_ms);
         self
     }
 
@@ -498,12 +500,9 @@ impl McpRouter {
                 list_changed: None,
             });
         }
-        inner.resources.register_template_with_cache(
-            template,
-            handler,
-            ttl_ms,
-            cache_scope,
-        );
+        inner
+            .resources
+            .register_template_with_cache(template, handler, ttl_ms, cache_scope);
         self
     }
 
@@ -615,9 +614,7 @@ impl McpRouter {
         if inner.server.capabilities.completions.is_none() {
             inner.server.capabilities.completions = Some(CompletionsCapability {});
         }
-        inner
-            .completion
-            .register_resource(uri_or_template, handler);
+        inner.completion.register_resource(uri_or_template, handler);
         self
     }
 
@@ -687,11 +684,7 @@ impl McpRouter {
     }
 
     /// Sets the time-to-live (`ttl_ms`) and cache scope for `logging/setLevel` responses.
-    pub fn logging_cache(
-        mut self,
-        ttl_ms: Option<u64>,
-        cache_scope: Option<CacheScope>,
-    ) -> Self {
+    pub fn logging_cache(mut self, ttl_ms: Option<u64>, cache_scope: Option<CacheScope>) -> Self {
         Arc::make_mut(&mut self.inner)
             .logging
             .set_cache(ttl_ms, cache_scope);
@@ -715,4 +708,3 @@ impl McpRouter {
         self.inner.logging.current_level()
     }
 }
-

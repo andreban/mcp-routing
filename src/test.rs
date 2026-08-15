@@ -158,7 +158,7 @@ async fn test_mcp_router_body_method_fallback_tools_list() {
     };
 
     let app = McpRouter::new(test_server_info()).register_tool(tool, mock_handler);
-    // Request without Mcp-Method header
+    // Request without Mcp-Method header -> rejected with HeaderMismatch (-32020)
     let request = Request::builder()
         .method("POST")
         .uri("/")
@@ -170,72 +170,40 @@ async fn test_mcp_router_body_method_fallback_tools_list() {
         .unwrap();
 
     let response = app.oneshot(request).await.unwrap();
-    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
 
     let bytes = response.into_body().collect().await.unwrap().to_bytes();
-    let res: ListToolsResultResponse = serde_json::from_slice(&bytes).unwrap();
-    assert_eq!(res.result.tools.len(), 1);
-    assert_eq!(res.result.tools[0].name, "test_tool");
+    let res: JsonRpcErrorResponse = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(res.error.code.code(), crate::types::mcp::HEADER_MISMATCH);
 }
 
-/// Tests that `server/discover` falls back to the body method when `Mcp-Method` header is omitted.
+/// Tests that a mismatch between `Mcp-Method` header and body `method` returns a HeaderMismatch error (-32020).
 #[tokio::test]
-async fn test_mcp_router_body_method_fallback_server_discover() {
+async fn test_mcp_router_mcp_method_mismatch_returns_header_mismatch() {
     let app = McpRouter::new(test_server_info()).instructions("Test instructions");
-    // Request without Mcp-Method header
     let request = Request::builder()
         .method("POST")
         .uri("/")
+        .header("Mcp-Method", "server/discover")
         .header("Content-Type", "application/json")
         .header("MCP-Protocol-Version", "2026-07-28")
         .body(Body::from(
-            json!({"id": 1, "method": "server/discover"}).to_string(),
+            json!({"id": 1, "method": "tools/list"}).to_string(),
         ))
         .unwrap();
 
     let response = app.oneshot(request).await.unwrap();
-    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
 
     let bytes = response.into_body().collect().await.unwrap().to_bytes();
-    let res: ServerDiscoverResultResponse = serde_json::from_slice(&bytes).unwrap();
-    assert_eq!(
-        res.result.instructions.as_deref(),
-        Some("Test instructions")
-    );
+    let res: JsonRpcErrorResponse = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(res.error.code.code(), crate::types::mcp::HEADER_MISMATCH);
 }
 
-/// Tests tool call routing when both `Mcp-Method` and `Mcp-Name` headers are omitted.
+/// Tests that missing `Mcp-Name` header on `tools/call` returns a HeaderMismatch error (-32020).
 #[tokio::test]
-async fn test_mcp_router_body_method_and_tool_name_fallback() {
+async fn test_mcp_router_missing_mcp_name_header_returns_header_mismatch() {
     let app = McpRouter::new(test_server_info()).register_tool("echo", mock_handler);
-    // Request without Mcp-Method or Mcp-Name headers
-    let request = Request::builder()
-        .method("POST")
-        .uri("/")
-        .header("Content-Type", "application/json")
-        .header("MCP-Protocol-Version", "2026-07-28")
-        .body(Body::from(
-            json!({
-                "id": 1,
-                "method": "tools/call",
-                "params": {
-                    "name": "echo",
-                    "arguments": { "value": "test" }
-                }
-            })
-            .to_string(),
-        ))
-        .unwrap();
-
-    let response = app.oneshot(request).await.unwrap();
-    assert_eq!(response.status(), StatusCode::OK);
-}
-
-/// Tests tool call routing with `Mcp-Method: tools/call` header but falling back to body for tool name.
-#[tokio::test]
-async fn test_mcp_router_tool_name_fallback_with_header_method() {
-    let app = McpRouter::new(test_server_info()).register_tool("echo", mock_handler);
-    // Request with Mcp-Method header but WITHOUT Mcp-Name header
     let request = Request::builder()
         .method("POST")
         .uri("/")
@@ -256,7 +224,43 @@ async fn test_mcp_router_tool_name_fallback_with_header_method() {
         .unwrap();
 
     let response = app.oneshot(request).await.unwrap();
-    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+    let res: JsonRpcErrorResponse = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(res.error.code.code(), crate::types::mcp::HEADER_MISMATCH);
+}
+
+/// Tests that `Mcp-Name` header mismatch with body `params.name` returns a HeaderMismatch error (-32020).
+#[tokio::test]
+async fn test_mcp_router_mcp_name_mismatch_returns_header_mismatch() {
+    let app = McpRouter::new(test_server_info()).register_tool("echo", mock_handler);
+    let request = Request::builder()
+        .method("POST")
+        .uri("/")
+        .header("Mcp-Method", "tools/call")
+        .header("Mcp-Name", "echo")
+        .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
+        .body(Body::from(
+            json!({
+                "id": 1,
+                "method": "tools/call",
+                "params": {
+                    "name": "other_tool",
+                    "arguments": { "value": "test" }
+                }
+            })
+            .to_string(),
+        ))
+        .unwrap();
+
+    let response = app.oneshot(request).await.unwrap();
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+    let res: JsonRpcErrorResponse = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(res.error.code.code(), crate::types::mcp::HEADER_MISMATCH);
 }
 
 /// Tests that non-standard method suffix strings return a JSON-RPC Method Not Found error (-32601).
@@ -266,6 +270,7 @@ async fn test_mcp_router_invalid_method_suffix_returns_not_found() {
     let request = Request::builder()
         .method("POST")
         .uri("/")
+        .header("Mcp-Method", "tools/call/echo")
         .header("Content-Type", "application/json")
         .header("MCP-Protocol-Version", "2026-07-28")
         .body(Body::from(
@@ -291,7 +296,7 @@ async fn test_mcp_router_invalid_method_suffix_returns_not_found() {
     assert_eq!(res.error.code, JsonRpcErrorCode::MethodNotFound);
 }
 
-/// Tests that missing method in both header and body returns a JSON-RPC Invalid Request error (-32600).
+/// Tests that missing method in header returns a Header Mismatch error (-32020).
 #[tokio::test]
 async fn test_mcp_router_missing_method_in_header_and_body_returns_bad_request() {
     let app = McpRouter::new(test_server_info());
@@ -310,16 +315,18 @@ async fn test_mcp_router_missing_method_in_header_and_body_returns_bad_request()
     let res: JsonRpcErrorResponse = serde_json::from_slice(&bytes).unwrap();
     assert_eq!(res.jsonrpc, "2.0");
     assert_eq!(res.id, Some(1.into()));
-    assert_eq!(res.error.code, JsonRpcErrorCode::InvalidRequest);
+    assert_eq!(res.error.code.code(), crate::types::mcp::HEADER_MISMATCH);
 }
 
-/// Tests that missing tool name in `tools/call` returns a JSON-RPC Invalid Params error (-32602).
+/// Tests that empty tool name in `tools/call` returns a JSON-RPC Invalid Params error (-32602).
 #[tokio::test]
-async fn test_mcp_router_missing_tool_name_returns_bad_request() {
+async fn test_mcp_router_empty_tool_name_returns_bad_request() {
     let app = McpRouter::new(test_server_info());
     let request = Request::builder()
         .method("POST")
         .uri("/")
+        .header("Mcp-Method", "tools/call")
+        .header("Mcp-Name", "")
         .header("Content-Type", "application/json")
         .header("MCP-Protocol-Version", "2026-07-28")
         .body(Body::from(
@@ -349,6 +356,8 @@ async fn test_mcp_router_unknown_tool_returns_invalid_params() {
     let request = Request::builder()
         .method("POST")
         .uri("/")
+        .header("Mcp-Method", "tools/call")
+        .header("Mcp-Name", "non_existent_tool")
         .header("Content-Type", "application/json")
         .header("MCP-Protocol-Version", "2026-07-28")
         .body(Body::from(
@@ -380,6 +389,7 @@ async fn test_mcp_router_unknown_method_returns_not_found() {
     let request = Request::builder()
         .method("POST")
         .uri("/")
+        .header("Mcp-Method", "unknown/method")
         .header("Content-Type", "application/json")
         .header("MCP-Protocol-Version", "2026-07-28")
         .body(Body::from(
@@ -1150,12 +1160,9 @@ async fn test_mcp_router_protocol_version_header_body_mismatch_returns_header_mi
         err_resp.error.code.code(),
         crate::types::mcp::HEADER_MISMATCH
     );
-    assert!(
-        err_resp
-            .error
-            .message
-            .contains("MCP-Protocol-Version header value '2026-07-28' does not match body value '2025-06-18'")
-    );
+    assert!(err_resp.error.message.contains(
+        "MCP-Protocol-Version header value '2026-07-28' does not match body value '2025-06-18'"
+    ));
 }
 
 /// Tests that disabling protocol version validation accepts omitted header or custom version strings.
@@ -1177,4 +1184,183 @@ async fn test_mcp_router_disabled_protocol_version_validation() {
 
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
+}
+
+/// Tests that missing `Mcp-Name` header on `prompts/get` returns HTTP 400 Bad Request with HeaderMismatch (-32020).
+#[tokio::test]
+async fn test_mcp_router_missing_mcp_name_header_for_prompts_get() {
+    let prompt = Prompt::new("review").description("Review code");
+    let app =
+        McpRouter::new(test_server_info()).register_prompt(prompt, || async { "prompt content" });
+
+    let req = Request::builder()
+        .method("POST")
+        .uri("/")
+        .header("Mcp-Method", "prompts/get")
+        .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
+        .body(Body::from(
+            json!({
+                "id": 1,
+                "method": "prompts/get",
+                "params": {
+                    "name": "review"
+                }
+            })
+            .to_string(),
+        ))
+        .unwrap();
+
+    let resp = app.oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+
+    let bytes = resp.into_body().collect().await.unwrap().to_bytes();
+    let err_resp: JsonRpcErrorResponse = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(
+        err_resp.error.code.code(),
+        crate::types::mcp::HEADER_MISMATCH
+    );
+}
+
+/// Tests that `Mcp-Name` header mismatch with body `params.name` on `prompts/get` returns HTTP 400 Bad Request with HeaderMismatch (-32020).
+#[tokio::test]
+async fn test_mcp_router_mcp_name_mismatch_for_prompts_get() {
+    let prompt = Prompt::new("review").description("Review code");
+    let app =
+        McpRouter::new(test_server_info()).register_prompt(prompt, || async { "prompt content" });
+
+    let req = Request::builder()
+        .method("POST")
+        .uri("/")
+        .header("Mcp-Method", "prompts/get")
+        .header("Mcp-Name", "review")
+        .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
+        .body(Body::from(
+            json!({
+                "id": 1,
+                "method": "prompts/get",
+                "params": {
+                    "name": "other_prompt"
+                }
+            })
+            .to_string(),
+        ))
+        .unwrap();
+
+    let resp = app.oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+
+    let bytes = resp.into_body().collect().await.unwrap().to_bytes();
+    let err_resp: JsonRpcErrorResponse = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(
+        err_resp.error.code.code(),
+        crate::types::mcp::HEADER_MISMATCH
+    );
+}
+
+/// Tests that missing `Mcp-Uri` header on `resources/read` returns HTTP 400 Bad Request with HeaderMismatch (-32020).
+#[tokio::test]
+async fn test_mcp_router_missing_mcp_uri_header_for_resources_read() {
+    let app = McpRouter::new(test_server_info())
+        .register_resource(("file:///config.json", "Config"), || async {
+            "config data"
+        });
+
+    let req = Request::builder()
+        .method("POST")
+        .uri("/")
+        .header("Mcp-Method", "resources/read")
+        .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
+        .body(Body::from(
+            json!({
+                "id": 1,
+                "method": "resources/read",
+                "params": {
+                    "uri": "file:///config.json"
+                }
+            })
+            .to_string(),
+        ))
+        .unwrap();
+
+    let resp = app.oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+
+    let bytes = resp.into_body().collect().await.unwrap().to_bytes();
+    let err_resp: JsonRpcErrorResponse = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(
+        err_resp.error.code.code(),
+        crate::types::mcp::HEADER_MISMATCH
+    );
+}
+
+/// Tests that `Mcp-Uri` header mismatch with body `params.uri` on `resources/read` returns HTTP 400 Bad Request with HeaderMismatch (-32020).
+#[tokio::test]
+async fn test_mcp_router_mcp_uri_mismatch_for_resources_read() {
+    let app = McpRouter::new(test_server_info())
+        .register_resource(("file:///config.json", "Config"), || async {
+            "config data"
+        });
+
+    let req = Request::builder()
+        .method("POST")
+        .uri("/")
+        .header("Mcp-Method", "resources/read")
+        .header("Mcp-Uri", "file:///config.json")
+        .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
+        .body(Body::from(
+            json!({
+                "id": 1,
+                "method": "resources/read",
+                "params": {
+                    "uri": "file:///other.json"
+                }
+            })
+            .to_string(),
+        ))
+        .unwrap();
+
+    let resp = app.oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+
+    let bytes = resp.into_body().collect().await.unwrap().to_bytes();
+    let err_resp: JsonRpcErrorResponse = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(
+        err_resp.error.code.code(),
+        crate::types::mcp::HEADER_MISMATCH
+    );
+}
+
+/// Tests batch request handling with individual body methods when Mcp-Method header is omitted on the HTTP request.
+#[tokio::test]
+async fn test_mcp_router_batch_request_without_header_method() {
+    let app = McpRouter::new(test_server_info())
+        .instructions("Batch test")
+        .register_tool("echo", mock_handler);
+
+    let req = Request::builder()
+        .method("POST")
+        .uri("/")
+        .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
+        .body(Body::from(
+            json!([
+                { "id": 1, "method": "server/discover" },
+                { "id": 2, "method": "tools/list" }
+            ])
+            .to_string(),
+        ))
+        .unwrap();
+
+    let resp = app.oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let bytes = resp.into_body().collect().await.unwrap().to_bytes();
+    let batch_res: Vec<serde_json::Value> = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(batch_res.len(), 2);
+    assert_eq!(batch_res[0]["id"], 1.0);
+    assert_eq!(batch_res[1]["id"], 2.0);
 }

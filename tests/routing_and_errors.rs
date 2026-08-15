@@ -53,9 +53,9 @@ async fn test_slash_normalization_in_headers_and_body() {
     assert_eq!(status1, StatusCode::OK);
     assert_eq!(body1["result"]["content"][0]["text"], "success");
 
-    // 2. Body method with leading and trailing slashes
+    // 2. Body method with leading and trailing slashes matching header
     let req2 = common::build_request(
-        None,
+        Some("/tools/list/"),
         None,
         json!({
             "jsonrpc": "2.0",
@@ -67,10 +67,10 @@ async fn test_slash_normalization_in_headers_and_body() {
     assert_eq!(status2, StatusCode::OK);
     assert_eq!(body2["result"]["tools"].as_array().unwrap().len(), 1);
 
-    // 3. Body tool name with leading and trailing slashes
+    // 3. Body tool name with leading and trailing slashes matching header
     let req3 = common::build_request(
         Some("tools/call"),
-        None,
+        Some("/echo_tool/"),
         json!({
             "jsonrpc": "2.0",
             "id": 3,
@@ -85,7 +85,7 @@ async fn test_slash_normalization_in_headers_and_body() {
     assert_eq!(body3["result"]["content"][0]["text"], "success");
 }
 
-/// Tests that requests lacking a method in both the `Mcp-Method` header and the JSON body return `Invalid Request` (-32600).
+/// Tests that requests lacking a method in the `Mcp-Method` header return `HeaderMismatch` (-32020).
 #[tokio::test]
 async fn test_missing_method_returns_invalid_request() {
     let app = McpRouter::new(common::sample_server_info());
@@ -110,7 +110,10 @@ async fn test_missing_method_returns_invalid_request() {
     let err_resp: JsonRpcErrorResponse = serde_json::from_value(body).unwrap();
     assert_eq!(err_resp.jsonrpc, "2.0");
     assert_eq!(err_resp.id, Some(1.into()));
-    assert_eq!(err_resp.error.code.code(), INVALID_REQUEST_CODE);
+    assert_eq!(
+        err_resp.error.code.code(),
+        mcp_routing::types::mcp::HEADER_MISMATCH
+    );
 }
 
 /// Tests that requests with an empty `Mcp-Method` header string return `Invalid Request` (-32600).

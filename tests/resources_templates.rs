@@ -13,8 +13,7 @@ use mcp_routing::{
 use tower::Service;
 
 fn create_test_server() -> Implementation {
-    Implementation::new("test-template-server", "1.0.0")
-        .with_title("Test Template Server")
+    Implementation::new("test-template-server", "1.0.0").with_title("Test Template Server")
 }
 
 #[tokio::test]
@@ -32,6 +31,7 @@ async fn test_resource_templates_list_empty() {
         .uri("/mcp")
         .header("Content-Type", "application/json")
         .header("MCP-Protocol-Version", "2026-07-28")
+        .header("Mcp-Method", "resources/templates/list")
         .body(req_body.to_string())
         .unwrap();
 
@@ -81,6 +81,7 @@ async fn test_resource_templates_list_multiple_rich_templates() {
         .uri("/mcp")
         .header("Content-Type", "application/json")
         .header("MCP-Protocol-Version", "2026-07-28")
+        .header("Mcp-Method", "resources/templates/list")
         .body(req_body.to_string())
         .unwrap();
 
@@ -98,22 +99,17 @@ async fn test_resource_templates_list_multiple_rich_templates() {
     assert_eq!(templates[0]["title"], "Local Files");
     assert_eq!(templates[0]["annotations"]["priority"], 0.8);
 
-    assert_eq!(
-        templates[1]["uriTemplate"],
-        "postgres://{schema}/{table}"
-    );
+    assert_eq!(templates[1]["uriTemplate"], "postgres://{schema}/{table}");
     assert_eq!(templates[1]["name"], "Database Tables");
 }
 
 #[tokio::test]
 async fn test_resource_templates_dynamic_read_dispatching() {
     let tmpl = ResourceTemplate::new("file:///{+path}", "Files");
-    let mut router = McpRouter::new(create_test_server()).register_resource_template(
-        tmpl,
-        |uri: String| async move {
+    let mut router = McpRouter::new(create_test_server())
+        .register_resource_template(tmpl, |uri: String| async move {
             format!("Dynamically read file from {uri}")
-        },
-    );
+        });
 
     let req_body = serde_json::json!({
         "jsonrpc": "2.0",
@@ -129,6 +125,8 @@ async fn test_resource_templates_dynamic_read_dispatching() {
         .uri("/mcp")
         .header("Content-Type", "application/json")
         .header("MCP-Protocol-Version", "2026-07-28")
+        .header("Mcp-Method", "resources/read")
+        .header("Mcp-Uri", "file:///src/models/user.rs")
         .body(req_body.to_string())
         .unwrap();
 
@@ -167,7 +165,12 @@ async fn test_resource_templates_list_caching_directives() {
     let response = router.call(request).await.unwrap();
     assert_eq!(response.status(), 200);
     assert_eq!(
-        response.headers().get("Cache-Control").unwrap().to_str().unwrap(),
+        response
+            .headers()
+            .get("Cache-Control")
+            .unwrap()
+            .to_str()
+            .unwrap(),
         "public, max-age=180"
     );
 

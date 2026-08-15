@@ -387,7 +387,10 @@ mod tests {
         assert_eq!(params.argument.name, "language");
         assert_eq!(params.argument.value, "py");
         assert_eq!(
-            params.context.as_ref().and_then(|c| c.get_argument("framework")),
+            params
+                .context
+                .as_ref()
+                .and_then(|c| c.get_argument("framework")),
             Some("fastapi")
         );
     }
@@ -406,7 +409,10 @@ mod tests {
         assert_eq!(json["completion"]["hasMore"], true);
 
         let parsed: CompleteResult = serde_json::from_value(json).unwrap();
-        assert_eq!(parsed.completion.values, vec!["python", "pytorch", "pyside"]);
+        assert_eq!(
+            parsed.completion.values,
+            vec!["python", "pytorch", "pyside"]
+        );
         assert_eq!(parsed.completion.total, Some(10));
         assert_eq!(parsed.completion.has_more, Some(true));
     }

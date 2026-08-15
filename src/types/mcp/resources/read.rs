@@ -98,11 +98,7 @@ impl ReadResourceResult {
     }
 
     /// Sets the caching directives on the read result.
-    pub fn with_cache(
-        mut self,
-        ttl_ms: Option<u64>,
-        cache_scope: Option<CacheScope>,
-    ) -> Self {
+    pub fn with_cache(mut self, ttl_ms: Option<u64>, cache_scope: Option<CacheScope>) -> Self {
         self.ttl_ms = ttl_ms;
         self.cache_scope = cache_scope;
         self
@@ -186,22 +182,15 @@ mod tests {
 
     #[test]
     fn test_read_resource_result_constructors() {
-        let res_text = ReadResourceResult::text(
-            "file:///memo.txt",
-            "Antigravity notes",
-            Some("text/plain"),
-        );
+        let res_text =
+            ReadResourceResult::text("file:///memo.txt", "Antigravity notes", Some("text/plain"));
         assert_eq!(res_text.contents.len(), 1);
         assert_eq!(res_text.ttl_ms, Some(0));
         assert_eq!(res_text.cache_scope, Some(CacheScope::Public));
         assert!(matches!(res_text.contents[0], ResourceContents::Text(_)));
 
-        let res_blob = ReadResourceResult::blob(
-            "file:///image.png",
-            "aGVsbG8=",
-            Some("image/png"),
-        )
-        .with_cache(Some(3600000), Some(CacheScope::Private));
+        let res_blob = ReadResourceResult::blob("file:///image.png", "aGVsbG8=", Some("image/png"))
+            .with_cache(Some(3600000), Some(CacheScope::Private));
         assert_eq!(res_blob.contents.len(), 1);
         assert_eq!(res_blob.ttl_ms, Some(3600000));
         assert_eq!(res_blob.cache_scope, Some(CacheScope::Private));

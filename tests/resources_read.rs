@@ -20,10 +20,10 @@ fn create_test_server() -> Implementation {
 #[tokio::test]
 async fn test_resources_read_exact_match_success() {
     let res = Resource::new("file:///project/README.md", "README");
-    let mut router = McpRouter::new(create_test_server()).register_resource(
-        res,
-        |uri: String| async move { format!("Content of {uri}") },
-    );
+    let mut router =
+        McpRouter::new(create_test_server()).register_resource(res, |uri: String| async move {
+            format!("Content of {uri}")
+        });
 
     let req_body = serde_json::json!({
         "jsonrpc": "2.0",
@@ -39,6 +39,8 @@ async fn test_resources_read_exact_match_success() {
         .uri("/mcp")
         .header("Content-Type", "application/json")
         .header("MCP-Protocol-Version", "2026-07-28")
+        .header("Mcp-Method", "resources/read")
+        .header("Mcp-Uri", "file:///project/README.md")
         .body(req_body.to_string())
         .unwrap();
 
@@ -55,10 +57,7 @@ async fn test_resources_read_exact_match_success() {
     let contents = resp_json["result"]["contents"].as_array().unwrap();
     assert_eq!(contents.len(), 1);
     assert_eq!(contents[0]["uri"], "file:///project/README.md");
-    assert_eq!(
-        contents[0]["text"],
-        "Content of file:///project/README.md"
-    );
+    assert_eq!(contents[0]["text"], "Content of file:///project/README.md");
 }
 
 #[tokio::test]
@@ -74,7 +73,17 @@ async fn test_resources_read_header_routing_with_uri() {
         .header("MCP-Protocol-Version", "2026-07-28")
         .header("Mcp-Method", "resources/read")
         .header("Mcp-Uri", "memo://meeting-notes")
-        .body(serde_json::json!({ "jsonrpc": "2.0", "id": 42 }).to_string())
+        .body(
+            serde_json::json!({
+                "jsonrpc": "2.0",
+                "id": 42,
+                "method": "resources/read",
+                "params": {
+                    "uri": "memo://meeting-notes"
+                }
+            })
+            .to_string(),
+        )
         .unwrap();
 
     let response = router.call(request).await.unwrap();
@@ -93,8 +102,8 @@ async fn test_resources_read_header_routing_with_uri() {
 #[tokio::test]
 async fn test_resources_read_header_routing_with_name_header_fallback() {
     let res = Resource::new("memo://system-status", "System Status");
-    let mut router =
-        McpRouter::new(create_test_server()).register_resource(res, || async { "All systems nominal" });
+    let mut router = McpRouter::new(create_test_server())
+        .register_resource(res, || async { "All systems nominal" });
 
     let request = Request::builder()
         .method("POST")
@@ -103,7 +112,17 @@ async fn test_resources_read_header_routing_with_name_header_fallback() {
         .header("MCP-Protocol-Version", "2026-07-28")
         .header("Mcp-Method", "resources/read")
         .header("Mcp-Name", "memo://system-status")
-        .body(serde_json::json!({ "jsonrpc": "2.0", "id": 10 }).to_string())
+        .body(
+            serde_json::json!({
+                "jsonrpc": "2.0",
+                "id": 10,
+                "method": "resources/read",
+                "params": {
+                    "uri": "memo://system-status"
+                }
+            })
+            .to_string(),
+        )
         .unwrap();
 
     let response = router.call(request).await.unwrap();
@@ -120,7 +139,7 @@ async fn test_resources_read_header_routing_with_name_header_fallback() {
 }
 
 #[tokio::test]
-async fn test_resources_read_header_uri_precedence_over_body() {
+async fn test_resources_read_header_body_mismatch_returns_header_mismatch() {
     let res1 = Resource::new("memo://primary", "Primary");
     let res2 = Resource::new("memo://secondary", "Secondary");
 
@@ -139,6 +158,7 @@ async fn test_resources_read_header_uri_precedence_over_body() {
             serde_json::json!({
                 "jsonrpc": "2.0",
                 "id": 1,
+                "method": "resources/read",
                 "params": {
                     "uri": "memo://secondary"
                 }
@@ -148,15 +168,14 @@ async fn test_resources_read_header_uri_precedence_over_body() {
         .unwrap();
 
     let response = router.call(request).await.unwrap();
-    assert_eq!(response.status(), 200);
+    assert_eq!(response.status(), 400);
 
     let body_bytes = response.into_body().collect().await.unwrap().to_bytes();
     let resp_json: serde_json::Value = serde_json::from_slice(&body_bytes).unwrap();
 
-    assert_eq!(resp_json["id"], 1.0);
     assert_eq!(
-        resp_json["result"]["contents"][0]["text"],
-        "primary content"
+        resp_json["error"]["code"],
+        mcp_routing::types::mcp::HEADER_MISMATCH
     );
 }
 
@@ -165,22 +184,22 @@ async fn test_resources_read_blob_content() {
     let res = Resource::new("file:///data/binary.dat", "Binary Data")
         .mime_type("application/octet-stream");
 
-    let mut router = McpRouter::new(create_test_server()).register_resource(
-        res,
-        |uri: String| async move {
+    let mut router =
+        McpRouter::new(create_test_server()).register_resource(res, |uri: String| async move {
             Ok::<_, String>(ReadResourceResult::blob(
                 uri,
                 "aGVsbG8gd29ybGQ=", // "hello world" in base64
                 Some("application/octet-stream"),
             ))
-        },
-    );
+        });
 
     let request = Request::builder()
         .method("POST")
         .uri("/mcp")
         .header("Content-Type", "application/json")
         .header("MCP-Protocol-Version", "2026-07-28")
+        .header("Mcp-Method", "resources/read")
+        .header("Mcp-Uri", "file:///data/binary.dat")
         .body(
             serde_json::json!({
                 "jsonrpc": "2.0",
@@ -242,6 +261,8 @@ async fn test_resources_read_with_extractors() {
         .uri("/mcp")
         .header("Content-Type", "application/json")
         .header("MCP-Protocol-Version", "2026-07-28")
+        .header("Mcp-Method", "resources/read")
+        .header("Mcp-Uri", "config://app")
         .header("Mcp-Session-Id", "sess-res-123")
         .header("Authorization", "Bearer my-secret-token")
         .body(
@@ -285,6 +306,8 @@ async fn test_resources_read_with_caching_directives() {
         .uri("/mcp")
         .header("Content-Type", "application/json")
         .header("MCP-Protocol-Version", "2026-07-28")
+        .header("Mcp-Method", "resources/read")
+        .header("Mcp-Uri", "file:///cacheable/data.json")
         .body(
             serde_json::json!({
                 "jsonrpc": "2.0",
@@ -301,7 +324,12 @@ async fn test_resources_read_with_caching_directives() {
     let response = router.call(request).await.unwrap();
     assert_eq!(response.status(), 200);
     assert_eq!(
-        response.headers().get("Cache-Control").unwrap().to_str().unwrap(),
+        response
+            .headers()
+            .get("Cache-Control")
+            .unwrap()
+            .to_str()
+            .unwrap(),
         "public, max-age=300"
     );
 
@@ -320,11 +348,16 @@ async fn test_resources_read_missing_uri_returns_invalid_params() {
         .uri("/mcp")
         .header("Content-Type", "application/json")
         .header("MCP-Protocol-Version", "2026-07-28")
+        .header("Mcp-Method", "resources/read")
+        .header("Mcp-Uri", "")
         .body(
             serde_json::json!({
                 "jsonrpc": "2.0",
                 "id": 1,
-                "method": "resources/read"
+                "method": "resources/read",
+                "params": {
+                    "uri": ""
+                }
             })
             .to_string(),
         )
@@ -342,7 +375,7 @@ async fn test_resources_read_missing_uri_returns_invalid_params() {
         resp_json["error"]["message"]
             .as_str()
             .unwrap()
-            .contains("missing resource uri")
+            .contains("empty resource uri")
     );
 }
 
@@ -355,6 +388,8 @@ async fn test_resources_read_unknown_resource_returns_invalid_params() {
         .uri("/")
         .header("Content-Type", "application/json")
         .header("MCP-Protocol-Version", "2026-07-28")
+        .header("Mcp-Method", "resources/read")
+        .header("Mcp-Uri", "file:///non_existent.txt")
         .body(
             serde_json::json!({
                 "jsonrpc": "2.0",
@@ -396,6 +431,8 @@ async fn test_resources_read_business_logic_error_returns_internal_error() {
         .uri("/mcp")
         .header("Content-Type", "application/json")
         .header("MCP-Protocol-Version", "2026-07-28")
+        .header("Mcp-Method", "resources/read")
+        .header("Mcp-Uri", "file:///error.txt")
         .body(
             serde_json::json!({
                 "jsonrpc": "2.0",

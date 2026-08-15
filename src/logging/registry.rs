@@ -257,6 +257,7 @@ mod tests {
         let ctx = MethodContext {
             req_id: Some(JsonRpcRequestId::Number(1.0)),
             is_notification: false,
+            is_batch: false,
             header_name: None,
             session_id: Some(SessionId::new("sess-1")),
             headers: &headers,
@@ -286,6 +287,7 @@ mod tests {
         let ctx = MethodContext {
             req_id: Some(JsonRpcRequestId::String("id-2".into())),
             is_notification: false,
+            is_batch: false,
             header_name: None,
             session_id: None,
             headers: &headers,
@@ -311,6 +313,7 @@ mod tests {
         let ctx = MethodContext {
             req_id: Some(JsonRpcRequestId::Number(3.0)),
             is_notification: false,
+            is_batch: false,
             header_name: None,
             session_id: None,
             headers: &headers,

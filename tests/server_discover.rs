@@ -106,14 +106,9 @@ async fn test_server_discover_via_header() {
     ));
 }
 
-/// Tests that omitting the `Mcp-Method` HTTP header falls back to inspecting the JSON-RPC body method.
-///
-/// Verifies:
-/// - Request containing `"method": "server/discover"` in JSON payload is correctly dispatched
-/// - Numeric JSON-RPC request IDs (`999`) are preserved
-/// - Default capabilities (with tool support enabled) and empty instructions are returned
+/// Tests that omitting `Mcp-Method` header on `server/discover` returns HTTP 400 Bad Request with HeaderMismatch (-32020).
 #[tokio::test]
-async fn test_server_discover_via_body_fallback() {
+async fn test_server_discover_missing_method_header_returns_header_mismatch() {
     let server_info = Implementation::new("minimal-server", "0.0.1");
     let app = McpRouter::new(server_info);
 
@@ -130,15 +125,11 @@ async fn test_server_discover_via_body_fallback() {
 
     let (status, _headers, body) = common::execute_request(app, req).await;
 
-    assert_eq!(status, StatusCode::OK);
-    let res: ServerDiscoverResultResponse = serde_json::from_value(body).unwrap();
-    assert_eq!(res.id, 999.into());
+    assert_eq!(status, StatusCode::BAD_REQUEST);
     assert_eq!(
-        res.result.meta.unwrap().server_info.unwrap().name,
-        "minimal-server"
+        body["error"]["code"],
+        mcp_routing::types::mcp::HEADER_MISMATCH
     );
-    assert_eq!(res.result.instructions, None);
-    assert!(res.result.capabilities.tools.is_some());
 }
 
 /// Tests configuring custom server capabilities and multiple supported protocol versions.
@@ -350,7 +341,10 @@ async fn test_server_discover_protocol_version_negotiation_failure() {
     assert_eq!(status, StatusCode::BAD_REQUEST);
 
     assert_eq!(body["jsonrpc"], "2.0");
-    assert_eq!(body["error"]["code"], mcp_routing::types::mcp::UNSUPPORTED_PROTOCOL_VERSION);
+    assert_eq!(
+        body["error"]["code"],
+        mcp_routing::types::mcp::UNSUPPORTED_PROTOCOL_VERSION
+    );
     assert!(
         body["error"]["message"]
             .as_str()
@@ -387,13 +381,13 @@ async fn test_server_discover_protocol_version_header_body_mismatch() {
 
     assert_eq!(body["jsonrpc"], "2.0");
     assert_eq!(body["id"], "ver-mismatch");
-    assert_eq!(body["error"]["code"], mcp_routing::types::mcp::HEADER_MISMATCH);
-    assert!(
-        body["error"]["message"]
-            .as_str()
-            .unwrap()
-            .contains("MCP-Protocol-Version header value '2026-07-28' does not match body value '2024-11-05'")
+    assert_eq!(
+        body["error"]["code"],
+        mcp_routing::types::mcp::HEADER_MISMATCH
     );
+    assert!(body["error"]["message"].as_str().unwrap().contains(
+        "MCP-Protocol-Version header value '2026-07-28' does not match body value '2024-11-05'"
+    ));
 }
 
 /// Tests that disabling protocol version validation allows any client requested protocol version.
@@ -538,8 +532,7 @@ async fn test_server_discover_dynamic_provider_returning_result_with_cache() {
     }
 
     let server_info = Implementation::new("dynamic-cache-server", "1.0.0");
-    let app =
-        McpRouter::new(server_info).discover(custom_discover_result_provider);
+    let app = McpRouter::new(server_info).discover(custom_discover_result_provider);
 
     let req = common::build_request(
         Some("server/discover"),

@@ -148,9 +148,9 @@ async fn test_prompts_list_multiple_rich_prompts() {
     assert_eq!(p3.name, "cow_prompt");
 }
 
-/// Tests `prompts/list` dispatch when the `Mcp-Method` HTTP header is omitted.
+/// Tests that omitting `Mcp-Method` HTTP header on `prompts/list` returns HTTP 400 Bad Request with HeaderMismatch (-32020).
 #[tokio::test]
-async fn test_prompts_list_via_body_fallback() {
+async fn test_prompts_list_missing_method_header_returns_header_mismatch() {
     let app = McpRouter::new(common::sample_server_info())
         .register_prompt(common::sample_prompt("body_prompt"), dummy_prompt_handler);
 
@@ -166,11 +166,11 @@ async fn test_prompts_list_via_body_fallback() {
 
     let (status, _headers, body) = common::execute_request(app, req).await;
 
-    assert_eq!(status, StatusCode::OK);
-    let res: ListPromptsResultResponse = serde_json::from_value(body).unwrap();
-    assert_eq!(res.id, 100.into());
-    assert_eq!(res.result.prompts.len(), 1);
-    assert_eq!(res.result.prompts[0].name, "body_prompt");
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert_eq!(
+        body["error"]["code"],
+        mcp_routing::types::mcp::HEADER_MISMATCH
+    );
 }
 
 /// Tests passing pagination `cursor` and protocol `_meta` in `prompts/list` requests.

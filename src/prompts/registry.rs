@@ -236,32 +236,27 @@ impl PromptRegistry {
             None => None,
         };
 
-        let prompt_name =
-            resolve_prompt_name(ctx.header_name, params.as_ref().map(|p| p.name.as_str()));
-
-        let Some(prompt_name) = prompt_name else {
-            tracing::debug!("Missing prompt name for prompts/get");
-            return if ctx.is_notification {
-                DispatchOutcome::notification()
-            } else {
-                DispatchOutcome::error(JsonRpcErrorResponse::invalid_params(
-                    ctx.req_id,
-                    "Invalid params: missing prompt name",
-                ))
-            };
+        let (meta, arguments, params_name) = match params {
+            Some(p) => (p.meta, p.arguments, Some(p.name)),
+            None => (None, None, None),
         };
 
-        if prompt_name.is_empty() {
-            tracing::debug!("Empty prompt name for prompts/get");
-            return if ctx.is_notification {
-                DispatchOutcome::notification()
-            } else {
-                DispatchOutcome::error(JsonRpcErrorResponse::invalid_params(
-                    ctx.req_id,
-                    "Invalid params: empty prompt name",
-                ))
-            };
-        }
+        let prompt_name = match resolve_prompt_name(
+            ctx.header_name,
+            params_name.as_deref(),
+            ctx.is_batch,
+            "prompt name",
+        ) {
+            Ok(name) => name,
+            Err(mut err) => {
+                err.id = ctx.req_id;
+                return if ctx.is_notification {
+                    DispatchOutcome::notification()
+                } else {
+                    DispatchOutcome::error(err)
+                };
+            }
+        };
 
         let Some(handler) = self.prompt_handlers.get(prompt_name) else {
             tracing::debug!(prompt_name, "Prompt not found");
@@ -280,10 +275,6 @@ impl PromptRegistry {
             .get(prompt_name)
             .cloned()
             .unwrap_or((None, None));
-        let (meta, arguments) = match params {
-            Some(p) => (p.meta, p.arguments),
-            None => (None, None),
-        };
         let request_ctx =
             RequestContext::new(ctx.session_id, meta, ctx.headers.clone(), ctx.extensions);
         let result = handler.call(request_ctx, arguments).await;
@@ -369,28 +360,20 @@ impl PromptRegistry {
             }
         };
 
-        let prompt_name = resolve_prompt_name(
+        let prompt_name = match resolve_prompt_name(
             header_name,
             request.params.as_ref().map(|p| p.name.as_str()),
-        );
-
-        let Some(prompt_name) = prompt_name else {
-            tracing::debug!("Missing prompt name for prompts/get");
-            let error_response = JsonRpcErrorResponse::invalid_params(
-                Some(request.id),
-                "Invalid params: missing prompt name",
-            );
-            return json_response(&error_response);
+            false,
+            "prompt name",
+        ) {
+            Ok(name) => name,
+            Err(mut err) => {
+                err.id = req_id.or(Some(request.id));
+                let status =
+                    crate::types::mcp::mcp_error_code_to_http_status(err.error.code.code());
+                return crate::body::json_response_with_status(status, &err);
+            }
         };
-
-        if prompt_name.is_empty() {
-            tracing::debug!("Empty prompt name for prompts/get");
-            let error_response = JsonRpcErrorResponse::invalid_params(
-                Some(request.id),
-                "Invalid params: empty prompt name",
-            );
-            return json_response(&error_response);
-        }
 
         if let Some(handler) = self.prompt_handlers.get(prompt_name) {
             let (prompt_ttl, prompt_scope) = self

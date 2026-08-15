@@ -7,8 +7,9 @@ description: "Guidelines for strict MCP 2026-07-28 specification compliance and 
 # MCP Server Implementation Guidelines
 
 ## 1. Protocol Specification Strictness
-- **Strict Schema Validation**: Adhere strictly to the Model Context Protocol specification JSON Schema (`2026-07-28`). Do not add `#[serde(default)]` to fields that are marked as required in the MCP schema (e.g., `name` in `CallToolParams`).
+- **Strict Schema Validation & Deserialization**: Adhere strictly to the Model Context Protocol specification JSON Schema (`2026-07-28`). Never add `#[serde(default)]` or default to empty values for fields marked as required by the specification (e.g., `name` in `CallToolParams` and `GetPromptParams`, `uri` in `ReadResourceParams`). Omitted required parameters must fail deserialization immediately and return JSON-RPC `-32602` (`InvalidParams`).
 - **Exact Method Matching**: MCP JSON-RPC `method` strings are exact identifiers (`server/discover`, `tools/list`, `tools/call`). Never introduce or accommodate non-standard compound methods (such as `tools/call/<name>`).
+- **No Unnecessary Backwards Compatibility Layers**: Enforce current normative specification requirements (such as Streamable HTTP headers `Mcp-Method`, `Mcp-Name`, and `Mcp-Uri`) strictly and directly. Avoid adding legacy fallback modes, backwards compatibility flags, or loose compatibility branches unless explicitly requested.
 - **Clean Protocol Layering & Separation**: Do not mix higher-level MCP domain protocol types, error codes (`-32020` through `-32022`), or data structures into generic lower-level transport/framing modules (e.g. `src/types/jsonrpc/`). Keep generic JSON-RPC 2.0 types pure to the JSON-RPC 2.0 specification, and define all MCP-specific extensions, errors, and schemas strictly in `src/types/mcp/`.
 
 ## 2. Modular Tower Service Architecture

@@ -89,9 +89,9 @@ impl McpRouterInner {
             .get::<crate::extract::CurrentLoggingLevel>()
             .is_none()
         {
-            parts
-                .extensions
-                .insert(crate::extract::CurrentLoggingLevel(self.logging.current_level()));
+            parts.extensions.insert(crate::extract::CurrentLoggingLevel(
+                self.logging.current_level(),
+            ));
         }
         for injector in &self.state_injectors {
             injector(&mut parts.extensions);
@@ -113,7 +113,10 @@ impl McpRouterInner {
                 tracing::debug!(?err, "Failed to parse JSON body");
                 let error_response =
                     JsonRpcErrorResponse::parse_error(format!("Parse error: {err}"));
-                return attach_session(json_response_with_status(StatusCode::BAD_REQUEST, &error_response));
+                return attach_session(json_response_with_status(
+                    StatusCode::BAD_REQUEST,
+                    &error_response,
+                ));
             }
         };
 
@@ -155,6 +158,7 @@ impl McpRouterInner {
                         &parts.headers,
                         session_id.clone(),
                         Arc::clone(&extensions),
+                        false,
                     )
                     .await;
 

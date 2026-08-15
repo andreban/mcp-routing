@@ -52,4 +52,3 @@ pub(crate) struct McpRouterInner {
     pub(crate) logging: LoggingRegistry,
     pub(crate) state_injectors: Vec<StateInjector>,
 }
-

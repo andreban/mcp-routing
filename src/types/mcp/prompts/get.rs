@@ -24,7 +24,6 @@ pub struct GetPromptParams<A = Value> {
     #[serde(rename = "_meta", skip_serializing_if = "Option::is_none")]
     pub meta: Option<RequestMetaObject>,
     /// The name of the prompt to retrieve.
-    #[serde(default)]
     pub name: String,
     /// Arguments to pass to the prompt template.
     #[serde(skip_serializing_if = "Option::is_none")]

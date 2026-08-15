@@ -277,19 +277,52 @@ mod tests {
         assert_eq!(LoggingLevel::Debug.to_string(), "debug");
         assert_eq!(LoggingLevel::Emergency.to_string(), "emergency");
 
-        assert_eq!("debug".parse::<LoggingLevel>().unwrap(), LoggingLevel::Debug);
-        assert_eq!("WARN".parse::<LoggingLevel>().unwrap(), LoggingLevel::Warning);
-        assert_eq!("Error".parse::<LoggingLevel>().unwrap(), LoggingLevel::Error);
-        assert_eq!("emerg".parse::<LoggingLevel>().unwrap(), LoggingLevel::Emergency);
+        assert_eq!(
+            "debug".parse::<LoggingLevel>().unwrap(),
+            LoggingLevel::Debug
+        );
+        assert_eq!(
+            "WARN".parse::<LoggingLevel>().unwrap(),
+            LoggingLevel::Warning
+        );
+        assert_eq!(
+            "Error".parse::<LoggingLevel>().unwrap(),
+            LoggingLevel::Error
+        );
+        assert_eq!(
+            "emerg".parse::<LoggingLevel>().unwrap(),
+            LoggingLevel::Emergency
+        );
         assert!("invalid".parse::<LoggingLevel>().is_err());
 
-        assert_eq!(LoggingLevel::Debug.as_tracing_level(), tracing::Level::DEBUG);
+        assert_eq!(
+            LoggingLevel::Debug.as_tracing_level(),
+            tracing::Level::DEBUG
+        );
         assert_eq!(LoggingLevel::Info.as_tracing_level(), tracing::Level::INFO);
-        assert_eq!(LoggingLevel::Notice.as_tracing_level(), tracing::Level::INFO);
-        assert_eq!(LoggingLevel::Warning.as_tracing_level(), tracing::Level::WARN);
-        assert_eq!(LoggingLevel::Error.as_tracing_level(), tracing::Level::ERROR);
-        assert_eq!(LoggingLevel::Critical.as_tracing_level(), tracing::Level::ERROR);
-        assert_eq!(LoggingLevel::Alert.as_tracing_level(), tracing::Level::ERROR);
-        assert_eq!(LoggingLevel::Emergency.as_tracing_level(), tracing::Level::ERROR);
+        assert_eq!(
+            LoggingLevel::Notice.as_tracing_level(),
+            tracing::Level::INFO
+        );
+        assert_eq!(
+            LoggingLevel::Warning.as_tracing_level(),
+            tracing::Level::WARN
+        );
+        assert_eq!(
+            LoggingLevel::Error.as_tracing_level(),
+            tracing::Level::ERROR
+        );
+        assert_eq!(
+            LoggingLevel::Critical.as_tracing_level(),
+            tracing::Level::ERROR
+        );
+        assert_eq!(
+            LoggingLevel::Alert.as_tracing_level(),
+            tracing::Level::ERROR
+        );
+        assert_eq!(
+            LoggingLevel::Emergency.as_tracing_level(),
+            tracing::Level::ERROR
+        );
     }
 }

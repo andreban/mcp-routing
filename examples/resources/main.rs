@@ -39,10 +39,7 @@ async fn system_status_handler(
     auth: Option<BearerAuth>,
     uri: String,
 ) -> Result<ReadResourceResult, String> {
-    let session_str = session
-        .as_ref()
-        .map(|s| s.as_str())
-        .unwrap_or("anonymous");
+    let session_str = session.as_ref().map(|s| s.as_str()).unwrap_or("anonymous");
     let auth_str = if auth.is_some() {
         "authenticated"
     } else {
@@ -71,11 +68,7 @@ async fn logo_blob_handler(uri: String) -> Result<ReadResourceResult, String> {
     // 1x1 transparent PNG encoded in Base64
     let png_base64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
 
-    Ok(ReadResourceResult::blob(
-        uri,
-        png_base64,
-        Some("image/png"),
-    ))
+    Ok(ReadResourceResult::blob(uri, png_base64, Some("image/png")))
 }
 
 /// Dynamic handler matching the `file:///{+path}` URI template.
@@ -88,11 +81,7 @@ async fn dynamic_file_handler(uri: String) -> Result<ReadResourceResult, String>
         other => format!("// Dynamic content for: {other}\n// Last synced: 2026-08-15"),
     };
 
-    Ok(ReadResourceResult::text(
-        uri,
-        content,
-        Some("text/x-rust"),
-    ))
+    Ok(ReadResourceResult::text(uri, content, Some("text/x-rust")))
 }
 
 /// Dynamic handler matching the `metrics://{service}/{window}` URI template.
@@ -161,13 +150,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 .priority(0.8),
         );
 
-    let metrics_template = ResourceTemplate::new(
-        "metrics://{service}/{window}",
-        "Service Metrics",
-    )
-    .title("Service Telemetry")
-    .description("Access performance and health telemetry for named microservices")
-    .mime_type("application/json");
+    let metrics_template = ResourceTemplate::new("metrics://{service}/{window}", "Service Metrics")
+        .title("Service Telemetry")
+        .description("Access performance and health telemetry for named microservices")
+        .mime_type("application/json");
 
     // 3. Build MCP Router with resources and templates
     let mcp_router = McpRouter::new(server_info)
@@ -200,13 +186,17 @@ async fn main() -> Result<(), Box<dyn Error>> {
     println!("🚀 Resources MCP Server listening on http://127.0.0.1:3000/mcp");
     println!("Available endpoints and resources:");
     println!("  📋 resources/list              -> list registered direct resources (cached 5m)");
-    println!("  📋 resources/templates/list    -> list registered RFC 6570 URI templates (cached 10m)");
+    println!(
+        "  📋 resources/templates/list    -> list registered RFC 6570 URI templates (cached 10m)"
+    );
     println!("  📖 resources/read              -> read resource contents:");
     println!("       - file:///workspace/README.md   (Markdown text, cached 1h)");
     println!("       - memo://system-status          (JSON health metrics with extractor context)");
     println!("       - file:///assets/logo.png       (Base64 PNG blob, cached 24h)");
     println!("       - file:///src/main.rs           (Matched dynamically via file:///{{+path}})");
-    println!("       - metrics://billing/1h          (Matched dynamically via metrics:///{{service}}/{{window}})");
+    println!(
+        "       - metrics://billing/1h          (Matched dynamically via metrics:///{{service}}/{{window}})"
+    );
 
     axum::serve(listener, app).await?;
     Ok(())

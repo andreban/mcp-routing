@@ -278,7 +278,8 @@ where
     }
 }
 
-impl<F, Fut, Res> IntoCompletionHandler<(Reference, CompleteArgument, Option<CompleteContext>)> for F
+impl<F, Fut, Res> IntoCompletionHandler<(Reference, CompleteArgument, Option<CompleteContext>)>
+    for F
 where
     F: Fn(Reference, CompleteArgument, Option<CompleteContext>) -> Fut + Send + Sync + 'static,
     Fut: Future<Output = Res> + Send + 'static,

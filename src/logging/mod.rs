@@ -8,8 +8,8 @@ use std::sync::Arc;
 use crate::extract::{FromRequestContext, RequestContext};
 pub mod registry;
 
-pub use registry::LoggingRegistry;
 pub use crate::types::mcp::logging::{SetLevelParams, SetLevelResult};
+pub use registry::LoggingRegistry;
 
 /// Error type encountered during logging level changes.
 #[derive(Debug, Clone, PartialEq, Eq)]

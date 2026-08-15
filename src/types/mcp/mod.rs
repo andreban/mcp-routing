@@ -17,4 +17,3 @@ pub use logging::*;
 pub use resources::*;
 
 pub use crate::extract::SessionId;
-

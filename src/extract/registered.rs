@@ -401,8 +401,8 @@ impl FromRequestContext for Option<RegisteredResourceTemplates> {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
     use super::*;
+    use std::sync::Arc;
 
     #[test]
     fn test_registered_resources_and_templates_extractors() {

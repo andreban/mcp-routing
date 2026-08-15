@@ -26,7 +26,6 @@ pub struct CallToolParams<A = Value> {
     #[serde(rename = "_meta", skip_serializing_if = "Option::is_none")]
     pub meta: Option<RequestMetaObject>,
     /// The name of the tool to call.
-    #[serde(default)]
     pub name: String,
     /// Arguments to pass to the tool.
     #[serde(skip_serializing_if = "Option::is_none")]

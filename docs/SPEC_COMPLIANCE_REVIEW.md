@@ -140,11 +140,11 @@ This document itemizes all required changes and recommendations, categorized by 
 - **Current Implementation**:
   - `src/types/jsonrpc/error.rs` only defines standard JSON-RPC 2.0 codes (`-32700`, `-32600`, `-32601`, `-32602`, `-32603`) and generic `ServerError(i32)`.
 - **Action Items**:
-  - [ ] Add standard MCP error constants and enum variants to `src/types/jsonrpc/error.rs` or `src/types/mcp/core/error.rs`:
-    - `HEADER_MISMATCH_CODE` (`-32020`)
-    - `MISSING_REQUIRED_CLIENT_CAPABILITY_CODE` (`-32021`)
-    - `UNSUPPORTED_PROTOCOL_VERSION_CODE` (`-32022`)
-  - [ ] Add typed helper constructors on `JsonRpcError` for `header_mismatch`, `missing_required_client_capability`, and `unsupported_protocol_version`.
+  - [x] Add standard MCP error constants to `src/types/mcp/core/error.rs`:
+    - `HEADER_MISMATCH` (`-32020`)
+    - `MISSING_REQUIRED_CLIENT_CAPABILITY` (`-32021`)
+    - `UNSUPPORTED_PROTOCOL_VERSION` (`-32022`)
+  - [x] Add typed helper constructors on `JsonRpcError` and `JsonRpcErrorResponse` for `header_mismatch`, `missing_required_client_capability`, and `unsupported_protocol_version`.
 
 ---
 

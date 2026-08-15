@@ -83,6 +83,20 @@ impl McpRouter {
         self
     }
 
+    /// Configures allowed origins for DNS rebinding protection.
+    ///
+    /// When configured, incoming HTTP requests containing an `Origin` header that does not
+    /// match any of the allowed origins will be rejected with `HTTP 403 Forbidden`.
+    pub fn allowed_origins(
+        mut self,
+        origins: impl IntoIterator<Item = impl Into<String>>,
+    ) -> Self {
+        Arc::make_mut(&mut self.inner)
+            .server
+            .set_allowed_origins(origins);
+        self
+    }
+
     /// Registers a handler for generating server discovery metadata (`server/discover`).
     ///
     /// The handler function can take request extractors (such as [`RequestContext`](crate::extract::RequestContext),

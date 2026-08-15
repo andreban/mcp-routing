@@ -14,7 +14,7 @@ pub(crate) mod uri_template;
 
 pub(crate) use headers::{
     extract_body_protocol_version, extract_header_method, extract_header_name, extract_header_uri,
-    extract_protocol_version, extract_session_id, is_json_content_type,
+    extract_protocol_version, extract_session_id, is_json_content_type, is_origin_header_allowed,
 };
 pub(crate) use params::{extract_header_params_from_schema, validate_tool_header_params};
 pub(crate) use resolve::{

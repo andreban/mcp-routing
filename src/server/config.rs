@@ -29,6 +29,7 @@ pub struct ServerConfig {
     pub(crate) capabilities: ServerCapabilities,
     pub(crate) supported_versions: Vec<String>,
     pub(crate) validate_protocol_version: bool,
+    pub(crate) allowed_origins: Option<Vec<String>>,
     pub(crate) discover_ttl_ms: Option<u64>,
     pub(crate) discover_cache_scope: Option<CacheScope>,
     pub(crate) discovery_provider: Option<Arc<dyn ServerDiscoveryHandler>>,
@@ -50,6 +51,7 @@ impl ServerConfig {
             },
             supported_versions: vec!["2026-07-28".to_string()],
             validate_protocol_version: true,
+            allowed_origins: None,
             discover_ttl_ms: Some(0),
             discover_cache_scope: Some(CacheScope::Public),
             discovery_provider: None,
@@ -59,6 +61,19 @@ impl ServerConfig {
     /// Sets whether client protocol version must be validated against `supported_versions`.
     pub fn set_validate_protocol_version(&mut self, validate: bool) {
         self.validate_protocol_version = validate;
+    }
+
+    /// Sets the list of allowed origins for DNS rebinding protection.
+    ///
+    /// When configured, incoming requests with an `Origin` header that does not match
+    /// any allowed origin will be rejected with HTTP 403 Forbidden.
+    pub fn set_allowed_origins(&mut self, origins: impl IntoIterator<Item = impl Into<String>>) {
+        self.allowed_origins = Some(origins.into_iter().map(Into::into).collect());
+    }
+
+    /// Returns the configured allowed origins, if any.
+    pub fn allowed_origins(&self) -> Option<&[String]> {
+        self.allowed_origins.as_deref()
     }
 
     /// Sets a dynamic async server discovery provider.

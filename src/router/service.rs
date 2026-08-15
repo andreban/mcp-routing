@@ -13,13 +13,15 @@ use http_body_util::BodyExt;
 use tower::Service;
 
 use crate::body::{
-    BoxError, ResponseBody, bad_request, empty_response, json_response, json_response_with_caching,
-    json_response_with_status, method_not_allowed, unsupported_media_type,
+    bad_request, empty_response, forbidden, json_response, json_response_with_caching,
+    json_response_with_status, method_not_allowed, unsupported_media_type, BoxError, ResponseBody,
 };
 use crate::router::{McpRouter, McpRouterInner};
 use crate::types::jsonrpc::JsonRpcErrorResponse;
 use crate::types::mcp::{header_mismatch_error, unsupported_protocol_version_error};
-use crate::utils::{extract_protocol_version, extract_session_id, is_json_content_type};
+use crate::utils::{
+    extract_protocol_version, extract_session_id, is_json_content_type, is_origin_header_allowed,
+};
 
 impl McpRouterInner {
     /// Dispatches an incoming HTTP request into JSON-RPC handling.
@@ -50,6 +52,13 @@ impl McpRouterInner {
         if !is_json_content_type(req.headers()) {
             tracing::debug!("Missing or unsupported Content-Type header");
             return attach_session(unsupported_media_type());
+        }
+
+        if let Some(ref allowed) = self.server.allowed_origins {
+            if !is_origin_header_allowed(req.headers(), allowed) {
+                tracing::debug!("Rejected untrusted Origin header with 403 Forbidden");
+                return attach_session(forbidden());
+            }
         }
 
         if self.server.validate_protocol_version {

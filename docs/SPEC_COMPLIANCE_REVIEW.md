@@ -168,10 +168,12 @@ This document itemizes all required changes and recommendations, categorized by 
 - **Spec Requirement**:
   - "Servers MUST validate the `Origin` header on incoming HTTP requests to prevent DNS rebinding attacks. If the `Origin` is missing or does not match the server's expected origin(s), the server MUST respond with HTTP `403 Forbidden`." ([`streamable-http.md`](https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http.html#security))
 - **Current Implementation**:
-  - `src/router/service.rs` checks HTTP Method (`POST`) and `Content-Type` (`application/json`), but does not validate `Origin`.
+  - `ServerConfig` and `McpRouter` support configuring `allowed_origins(Vec<String>)`.
+  - `src/router/service.rs` inspects incoming `Origin` headers against the configured allowlist with case-insensitivity, trailing slash tolerance, and wildcard (`"*"`) support.
+  - Untrusted, blank, or invalid `Origin` headers are rejected immediately with HTTP `403 Forbidden`.
 - **Action Items**:
-  - [ ] Add origin validation configuration to `RouterConfig` / `ServerConfig` (e.g. `allowed_origins: Vec<String>`).
-  - [ ] Return `403 Forbidden` when an untrusted `Origin` header is received.
+  - [x] Add origin validation configuration to `RouterConfig` / `ServerConfig` (e.g. `allowed_origins: Vec<String>`).
+  - [x] Return `403 Forbidden` when an untrusted `Origin` header is received.
 
 ---
 
@@ -237,7 +239,7 @@ This document itemizes all required changes and recommendations, categorized by 
 | **`ResourceLink` Discriminator Tag** | ✅ Compliant | `schema.ts:1720` | Rename tag `"resourceLink"` -> `"resource_link"` |
 | **`CompleteResult.resultType`** | ⚠️ Fix Required | `schema.ts:2644` | Add `result_type` field |
 | **Standard MCP Error Codes (`-32020..-32022`)** | ✅ Compliant | `schema.ts:435-535` | Defined in `mcp::core::error` with typed constructors |
-| **`Origin` Header Security** | 💡 Missing Feature | `streamable-http.md` | Validate `Origin` header to prevent DNS rebinding |
+| **`Origin` Header Security** | ✅ Compliant | `streamable-http.md` | Validate `Origin` header to prevent DNS rebinding (`403 Forbidden`) |
 | **Custom Header Params (`x-mcp-header`)** | ✅ Compliant | `streamable-http.md` | Support `Mcp-Param-{Name}` matching |
 | **Multi Round-Trip Requests (MRTR)** | 💡 Missing Feature | `schema.ts:580-618` | Implement `InputRequiredResult` & retry params |
 | **Capabilities Extensions & Roots** | 💡 Missing Feature | `schema.ts:1018,1056` | Add `extensions` & `roots` to capability structs |

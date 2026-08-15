@@ -123,6 +123,11 @@ pub(crate) fn bad_request() -> Response<ResponseBody> {
     empty_response(StatusCode::BAD_REQUEST)
 }
 
+/// Helper function to construct an empty 403 Forbidden response.
+pub(crate) fn forbidden() -> Response<ResponseBody> {
+    empty_response(StatusCode::FORBIDDEN)
+}
+
 /// Helper function to construct an empty 405 Method Not Allowed response with `Allow: POST`.
 pub(crate) fn method_not_allowed() -> Response<ResponseBody> {
     Response::builder()
@@ -382,5 +387,14 @@ mod tests {
             resp.headers().get(header::ETAG).unwrap().to_str().unwrap(),
             expected_etag
         );
+    }
+
+    /// Tests `forbidden` response helper produces empty body with 403 Forbidden status.
+    #[tokio::test]
+    async fn test_forbidden_response() {
+        let resp = forbidden();
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+        let collected = resp.into_body().collect().await.unwrap().to_bytes();
+        assert!(collected.is_empty());
     }
 }

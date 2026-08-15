@@ -86,6 +86,41 @@ pub(crate) fn extract_protocol_version(headers: &HeaderMap) -> Option<&str> {
         .map(|s| s.trim())
 }
 
+/// Extracts the origin from the `Origin` HTTP header, trimming whitespace.
+pub(crate) fn extract_origin(headers: &HeaderMap) -> Option<&str> {
+    headers
+        .get(http::header::ORIGIN)
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+}
+
+/// Validates whether the given origin is permitted according to the allowed origins list.
+///
+/// Wildcard `"*"` matches any origin.
+/// Schemes and domain names are compared case-insensitively, ignoring trailing slashes.
+pub(crate) fn is_origin_allowed(origin: &str, allowed_origins: &[String]) -> bool {
+    let normalized_origin = origin.trim().trim_end_matches('/');
+    allowed_origins.iter().any(|allowed| {
+        let allowed_trimmed = allowed.trim().trim_end_matches('/');
+        allowed_trimmed == "*" || allowed_trimmed.eq_ignore_ascii_case(normalized_origin)
+    })
+}
+
+/// Validates whether the `Origin` header in the request is permitted.
+///
+/// If no `Origin` header is present (such as with non-browser clients), returns `true`.
+/// If the `Origin` header is present, it must be valid and match at least one allowed origin.
+pub(crate) fn is_origin_header_allowed(headers: &HeaderMap, allowed_origins: &[String]) -> bool {
+    if !headers.contains_key(http::header::ORIGIN) {
+        return true;
+    }
+    let Some(origin) = extract_origin(headers) else {
+        return false;
+    };
+    is_origin_allowed(origin, allowed_origins)
+}
+
 /// Extracts the `protocolVersion` specified in the request body metadata (`params._meta` or `_meta`), if present.
 pub(crate) fn extract_body_protocol_version(
     map: &serde_json::Map<String, serde_json::Value>,
@@ -286,5 +321,77 @@ mod tests {
             }))
             .unwrap();
         assert_eq!(extract_body_protocol_version(&body_without_meta), None);
+    }
+
+    /// Tests extracting the `Origin` HTTP header and trimming whitespace.
+    #[test]
+    fn test_extract_origin() {
+        let mut headers = HeaderMap::new();
+        assert_eq!(extract_origin(&headers), None);
+
+        headers.insert("Origin", "http://localhost:3000".parse().unwrap());
+        assert_eq!(extract_origin(&headers), Some("http://localhost:3000"));
+
+        headers.insert("Origin", "  https://example.com  ".parse().unwrap());
+        assert_eq!(extract_origin(&headers), Some("https://example.com"));
+
+        headers.insert("Origin", "   ".parse().unwrap());
+        assert_eq!(extract_origin(&headers), None);
+    }
+
+    /// Tests origin matching logic including case insensitivity, trailing slash tolerance, and wildcard support.
+    #[test]
+    fn test_is_origin_allowed() {
+        let allowed = vec![
+            "http://localhost:3000".to_string(),
+            "https://app.example.com".to_string(),
+        ];
+
+        // Exact match
+        assert!(is_origin_allowed("http://localhost:3000", &allowed));
+        // Case-insensitivity
+        assert!(is_origin_allowed("HTTP://LOCALHOST:3000", &allowed));
+        // Trailing slash tolerance
+        assert!(is_origin_allowed("http://localhost:3000/", &allowed));
+        assert!(is_origin_allowed("https://app.example.com", &allowed));
+        assert!(is_origin_allowed("https://app.example.com/", &allowed));
+
+        // Mismatched origins
+        assert!(!is_origin_allowed("http://localhost:8080", &allowed));
+        assert!(!is_origin_allowed("http://evil.com", &allowed));
+        assert!(!is_origin_allowed("null", &allowed));
+
+        // Wildcard allowed
+        let wildcard = vec!["*".to_string()];
+        assert!(is_origin_allowed("http://anything.com", &wildcard));
+        assert!(is_origin_allowed("null", &wildcard));
+    }
+
+    /// Tests origin header validation against allowed origins list.
+    #[test]
+    fn test_is_origin_header_allowed() {
+        let allowed = vec![
+            "http://localhost:3000".to_string(),
+            "https://app.example.com".to_string(),
+        ];
+
+        // No Origin header (non-browser client)
+        let headers_empty = HeaderMap::new();
+        assert!(is_origin_header_allowed(&headers_empty, &allowed));
+
+        // Valid Origin
+        let mut headers_valid = HeaderMap::new();
+        headers_valid.insert("Origin", "http://localhost:3000".parse().unwrap());
+        assert!(is_origin_header_allowed(&headers_valid, &allowed));
+
+        // Untrusted Origin
+        let mut headers_untrusted = HeaderMap::new();
+        headers_untrusted.insert("Origin", "http://attacker.com".parse().unwrap());
+        assert!(!is_origin_header_allowed(&headers_untrusted, &allowed));
+
+        // Empty Origin
+        let mut headers_blank = HeaderMap::new();
+        headers_blank.insert("Origin", "".parse().unwrap());
+        assert!(!is_origin_header_allowed(&headers_blank, &allowed));
     }
 }

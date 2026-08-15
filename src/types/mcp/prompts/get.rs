@@ -49,6 +49,7 @@ pub struct GetPromptResult {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
     /// The messages making up the prompt template.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub messages: Vec<PromptMessage>,
     /// Additional unrecognized or custom metadata properties.
     #[serde(flatten, skip_serializing_if = "HashMap::is_empty")]
@@ -71,6 +72,22 @@ impl GetPromptResult {
     pub fn with_description(mut self, description: impl Into<String>) -> Self {
         self.description = Some(description.into());
         self
+    }
+
+    /// Sets the result type discriminator string.
+    pub fn with_result_type(mut self, result_type: impl Into<String>) -> Self {
+        self.result_type = Some(result_type.into());
+        self
+    }
+
+    /// Returns `true` if this result indicates additional input is required (`resultType == "input_required"`).
+    pub fn is_input_required(&self) -> bool {
+        self.result_type.as_deref() == Some("input_required")
+    }
+
+    /// Returns the MRTR request state if present in the result.
+    pub fn request_state(&self) -> Option<&str> {
+        self.extras.get("requestState").and_then(|v| v.as_str())
     }
 
     /// Creates a [`GetPromptResult`] containing a single `user` text message.

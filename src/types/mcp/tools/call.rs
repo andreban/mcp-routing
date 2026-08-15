@@ -35,6 +35,39 @@ pub struct CallToolParams<A = Value> {
     pub extras: HashMap<String, Value>,
 }
 
+impl<A> CallToolParams<A> {
+    /// Returns the MRTR request state from params if present.
+    pub fn request_state(&self) -> Option<&str> {
+        self.extras.get("requestState").and_then(|v| v.as_str())
+    }
+
+    /// Returns the MRTR input responses from params if present.
+    pub fn input_responses(&self) -> Option<HashMap<String, crate::types::mcp::InputResponse>> {
+        self.extras
+            .get("inputResponses")
+            .cloned()
+            .and_then(|v| serde_json::from_value(v).ok())
+    }
+
+    /// Sets the MRTR request state in params.
+    pub fn with_request_state(mut self, state: impl Into<String>) -> Self {
+        self.extras
+            .insert("requestState".to_string(), Value::String(state.into()));
+        self
+    }
+
+    /// Sets the MRTR input responses in params.
+    pub fn with_input_responses(
+        mut self,
+        responses: HashMap<String, crate::types::mcp::InputResponse>,
+    ) -> Self {
+        if let Ok(v) = serde_json::to_value(responses) {
+            self.extras.insert("inputResponses".to_string(), v);
+        }
+        self
+    }
+}
+
 /// The server's response to a `tools/call` request.
 ///
 /// See <https://modelcontextprotocol.io/specification/2026-07-28/schema#calltoolresult>
@@ -147,6 +180,44 @@ impl CallToolResult<Value> {
         let structured_content = serde_json::to_value(value)?;
         Ok(Self::structured_with_content(structured_content, content))
     }
+
+    /// Creates an `InputRequiredResult`-style [`CallToolResult`] indicating that additional client input is needed (MRTR).
+    pub fn input_required(
+        input_requests: HashMap<String, crate::types::mcp::InputRequest>,
+        request_state: Option<String>,
+    ) -> Self {
+        let mut extras = HashMap::new();
+        if let Some(state) = request_state {
+            extras.insert("requestState".to_string(), Value::String(state));
+        }
+        if !input_requests.is_empty() {
+            if let Ok(v) = serde_json::to_value(input_requests) {
+                extras.insert("inputRequests".to_string(), v);
+            }
+        }
+        Self {
+            meta: None,
+            result_type: Some("input_required".to_string()),
+            content: Vec::new(),
+            is_error: None,
+            structured_content: None,
+            extras,
+        }
+    }
+
+    /// Creates an `InputRequiredResult`-style [`CallToolResult`] for load shedding with only an opaque request state (MRTR).
+    pub fn load_shed(request_state: impl Into<String>) -> Self {
+        let mut extras = HashMap::new();
+        extras.insert("requestState".to_string(), Value::String(request_state.into()));
+        Self {
+            meta: None,
+            result_type: Some("input_required".to_string()),
+            content: Vec::new(),
+            is_error: None,
+            structured_content: None,
+            extras,
+        }
+    }
 }
 
 impl<S> CallToolResult<S> {
@@ -218,6 +289,24 @@ impl<S> CallToolResult<S> {
     pub fn with_result_type(mut self, result_type: impl Into<String>) -> Self {
         self.result_type = Some(result_type.into());
         self
+    }
+
+    /// Returns `true` if this result indicates additional input is required (`resultType == "input_required"`).
+    pub fn is_input_required(&self) -> bool {
+        self.result_type.as_deref() == Some("input_required")
+    }
+
+    /// Returns the MRTR request state if present in the result.
+    pub fn request_state(&self) -> Option<&str> {
+        self.extras.get("requestState").and_then(|v| v.as_str())
+    }
+
+    /// Returns the MRTR input requests if present in the result.
+    pub fn input_requests(&self) -> Option<HashMap<String, crate::types::mcp::InputRequest>> {
+        self.extras
+            .get("inputRequests")
+            .cloned()
+            .and_then(|v| serde_json::from_value(v).ok())
     }
 
     /// Sets whether the tool execution resulted in an error.

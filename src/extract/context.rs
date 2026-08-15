@@ -133,6 +133,20 @@ impl RequestContext {
             None
         }
     }
+
+    /// Returns the MRTR request state from request extensions, if present.
+    pub fn request_state(&self) -> Option<&str> {
+        self.extensions
+            .get::<crate::extract::mrtr::RequestState>()
+            .map(|s| s.as_str())
+    }
+
+    /// Returns the MRTR client input responses from request extensions, if present.
+    pub fn input_responses(&self) -> Option<&std::collections::HashMap<String, crate::types::mcp::InputResponse>> {
+        self.extensions
+            .get::<crate::extract::mrtr::InputResponses>()
+            .map(|r| &r.0)
+    }
 }
 
 impl FromRequestContext for RequestContext {

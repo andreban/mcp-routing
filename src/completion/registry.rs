@@ -217,6 +217,7 @@ impl CompletionRegistry {
             Ok(res) => {
                 let clamped_res = CompleteResult {
                     meta: res.meta,
+                    result_type: res.result_type.or_else(|| Some("complete".to_string())),
                     completion: res.completion.clamp_to_limit(100),
                     extras: res.extras,
                 };

@@ -87,8 +87,8 @@ pub use completion::{
 };
 pub use extract::{
     Authorization, BearerAuth, CurrentLoggingLevel, Extension, ExtractionError, FromRequestContext,
-    Json, Meta, RegisteredPrompts, RegisteredResourceTemplates, RegisteredResources,
-    RegisteredTools, RequestContext, SessionId, State,
+    InputResponses, Json, Meta, RegisteredPrompts, RegisteredResourceTemplates,
+    RegisteredResources, RegisteredTools, RequestContext, RequestState, SessionId, State,
 };
 pub use logging::{
     IntoSetLevelHandler, IntoSetLevelResult, LoggingError, LoggingRegistry, SetLevelHandler,

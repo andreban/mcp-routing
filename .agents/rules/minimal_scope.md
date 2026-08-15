@@ -6,9 +6,10 @@
      // Copyright 2026 André Cipriani Bandarra
      // SPDX-License-Identifier: Apache-2.0
      ```
-   - Never omit, remove, or replace the license header when modifying existing files or creating new files.
+   - Never omit, remove, or replace the license header when modifying existing files or creating new files. When editing imports or top-of-file sections (lines 1–10), always verify lines 1–2 are preserved verbatim in replacement chunks.
 2. **Do Not Add Unrequested Trait Derives**:
    - Match existing codebase patterns. Do not add unrequested trait derives (e.g. `Default`, `PartialEq`, `Eq`, `Clone`, `Copy`, `Hash`) unless explicitly requested by the user or required for compilation/correctness.
+   - Do not add `PartialEq` or `Eq` to protocol or metadata structs solely for unit test convenience. In tests, assert on specific fields or compare `serde_json::to_value(&x)` instead of introducing cascading trait derives across unrelated types.
 3. **Scope Edits Strictly**:
    - Limit modifications to the types, functions, or files specifically requested by the user. Avoid refactoring surrounding pre-existing code unless asked.
 4. **Avoid Unrequested Abstractions & Overengineering**:

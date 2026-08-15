@@ -113,6 +113,30 @@ impl McpRouterInner {
         let params_val = map.remove("params");
         let header_name = extract_header_name(headers);
 
+        let mut extensions = extensions;
+        if let Some(ref pv) = params_val
+            && let Some(param_obj) = pv.as_object()
+        {
+            let mut ext = (*extensions).clone();
+            let mut modified = false;
+            if let Some(rs) = param_obj.get("requestState").and_then(|v| v.as_str()) {
+                ext.insert(crate::extract::RequestState::new(rs));
+                modified = true;
+            }
+            if let Some(ir) = param_obj.get("inputResponses") {
+                if let Ok(responses) = serde_json::from_value::<
+                    std::collections::HashMap<String, crate::types::mcp::InputResponse>,
+                >(ir.clone())
+                {
+                    ext.insert(crate::extract::InputResponses::new(responses));
+                    modified = true;
+                }
+            }
+            if modified {
+                extensions = Arc::new(ext);
+            }
+        }
+
         let ctx = MethodContext {
             req_id,
             is_notification,

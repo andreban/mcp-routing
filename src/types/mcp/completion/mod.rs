@@ -243,6 +243,11 @@ impl CompletionValues {
         self
     }
 
+    /// Returns `true` if this completion contains no values, total, or has_more indicator.
+    pub fn is_empty(&self) -> bool {
+        self.values.is_empty() && self.total.is_none() && self.has_more.is_none()
+    }
+
     /// Pushes a new completion suggestion.
     pub fn push(&mut self, value: impl Into<String>) {
         self.values.push(value.into());
@@ -265,17 +270,32 @@ impl CompletionValues {
 /// The server's response payload to a `completion/complete` request.
 ///
 /// See <https://modelcontextprotocol.io/specification/2026-07-28/schema#completeresult>
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CompleteResult {
     /// Protocol-level response metadata.
     #[serde(rename = "_meta", skip_serializing_if = "Option::is_none")]
     pub meta: Option<ResultMetaObject>,
+    /// Result type discriminator string.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub result_type: Option<String>,
     /// The completion values, total count, and pagination indicator.
+    #[serde(default, skip_serializing_if = "CompletionValues::is_empty")]
     pub completion: CompletionValues,
     /// Additional unrecognized or custom metadata properties.
     #[serde(flatten, skip_serializing_if = "HashMap::is_empty")]
     pub extras: HashMap<String, Value>,
+}
+
+impl Default for CompleteResult {
+    fn default() -> Self {
+        Self {
+            meta: None,
+            result_type: Some("complete".to_string()),
+            completion: CompletionValues::default(),
+            extras: HashMap::new(),
+        }
+    }
 }
 
 impl CompleteResult {
@@ -283,6 +303,7 @@ impl CompleteResult {
     pub fn new(values: impl IntoIterator<Item = impl Into<String>>) -> Self {
         Self {
             meta: None,
+            result_type: Some("complete".to_string()),
             completion: CompletionValues::new(values),
             extras: HashMap::new(),
         }
@@ -297,9 +318,16 @@ impl CompleteResult {
     pub fn with_completion(completion: CompletionValues) -> Self {
         Self {
             meta: None,
+            result_type: Some("complete".to_string()),
             completion,
             extras: HashMap::new(),
         }
+    }
+
+    /// Sets the result type discriminator string.
+    pub fn with_result_type(mut self, result_type: impl Into<String>) -> Self {
+        self.result_type = Some(result_type.into());
+        self
     }
 
     /// Sets the total number of completion options available.
@@ -402,6 +430,7 @@ mod tests {
             .with_has_more(true);
 
         let json = serde_json::to_value(&result).unwrap();
+        assert_eq!(json["resultType"], "complete");
         assert_eq!(json["completion"]["values"][0], "python");
         assert_eq!(json["completion"]["values"][1], "pytorch");
         assert_eq!(json["completion"]["values"][2], "pyside");
@@ -409,6 +438,7 @@ mod tests {
         assert_eq!(json["completion"]["hasMore"], true);
 
         let parsed: CompleteResult = serde_json::from_value(json).unwrap();
+        assert_eq!(parsed.result_type.as_deref(), Some("complete"));
         assert_eq!(
             parsed.completion.values,
             vec!["python", "pytorch", "pyside"]

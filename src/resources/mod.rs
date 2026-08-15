@@ -171,6 +171,33 @@ impl IntoResourceResult for &str {
     }
 }
 
+impl IntoResourceResult for crate::types::mcp::InputRequiredResult {
+    fn into_resource_result(
+        self,
+        _uri: &str,
+        base_ttl_ms: Option<u64>,
+        base_cache_scope: Option<CacheScope>,
+    ) -> Result<ReadResourceResult, ResourceError> {
+        let mut extras = self.extras;
+        if let Some(state) = self.request_state {
+            extras.insert("requestState".to_string(), serde_json::Value::String(state));
+        }
+        if !self.input_requests.is_empty() {
+            if let Ok(reqs) = serde_json::to_value(&self.input_requests) {
+                extras.insert("inputRequests".to_string(), reqs);
+            }
+        }
+        Ok(ReadResourceResult {
+            meta: self.meta,
+            result_type: Some(self.result_type),
+            ttl_ms: base_ttl_ms,
+            cache_scope: base_cache_scope,
+            contents: Vec::new(),
+            extras,
+        })
+    }
+}
+
 impl<T, E> IntoResourceResult for Result<T, E>
 where
     T: IntoResourceResult,

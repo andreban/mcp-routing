@@ -71,6 +71,33 @@ impl IntoServerDiscoveryResult for ServerDiscoverResult {
     }
 }
 
+impl IntoServerDiscoveryResult for crate::types::mcp::InputRequiredResult {
+    fn apply_to_discover_result(
+        self,
+        base_result: ServerDiscoverResult,
+    ) -> Result<ServerDiscoverResult, DiscoveryError> {
+        let mut extras = self.extras;
+        if let Some(state) = self.request_state {
+            extras.insert("requestState".to_string(), serde_json::Value::String(state));
+        }
+        if !self.input_requests.is_empty() {
+            if let Ok(reqs) = serde_json::to_value(&self.input_requests) {
+                extras.insert("inputRequests".to_string(), reqs);
+            }
+        }
+        Ok(ServerDiscoverResult {
+            meta: self.meta.or(base_result.meta),
+            result_type: Some(self.result_type),
+            supported_versions: base_result.supported_versions,
+            capabilities: base_result.capabilities,
+            instructions: None,
+            ttl_ms: base_result.ttl_ms,
+            cache_scope: base_result.cache_scope,
+            extras,
+        })
+    }
+}
+
 impl IntoServerDiscoveryResult for ServerCapabilities {
     fn apply_to_discover_result(
         self,

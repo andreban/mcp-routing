@@ -13,6 +13,7 @@ pub mod error;
 pub mod json;
 pub mod logging;
 pub mod meta;
+pub mod mrtr;
 pub mod registered;
 pub mod session;
 pub mod state;
@@ -24,6 +25,7 @@ pub use error::ExtractionError;
 pub use json::Json;
 pub use logging::CurrentLoggingLevel;
 pub use meta::Meta;
+pub use mrtr::{InputResponses, RequestState};
 pub use registered::{
     RegisteredPrompts, RegisteredResourceTemplates, RegisteredResources, RegisteredTools,
 };
@@ -61,6 +63,13 @@ mod tests {
 
         let mut ext = http::Extensions::new();
         ext.insert(TestState("state-data".to_string()));
+        ext.insert(RequestState::new("step2_token"));
+        let mut ir_map = std::collections::HashMap::new();
+        ir_map.insert(
+            "sample_1".to_string(),
+            crate::types::mcp::InputResponse::result(&serde_json::json!({"text": "done"})).unwrap(),
+        );
+        ext.insert(InputResponses::new(ir_map));
 
         let meta = RequestMetaObject {
             progress_token: Some(ProgressToken::String("prog-1".to_string())),
@@ -81,6 +90,8 @@ mod tests {
         // RequestContext extractor
         let extracted_ctx = RequestContext::from_request_context(&ctx).unwrap();
         assert_eq!(extracted_ctx.session_id_str(), Some("sess-999"));
+        assert_eq!(extracted_ctx.request_state(), Some("step2_token"));
+        assert!(extracted_ctx.input_responses().unwrap().contains_key("sample_1"));
         assert_eq!(extracted_ctx.client_info().unwrap().name, "client-a");
         assert_eq!(extracted_ctx.protocol_version(), Some("2026-07-28"));
         assert_eq!(extracted_ctx.log_level(), Some(&LoggingLevel::Debug));
@@ -88,6 +99,18 @@ mod tests {
             extracted_ctx.progress_token(),
             Some(ProgressToken::String(s)) if s == "prog-1"
         ));
+
+        // RequestState extractor
+        let rs = RequestState::from_request_context(&ctx).unwrap();
+        assert_eq!(rs.as_str(), "step2_token");
+        let opt_rs = Option::<RequestState>::from_request_context(&ctx).unwrap();
+        assert_eq!(opt_rs.as_deref(), Some("step2_token"));
+
+        // InputResponses extractor
+        let ir = InputResponses::from_request_context(&ctx).unwrap();
+        assert!(ir.get("sample_1").is_some());
+        let opt_ir = Option::<InputResponses>::from_request_context(&ctx).unwrap();
+        assert!(opt_ir.is_some());
 
         // SessionId extractor
         let sid = SessionId::from_request_context(&ctx).unwrap();

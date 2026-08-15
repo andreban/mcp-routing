@@ -124,9 +124,9 @@ This document itemizes all required changes and recommendations, categorized by 
   - `CallToolResult`, `ListToolsResult`, etc. have `result_type: Option<String>` defaulting to `"complete"`, but `CompleteResult` in `src/types/mcp/completion/mod.rs` is missing `result_type` completely.
   - `InputRequiredResult`, `InputRequests`, `InputResponses`, and `InputResponseRequestParams` types are not yet defined in `src/types/mcp/`.
 - **Action Items**:
-  - [ ] Add `result_type: Option<String>` (or a typed `ResultType` enum) to `CompleteResult` in `src/types/mcp/completion/mod.rs`.
-  - [ ] Define MRTR types: `InputRequiredResult`, `InputRequests`, `InputResponses`, `InputRequest`, and `InputResponse` in `src/types/mcp/core/mrtr.rs`.
-  - [ ] Add support for handlers to return `InputRequiredResult` to enable multi round-trip workflows (elicitation and sampling).
+  - [x] Add `result_type: Option<String>` (or a typed `ResultType` enum) to `CompleteResult` in `src/types/mcp/completion/mod.rs`.
+  - [x] Define MRTR types: `InputRequiredResult`, `InputRequests`, `InputResponses`, `InputRequest`, and `InputResponse` in `src/types/mcp/core/mrtr.rs`.
+  - [x] Add support for handlers to return `InputRequiredResult` to enable multi round-trip workflows (elicitation and sampling).
 
 ---
 

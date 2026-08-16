@@ -64,6 +64,7 @@ mod tests {
             client_capabilities: None,
             protocol_version: Some("2026-07-28".to_string()),
             log_level: Some(LoggingLevel::Debug),
+            subscription_id: None,
             extra: std::collections::HashMap::new(),
         };
 

@@ -117,6 +117,7 @@ mod tests {
             client_capabilities: None,
             protocol_version: None,
             log_level: Some(LoggingLevel::Warning),
+            subscription_id: None,
             extra: std::collections::HashMap::new(),
         };
 

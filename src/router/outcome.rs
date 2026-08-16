@@ -6,6 +6,7 @@ use std::sync::Arc;
 
 use http::StatusCode;
 
+use crate::body::ResponseBody;
 use crate::types::jsonrpc::{JsonRpcErrorResponse, JsonRpcRequestId};
 use crate::types::mcp::{CacheScope, mcp_error_code_to_http_status};
 
@@ -13,6 +14,7 @@ use crate::types::mcp::{CacheScope, mcp_error_code_to_http_status};
 #[derive(Debug)]
 pub(crate) struct DispatchOutcome {
     pub(crate) response: Option<serde_json::Value>,
+    pub(crate) stream_body: Option<ResponseBody>,
     pub(crate) ttl_ms: Option<u64>,
     pub(crate) cache_scope: Option<CacheScope>,
     pub(crate) has_cache_headers: bool,
@@ -27,6 +29,7 @@ impl DispatchOutcome {
     ) -> Self {
         Self {
             response: Some(val),
+            stream_body: None,
             ttl_ms,
             cache_scope,
             has_cache_headers: true,
@@ -38,6 +41,7 @@ impl DispatchOutcome {
         let status_code = mcp_error_code_to_http_status(err.error.code.code());
         Self {
             response: serde_json::to_value(err).ok(),
+            stream_body: None,
             ttl_ms: None,
             cache_scope: None,
             has_cache_headers: false,
@@ -48,10 +52,22 @@ impl DispatchOutcome {
     pub(crate) fn notification() -> Self {
         Self {
             response: None,
+            stream_body: None,
             ttl_ms: None,
             cache_scope: None,
             has_cache_headers: false,
             status_code: StatusCode::ACCEPTED,
+        }
+    }
+
+    pub(crate) fn sse_stream(body: ResponseBody) -> Self {
+        Self {
+            response: None,
+            stream_body: Some(body),
+            ttl_ms: None,
+            cache_scope: None,
+            has_cache_headers: false,
+            status_code: StatusCode::OK,
         }
     }
 }

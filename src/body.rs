@@ -238,6 +238,18 @@ pub(crate) fn json_response_with_caching<T: serde::Serialize>(
     }
 }
 
+/// Helper function to construct a Server-Sent Events (SSE) streaming response with status 200 OK.
+pub(crate) fn sse_response(body: ResponseBody) -> Response<ResponseBody> {
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, "text/event-stream")
+        .header(header::CACHE_CONTROL, "no-cache")
+        .header(header::CONNECTION, "keep-alive")
+        .header("X-Accel-Buffering", "no")
+        .body(body)
+        .unwrap()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -396,5 +408,22 @@ mod tests {
         assert_eq!(resp.status(), StatusCode::FORBIDDEN);
         let collected = resp.into_body().collect().await.unwrap().to_bytes();
         assert!(collected.is_empty());
+    }
+
+    /// Tests `sse_response` helper sets 200 OK, `text/event-stream`, `no-cache`, and passes body frames.
+    #[tokio::test]
+    async fn test_sse_response() {
+        let resp = sse_response(ResponseBody::from_bytes(Bytes::from_static(b"event: message\ndata: 1\n\n")));
+        assert_eq!(resp.status(), StatusCode::OK);
+        assert_eq!(
+            resp.headers().get(header::CONTENT_TYPE).unwrap(),
+            "text/event-stream"
+        );
+        assert_eq!(
+            resp.headers().get(header::CACHE_CONTROL).unwrap(),
+            "no-cache"
+        );
+        let collected = resp.into_body().collect().await.unwrap().to_bytes();
+        assert_eq!(collected.as_ref(), b"event: message\ndata: 1\n\n");
     }
 }

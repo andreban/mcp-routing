@@ -156,6 +156,41 @@ impl McpRouterInner {
                     .await
             }
             "completion/complete" => self.completion.dispatch_complete(ctx, params_val).await,
+            "subscriptions/listen" => {
+                let tools_list_changed = self
+                    .server
+                    .capabilities
+                    .tools
+                    .as_ref()
+                    .and_then(|t| t.list_changed)
+                    .unwrap_or(true);
+                let prompts_list_changed = self
+                    .server
+                    .capabilities
+                    .prompts
+                    .as_ref()
+                    .and_then(|p| p.list_changed)
+                    .unwrap_or(true);
+                let resources_list_changed = self
+                    .server
+                    .capabilities
+                    .resources
+                    .as_ref()
+                    .and_then(|r| r.list_changed)
+                    .unwrap_or(true);
+                let known_resources: Vec<String> =
+                    self.resources.resources.iter().map(|r| r.uri.clone()).collect();
+                self.subscriptions
+                    .dispatch_listen(
+                        ctx,
+                        params_val,
+                        tools_list_changed,
+                        prompts_list_changed,
+                        resources_list_changed,
+                        &known_resources,
+                    )
+                    .await
+            }
             unknown_method => {
                 tracing::debug!(%unknown_method, "Method not found");
                 if ctx.is_notification {

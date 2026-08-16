@@ -21,10 +21,7 @@ pub fn handle_server_discover(
     ServerDiscoverResultResponse::new(
         req.id,
         ServerDiscoverResult {
-            meta: Some(ResultMetaObject {
-                server_info: Some(server_info),
-                extra: HashMap::new(),
-            }),
+            meta: Some(ResultMetaObject::new(Some(server_info))),
             result_type: Some("complete".to_string()),
             supported_versions,
             capabilities,

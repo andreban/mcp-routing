@@ -10,6 +10,7 @@ pub(crate) mod headers;
 pub(crate) mod params;
 pub(crate) mod resolve;
 pub(crate) mod sentinel;
+pub mod sse;
 pub(crate) mod uri_template;
 
 pub(crate) use headers::{
@@ -21,4 +22,5 @@ pub(crate) use resolve::{
     resolve_method, resolve_prompt_name, resolve_resource_uri, resolve_tool_name,
 };
 pub(crate) use sentinel::decode_sentinel_header;
+pub use sse::{format_sse_frame, format_sse_message};
 pub(crate) use uri_template::match_uri_template;

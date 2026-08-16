@@ -219,9 +219,9 @@ This document itemizes all required changes and recommendations, categorized by 
 - **Spec Requirement**:
   - `subscriptions/listen` replaces legacy `resources/subscribe`, `resources/unsubscribe`, and SSE GET endpoints with a unified POST channel returning a Server-Sent Events (SSE) notification stream (`toolsListChanged`, `promptsListChanged`, `resourcesListChanged`, `resourceSubscriptions`), correlated with `_meta["io.modelcontextprotocol/subscriptionId"]`.
 - **Current Implementation**:
-  - `mcp-routing` does not currently implement `subscriptions/listen` or long-lived SSE streaming responses in `src/router/`.
+  - `mcp-routing` implements `subscriptions/listen` with full Server-Sent Events (SSE) stream support (`text/event-stream`), initial `notifications/subscriptions/acknowledged` framing, subscription ID correlation, custom handler support via `.subscriptions_listen(handler)`, and typed notification constructors.
 - **Action Items**:
-  - [ ] Plan and design a `subscriptions/listen` endpoint handler in `mcp-routing` with SSE body streaming support.
+  - [x] Plan and design a `subscriptions/listen` endpoint handler in `mcp-routing` with SSE body streaming support.
 
 ---
 
@@ -245,4 +245,4 @@ This document itemizes all required changes and recommendations, categorized by 
 | **Capabilities Extensions & Roots** | ✅ Compliant | `schema.ts:1018,1056` | Add `extensions` & `roots` to capability structs |
 | **`logging/setLevel` Sunset** | ✅ Compliant | SEP-2577 | Removed deprecated endpoint in favor of per-request `_meta` |
 | **Sessionless Transport (`Mcp-Session-Id`)** | ✅ Compliant | SEP-2567 | Removed `SessionId` extractor, session header echo, and UUID generation |
-| **`subscriptions/listen` Stream** | ℹ️ Future Roadmap | SEP-2575 | Implement long-lived SSE channel |
+| **`subscriptions/listen` Stream** | ✅ Compliant | SEP-2575 | Implemented `subscriptions/listen` SSE channel with acknowledgment |

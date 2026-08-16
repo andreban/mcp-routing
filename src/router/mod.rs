@@ -30,6 +30,7 @@ use crate::completion::CompletionRegistry;
 use crate::prompts::PromptRegistry;
 use crate::resources::ResourceRegistry;
 use crate::server::ServerConfig;
+use crate::subscriptions::SubscriptionsRegistry;
 use crate::tools::ToolRegistry;
 use crate::types::mcp::LoggingLevel;
 
@@ -48,6 +49,7 @@ pub(crate) struct McpRouterInner {
     pub(crate) prompts: PromptRegistry,
     pub(crate) resources: ResourceRegistry,
     pub(crate) completion: CompletionRegistry,
+    pub(crate) subscriptions: SubscriptionsRegistry,
     pub(crate) logging_level: LoggingLevel,
     pub(crate) state_injectors: Vec<StateInjector>,
 }

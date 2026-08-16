@@ -323,6 +323,7 @@ mod tests {
                 protocol_version: None,
                 progress_token: None,
                 log_level: None,
+                subscription_id: None,
                 extra: std::collections::HashMap::new(),
             }),
             http::HeaderMap::new(),

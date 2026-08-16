@@ -142,15 +142,32 @@ pub struct ResultMetaObject {
         skip_serializing_if = "Option::is_none"
     )]
     pub server_info: Option<Implementation>,
+    /// A subscription ID used to correlate notifications with a subscription stream.
+    #[serde(
+        rename = "io.modelcontextprotocol/subscriptionId",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub subscription_id: Option<String>,
     /// Additional metadata properties.
     #[serde(flatten, skip_serializing_if = "HashMap::is_empty")]
     pub extra: HashMap<String, Value>,
 }
 
+impl ResultMetaObject {
+    /// Creates a new [`ResultMetaObject`] with optional server info.
+    pub fn new(server_info: Option<Implementation>) -> Self {
+        Self {
+            server_info,
+            subscription_id: None,
+            extra: HashMap::new(),
+        }
+    }
+}
+
 /// An object containing metadata for a request.
 ///
 /// See <https://modelcontextprotocol.io/specification/2026-07-28/schema#requestmetaobject>
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct RequestMetaObject {
     /// A progress token used to associate progress notifications with the original request.
@@ -180,9 +197,22 @@ pub struct RequestMetaObject {
         skip_serializing_if = "Option::is_none"
     )]
     pub log_level: Option<LoggingLevel>,
+    /// A subscription ID used to correlate notifications with a subscription stream.
+    #[serde(
+        rename = "io.modelcontextprotocol/subscriptionId",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub subscription_id: Option<String>,
     /// Additional metadata properties.
     #[serde(flatten, skip_serializing_if = "HashMap::is_empty")]
     pub extra: HashMap<String, Value>,
+}
+
+impl RequestMetaObject {
+    /// Creates a new empty [`RequestMetaObject`].
+    pub fn empty() -> Self {
+        Self::default()
+    }
 }
 
 #[cfg(test)]

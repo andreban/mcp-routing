@@ -14,7 +14,8 @@ use tower::Service;
 
 use crate::body::{
     bad_request, empty_response, forbidden, json_response, json_response_with_caching,
-    json_response_with_status, method_not_allowed, unsupported_media_type, BoxError, ResponseBody,
+    json_response_with_status, method_not_allowed, sse_response, unsupported_media_type, BoxError,
+    ResponseBody,
 };
 use crate::router::{McpRouter, McpRouterInner};
 use crate::types::jsonrpc::JsonRpcErrorResponse;
@@ -155,19 +156,23 @@ impl McpRouterInner {
                     )
                     .await;
 
-                match outcome.response {
-                    None => empty_response(StatusCode::ACCEPTED),
-                    Some(val) => {
-                        if outcome.has_cache_headers {
-                            json_response_with_caching(
-                                &val,
-                                outcome.ttl_ms,
-                                outcome.cache_scope.as_ref(),
-                            )
-                        } else if outcome.status_code != StatusCode::OK {
-                            json_response_with_status(outcome.status_code, &val)
-                        } else {
-                            json_response(&val)
+                if let Some(stream_body) = outcome.stream_body {
+                    sse_response(stream_body)
+                } else {
+                    match outcome.response {
+                        None => empty_response(StatusCode::ACCEPTED),
+                        Some(val) => {
+                            if outcome.has_cache_headers {
+                                json_response_with_caching(
+                                    &val,
+                                    outcome.ttl_ms,
+                                    outcome.cache_scope.as_ref(),
+                                )
+                            } else if outcome.status_code != StatusCode::OK {
+                                json_response_with_status(outcome.status_code, &val)
+                            } else {
+                                json_response(&val)
+                            }
                         }
                     }
                 }

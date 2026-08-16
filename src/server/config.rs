@@ -127,10 +127,7 @@ impl ServerConfig {
         }
 
         let base_result = ServerDiscoverResult {
-            meta: Some(ResultMetaObject {
-                server_info: Some(self.server_info.clone()),
-                extra: HashMap::new(),
-            }),
+            meta: Some(ResultMetaObject::new(Some(self.server_info.clone()))),
             result_type: Some("complete".to_string()),
             supported_versions: self.supported_versions.clone(),
             capabilities: self.capabilities.clone(),
@@ -215,10 +212,7 @@ impl ServerConfig {
         }
 
         let base_result = ServerDiscoverResult {
-            meta: Some(ResultMetaObject {
-                server_info: Some(self.server_info.clone()),
-                extra: HashMap::new(),
-            }),
+            meta: Some(ResultMetaObject::new(Some(self.server_info.clone()))),
             result_type: Some("complete".to_string()),
             supported_versions: self.supported_versions.clone(),
             capabilities: self.capabilities.clone(),

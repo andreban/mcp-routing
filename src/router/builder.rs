@@ -11,6 +11,7 @@ use crate::resources::{
 };
 use crate::router::{McpRouter, McpRouterInner, StateInjector};
 use crate::server::{IntoServerDiscoveryHandler, ServerConfig};
+use crate::subscriptions::{IntoSubscriptionsListenHandler, SubscriptionsRegistry};
 use crate::tools::{IntoToolHandler, IntoToolsListHandler, ToolRegistry};
 use crate::types::mcp::{
     CacheScope, CompletionsCapability, Implementation, LoggingCapability, LoggingLevel,
@@ -30,6 +31,7 @@ impl McpRouter {
                 prompts: PromptRegistry::new(),
                 resources: ResourceRegistry::new(),
                 completion: CompletionRegistry::new(),
+                subscriptions: SubscriptionsRegistry::new(),
                 logging_level: LoggingLevel::Info,
                 state_injectors: Vec::new(),
             }),
@@ -665,5 +667,22 @@ impl McpRouter {
     /// Returns the server's configured default logging level.
     pub fn current_logging_level(&self) -> LoggingLevel {
         self.inner.logging_level
+    }
+
+    /// Registers a custom handler function for `subscriptions/listen` requests.
+    ///
+    /// The handler function can take request extractors (such as [`RequestContext`](crate::extract::RequestContext),
+    /// [`State`](crate::extract::State), [`Extension`](crate::extract::Extension),
+    /// [`Authorization`](crate::extract::Authorization), or [`BearerAuth`](crate::extract::BearerAuth))
+    /// and return any type implementing [`IntoSubscriptionsListenResult`](crate::subscriptions::IntoSubscriptionsListenResult).
+    pub fn subscriptions_listen<H, T>(mut self, handler: H) -> Self
+    where
+        H: IntoSubscriptionsListenHandler<T>,
+        T: 'static,
+    {
+        Arc::make_mut(&mut self.inner)
+            .subscriptions
+            .set_listen_handler(handler);
+        self
     }
 }

@@ -72,14 +72,16 @@ pub mod prompts;
 pub mod resources;
 pub mod router;
 pub mod server;
+pub mod subscriptions;
 pub mod tools;
 pub mod types;
-pub(crate) mod utils;
+pub mod utils;
 
 #[cfg(test)]
 mod test;
 
 pub use body::{BoxError, ResponseBody, compute_etag, format_cache_control};
+pub use utils::{format_sse_frame, format_sse_message};
 pub use completion::{
     CompletionError, CompletionHandler, CompletionRegistry, IntoCompletionHandler,
     IntoCompletionResult,
@@ -103,6 +105,10 @@ pub use router::McpRouter;
 pub use server::{
     DiscoveryError, IntoServerDiscoveryHandler, IntoServerDiscoveryResult, ServerConfig,
     ServerDiscoveryHandler, validate_protocol_version,
+};
+pub use subscriptions::{
+    IntoSubscriptionsListenHandler, IntoSubscriptionsListenResult, SubscriptionError,
+    SubscriptionsListenHandler, SubscriptionsListenOutcome, SubscriptionsRegistry,
 };
 pub use tools::{
     IntoToolHandler, IntoToolResult, IntoToolsListHandler, IntoToolsListResult, Json as ToolJson,

@@ -397,6 +397,7 @@ mod tests {
                 protocol_version: Some("2026-07-28".to_string()),
                 progress_token: None,
                 log_level: None,
+                subscription_id: None,
                 extra: std::collections::HashMap::new(),
             }),
             http::HeaderMap::new(),

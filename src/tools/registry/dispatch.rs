@@ -10,7 +10,6 @@ use crate::extract::RequestContext;
 use crate::router::{DispatchOutcome, MethodContext};
 use crate::tools::registry::ToolRegistry;
 use crate::tools::registry::validation::validate_tool_arguments;
-use crate::tools::ToolError;
 use crate::types::jsonrpc::JsonRpcErrorResponse;
 use crate::types::mcp::tools::{
     call::{CallToolParams, CallToolResult, CallToolResultResponse},
@@ -76,18 +75,7 @@ impl ToolRegistry {
                         )),
                     }
                 }
-                Err(ToolError::InvalidParams(err)) => {
-                    DispatchOutcome::error(JsonRpcErrorResponse::invalid_params(
-                        ctx.req_id,
-                        format!("Invalid params: {err}"),
-                    ))
-                }
-                Err(ToolError::Internal(err)) => {
-                    DispatchOutcome::error(JsonRpcErrorResponse::internal_error(
-                        ctx.req_id,
-                        format!("Failed to list tools: {err}"),
-                    ))
-                }
+                Err(err) => DispatchOutcome::error(err.into_error_response(ctx.req_id)),
             }
         } else {
             let req = ListToolsRequest::new(

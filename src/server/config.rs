@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use crate::extract::RequestContext;
 use crate::router::{DispatchOutcome, MethodContext};
-use crate::server::provider::{DiscoveryError, ServerDiscoveryHandler};
+use crate::server::provider::ServerDiscoveryHandler;
 use crate::types::jsonrpc::JsonRpcErrorResponse;
 use crate::types::mcp::{
     CacheScope, Implementation, ResultMetaObject, ServerCapabilities, ToolsCapability,
@@ -140,18 +140,7 @@ impl ServerConfig {
             );
             match provider.call(request_ctx, base_result).await {
                 Ok(res) => res,
-                Err(DiscoveryError::InvalidParams(err)) => {
-                    return DispatchOutcome::error(JsonRpcErrorResponse::invalid_params(
-                        ctx.req_id,
-                        format!("Invalid params: {err}"),
-                    ));
-                }
-                Err(DiscoveryError::Internal(err)) => {
-                    return DispatchOutcome::error(JsonRpcErrorResponse::internal_error(
-                        ctx.req_id,
-                        format!("Discovery failed: {err}"),
-                    ));
-                }
+                Err(err) => return DispatchOutcome::error(err.into_error_response(ctx.req_id)),
             }
         } else {
             base_result

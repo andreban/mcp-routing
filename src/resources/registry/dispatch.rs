@@ -7,7 +7,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use crate::extract::RequestContext;
-use crate::resources::ResourceError;
 use crate::resources::registry::ResourceRegistry;
 use crate::router::{DispatchOutcome, MethodContext};
 use crate::types::jsonrpc::JsonRpcErrorResponse;
@@ -83,24 +82,7 @@ impl ResourceRegistry {
                         )),
                     }
                 }
-                Err(ResourceError::InvalidParams(err)) => {
-                    DispatchOutcome::error(JsonRpcErrorResponse::invalid_params(
-                        ctx.req_id,
-                        format!("Invalid params: {err}"),
-                    ))
-                }
-                Err(ResourceError::NotFound(err)) => {
-                    DispatchOutcome::error(JsonRpcErrorResponse::invalid_params(
-                        ctx.req_id,
-                        format!("Invalid params: {err}"),
-                    ))
-                }
-                Err(ResourceError::Internal(err)) => {
-                    DispatchOutcome::error(JsonRpcErrorResponse::internal_error(
-                        ctx.req_id,
-                        format!("Failed to list resources: {err}"),
-                    ))
-                }
+                Err(err) => DispatchOutcome::error(err.into_error_response(ctx.req_id)),
             }
         } else {
             let req = ListResourcesRequest::new(
@@ -189,24 +171,7 @@ impl ResourceRegistry {
                         )),
                     }
                 }
-                Err(ResourceError::InvalidParams(err)) => {
-                    DispatchOutcome::error(JsonRpcErrorResponse::invalid_params(
-                        ctx.req_id,
-                        format!("Invalid params: {err}"),
-                    ))
-                }
-                Err(ResourceError::NotFound(err)) => {
-                    DispatchOutcome::error(JsonRpcErrorResponse::invalid_params(
-                        ctx.req_id,
-                        format!("Invalid params: {err}"),
-                    ))
-                }
-                Err(ResourceError::Internal(err)) => {
-                    DispatchOutcome::error(JsonRpcErrorResponse::internal_error(
-                        ctx.req_id,
-                        format!("Failed to list resource templates: {err}"),
-                    ))
-                }
+                Err(err) => DispatchOutcome::error(err.into_error_response(ctx.req_id)),
             }
         } else {
             let req = ListResourceTemplatesRequest::new(
@@ -319,24 +284,7 @@ impl ResourceRegistry {
                         )),
                     }
                 }
-                Err(ResourceError::InvalidParams(err)) => {
-                    DispatchOutcome::error(JsonRpcErrorResponse::invalid_params(
-                        ctx.req_id,
-                        format!("Invalid params: {err}"),
-                    ))
-                }
-                Err(ResourceError::NotFound(err)) => {
-                    DispatchOutcome::error(JsonRpcErrorResponse::invalid_params(
-                        ctx.req_id,
-                        format!("Invalid params: {err}"),
-                    ))
-                }
-                Err(ResourceError::Internal(err)) => {
-                    DispatchOutcome::error(JsonRpcErrorResponse::internal_error(
-                        ctx.req_id,
-                        format!("Resource read failed: {err}"),
-                    ))
-                }
+                Err(err) => DispatchOutcome::error(err.into_error_response(ctx.req_id)),
             }
         }
     }

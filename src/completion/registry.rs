@@ -4,7 +4,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use crate::completion::{CompletionError, CompletionHandler, IntoCompletionHandler};
+use crate::completion::{CompletionHandler, IntoCompletionHandler};
 use crate::extract::RequestContext;
 use crate::router::{DispatchOutcome, MethodContext};
 use crate::types::jsonrpc::JsonRpcErrorResponse;
@@ -236,18 +236,7 @@ impl CompletionRegistry {
                     )),
                 }
             }
-            Err(CompletionError::InvalidParams(err)) => DispatchOutcome::error(
-                JsonRpcErrorResponse::invalid_params(ctx.req_id, format!("Invalid params: {err}")),
-            ),
-            Err(CompletionError::NotFound(err)) => DispatchOutcome::error(
-                JsonRpcErrorResponse::invalid_params(ctx.req_id, format!("Invalid params: {err}")),
-            ),
-            Err(CompletionError::Internal(err)) => {
-                DispatchOutcome::error(JsonRpcErrorResponse::internal_error(
-                    ctx.req_id,
-                    format!("Completion failed: {err}"),
-                ))
-            }
+            Err(err) => DispatchOutcome::error(err.into_error_response(ctx.req_id)),
         }
     }
 }

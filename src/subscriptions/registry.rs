@@ -16,8 +16,7 @@ use crate::body::{BoxError, ResponseBody};
 use crate::extract::RequestContext;
 use crate::router::{DispatchOutcome, MethodContext};
 use crate::subscriptions::handler::{
-    IntoSubscriptionsListenHandler, SubscriptionError, SubscriptionsListenHandler,
-    SubscriptionsListenOutcome,
+    IntoSubscriptionsListenHandler, SubscriptionsListenHandler, SubscriptionsListenOutcome,
 };
 use crate::types::jsonrpc::JsonRpcErrorResponse;
 use crate::types::mcp::{
@@ -154,18 +153,7 @@ impl SubscriptionsRegistry {
             );
             match handler.call(request_ctx, params, base_ack).await {
                 Ok(res) => res,
-                Err(SubscriptionError::InvalidParams(err)) => {
-                    return DispatchOutcome::error(JsonRpcErrorResponse::invalid_params(
-                        ctx.req_id,
-                        format!("Invalid params: {err}"),
-                    ));
-                }
-                Err(SubscriptionError::Internal(err)) => {
-                    return DispatchOutcome::error(JsonRpcErrorResponse::internal_error(
-                        ctx.req_id,
-                        format!("Subscription failed: {err}"),
-                    ));
-                }
+                Err(err) => return DispatchOutcome::error(err.into_error_response(ctx.req_id)),
             }
         } else {
             SubscriptionsListenOutcome {

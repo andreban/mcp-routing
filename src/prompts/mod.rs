@@ -3,6 +3,7 @@
 
 //! MCP prompts subsystem for prompt retrieval, listing, and templating.
 
+use crate::types::jsonrpc::{JsonRpcErrorResponse, JsonRpcRequestId};
 use crate::types::mcp::{
     ContentBlock,
     prompts::{PromptMessage, get::GetPromptResult},
@@ -35,6 +36,18 @@ impl std::fmt::Display for PromptError {
 }
 
 impl std::error::Error for PromptError {}
+
+impl PromptError {
+    /// Converts this error into a standard JSON-RPC error response.
+    pub fn into_error_response(self, id: Option<JsonRpcRequestId>) -> JsonRpcErrorResponse {
+        match self {
+            PromptError::InvalidParams(err) => {
+                JsonRpcErrorResponse::invalid_params(id, format!("Invalid params: {err}"))
+            }
+            PromptError::Internal(err) => JsonRpcErrorResponse::internal_error(id, err),
+        }
+    }
+}
 
 /// Trait for types that can be converted into a [`GetPromptResult`].
 pub trait IntoPromptResult: Send {
@@ -157,5 +170,32 @@ mod tests {
         });
         let res_block = block.into_prompt_result().unwrap();
         assert_eq!(res_block.messages.len(), 1);
+    }
+
+    /// Tests conversion of `PromptError` variants into `JsonRpcErrorResponse`.
+    #[test]
+    fn test_prompt_error_into_error_response() {
+        let req_id = Some(JsonRpcRequestId::Number(5.0));
+
+        let err_invalid = PromptError::InvalidParams("invalid prompt argument".to_string());
+        let resp_invalid = err_invalid.into_error_response(req_id.clone());
+        assert_eq!(resp_invalid.id, req_id);
+        assert_eq!(
+            resp_invalid.error.code,
+            crate::types::jsonrpc::JsonRpcErrorCode::InvalidParams
+        );
+        assert_eq!(
+            resp_invalid.error.message,
+            "Invalid params: invalid prompt argument"
+        );
+
+        let err_internal = PromptError::Internal("prompt render error".to_string());
+        let resp_internal = err_internal.into_error_response(req_id.clone());
+        assert_eq!(resp_internal.id, req_id);
+        assert_eq!(
+            resp_internal.error.code,
+            crate::types::jsonrpc::JsonRpcErrorCode::InternalError
+        );
+        assert_eq!(resp_internal.error.message, "prompt render error");
     }
 }

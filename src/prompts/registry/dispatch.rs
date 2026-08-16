@@ -7,7 +7,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use crate::extract::RequestContext;
-use crate::prompts::PromptError;
 use crate::prompts::registry::PromptRegistry;
 use crate::router::{DispatchOutcome, MethodContext};
 use crate::types::jsonrpc::JsonRpcErrorResponse;
@@ -77,18 +76,7 @@ impl PromptRegistry {
                         )),
                     }
                 }
-                Err(PromptError::InvalidParams(err)) => {
-                    DispatchOutcome::error(JsonRpcErrorResponse::invalid_params(
-                        ctx.req_id,
-                        format!("Invalid params: {err}"),
-                    ))
-                }
-                Err(PromptError::Internal(err)) => {
-                    DispatchOutcome::error(JsonRpcErrorResponse::internal_error(
-                        ctx.req_id,
-                        format!("Failed to list prompts: {err}"),
-                    ))
-                }
+                Err(err) => DispatchOutcome::error(err.into_error_response(ctx.req_id)),
             }
         } else {
             let req = ListPromptsRequest::new(
@@ -198,18 +186,7 @@ impl PromptRegistry {
                         )),
                     }
                 }
-                Err(PromptError::InvalidParams(err)) => {
-                    DispatchOutcome::error(JsonRpcErrorResponse::invalid_params(
-                        ctx.req_id,
-                        format!("Invalid params: {err}"),
-                    ))
-                }
-                Err(PromptError::Internal(err)) => {
-                    DispatchOutcome::error(JsonRpcErrorResponse::internal_error(
-                        ctx.req_id,
-                        format!("Prompt execution failed: {err}"),
-                    ))
-                }
+                Err(err) => DispatchOutcome::error(err.into_error_response(ctx.req_id)),
             }
         }
     }

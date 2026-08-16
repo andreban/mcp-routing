@@ -3,6 +3,7 @@
 
 //! MCP resources subsystem for reading, listing, and template matching.
 
+use crate::types::jsonrpc::{JsonRpcErrorResponse, JsonRpcRequestId};
 use crate::types::mcp::{
     CacheScope,
     resources::{
@@ -46,6 +47,18 @@ impl std::fmt::Display for ResourceError {
 }
 
 impl std::error::Error for ResourceError {}
+
+impl ResourceError {
+    /// Converts this error into a standard JSON-RPC error response.
+    pub fn into_error_response(self, id: Option<JsonRpcRequestId>) -> JsonRpcErrorResponse {
+        match self {
+            ResourceError::InvalidParams(err) | ResourceError::NotFound(err) => {
+                JsonRpcErrorResponse::invalid_params(id, format!("Invalid params: {err}"))
+            }
+            ResourceError::Internal(err) => JsonRpcErrorResponse::internal_error(id, err),
+        }
+    }
+}
 
 /// Trait for types that can be converted into a [`ReadResourceResult`].
 pub trait IntoResourceResult: Send {
@@ -245,5 +258,41 @@ mod tests {
             .into_resource_result("memo://1", None, None)
             .unwrap_err();
         assert!(matches!(err, ResourceError::Internal(ref s) if s == "file not found"));
+    }
+
+    /// Tests conversion of `ResourceError` variants into `JsonRpcErrorResponse`.
+    #[test]
+    fn test_resource_error_into_error_response() {
+        let req_id = Some(JsonRpcRequestId::Number(10.0));
+
+        let err_invalid = ResourceError::InvalidParams("bad uri".to_string());
+        let resp_invalid = err_invalid.into_error_response(req_id.clone());
+        assert_eq!(resp_invalid.id, req_id);
+        assert_eq!(
+            resp_invalid.error.code,
+            crate::types::jsonrpc::JsonRpcErrorCode::InvalidParams
+        );
+        assert_eq!(resp_invalid.error.message, "Invalid params: bad uri");
+
+        let err_not_found = ResourceError::NotFound("memo://missing".to_string());
+        let resp_not_found = err_not_found.into_error_response(req_id.clone());
+        assert_eq!(resp_not_found.id, req_id);
+        assert_eq!(
+            resp_not_found.error.code,
+            crate::types::jsonrpc::JsonRpcErrorCode::InvalidParams
+        );
+        assert_eq!(
+            resp_not_found.error.message,
+            "Invalid params: memo://missing"
+        );
+
+        let err_internal = ResourceError::Internal("disk error".to_string());
+        let resp_internal = err_internal.into_error_response(req_id.clone());
+        assert_eq!(resp_internal.id, req_id);
+        assert_eq!(
+            resp_internal.error.code,
+            crate::types::jsonrpc::JsonRpcErrorCode::InternalError
+        );
+        assert_eq!(resp_internal.error.message, "disk error");
     }
 }

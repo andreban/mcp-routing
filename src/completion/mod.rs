@@ -12,6 +12,7 @@ pub mod registry;
 pub use handler::{CompletionHandler, IntoCompletionHandler};
 pub use registry::CompletionRegistry;
 
+use crate::types::jsonrpc::{JsonRpcErrorResponse, JsonRpcRequestId};
 use crate::types::mcp::completion::{CompleteResult, CompletionValues};
 
 /// Error type encountered during argument completion operations.
@@ -36,6 +37,18 @@ impl std::fmt::Display for CompletionError {
 }
 
 impl std::error::Error for CompletionError {}
+
+impl CompletionError {
+    /// Converts this error into a standard JSON-RPC error response.
+    pub fn into_error_response(self, id: Option<JsonRpcRequestId>) -> JsonRpcErrorResponse {
+        match self {
+            CompletionError::InvalidParams(err) | CompletionError::NotFound(err) => {
+                JsonRpcErrorResponse::invalid_params(id, format!("Invalid params: {err}"))
+            }
+            CompletionError::Internal(err) => JsonRpcErrorResponse::internal_error(id, err),
+        }
+    }
+}
 
 /// Trait for types that can be converted into a [`CompleteResult`].
 pub trait IntoCompletionResult: Send {
@@ -130,5 +143,44 @@ mod tests {
         let res_err: Result<CompleteResult, CompletionError> =
             Result::<Vec<String>, &str>::Err("failed").into_completion_result();
         assert!(matches!(res_err, Err(CompletionError::Internal(msg)) if msg == "failed"));
+    }
+
+    /// Tests conversion of `CompletionError` variants into `JsonRpcErrorResponse`.
+    #[test]
+    fn test_completion_error_into_error_response() {
+        let req_id = Some(JsonRpcRequestId::Number(7.0));
+
+        let err_invalid = CompletionError::InvalidParams("bad argument name".to_string());
+        let resp_invalid = err_invalid.into_error_response(req_id.clone());
+        assert_eq!(resp_invalid.id, req_id);
+        assert_eq!(
+            resp_invalid.error.code,
+            crate::types::jsonrpc::JsonRpcErrorCode::InvalidParams
+        );
+        assert_eq!(
+            resp_invalid.error.message,
+            "Invalid params: bad argument name"
+        );
+
+        let err_not_found = CompletionError::NotFound("prompt 'review'".to_string());
+        let resp_not_found = err_not_found.into_error_response(req_id.clone());
+        assert_eq!(resp_not_found.id, req_id);
+        assert_eq!(
+            resp_not_found.error.code,
+            crate::types::jsonrpc::JsonRpcErrorCode::InvalidParams
+        );
+        assert_eq!(
+            resp_not_found.error.message,
+            "Invalid params: prompt 'review'"
+        );
+
+        let err_internal = CompletionError::Internal("completion timeout".to_string());
+        let resp_internal = err_internal.into_error_response(req_id.clone());
+        assert_eq!(resp_internal.id, req_id);
+        assert_eq!(
+            resp_internal.error.code,
+            crate::types::jsonrpc::JsonRpcErrorCode::InternalError
+        );
+        assert_eq!(resp_internal.error.message, "completion timeout");
     }
 }

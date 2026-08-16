@@ -6,6 +6,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 
 use crate::extract::{FromRequestContext, RequestContext};
+use crate::types::jsonrpc::{JsonRpcErrorResponse, JsonRpcRequestId};
 use crate::types::mcp::{ServerCapabilities, server::discover::ServerDiscoverResult};
 
 /// Error type encountered during dynamic discovery execution or parameter validation.
@@ -27,6 +28,18 @@ impl std::fmt::Display for DiscoveryError {
 }
 
 impl std::error::Error for DiscoveryError {}
+
+impl DiscoveryError {
+    /// Converts this error into a standard JSON-RPC error response.
+    pub fn into_error_response(self, id: Option<JsonRpcRequestId>) -> JsonRpcErrorResponse {
+        match self {
+            DiscoveryError::InvalidParams(err) => {
+                JsonRpcErrorResponse::invalid_params(id, format!("Invalid params: {err}"))
+            }
+            DiscoveryError::Internal(err) => JsonRpcErrorResponse::internal_error(id, err),
+        }
+    }
+}
 
 /// Trait for types that can be converted into dynamic discovery output to populate [`ServerDiscoverResult`].
 pub trait IntoServerDiscoveryResult: Send {
@@ -331,5 +344,32 @@ mod tests {
         assert_eq!(res.capabilities.tools.unwrap().list_changed, Some(true));
         assert_eq!(res.ttl_ms, Some(5000));
         assert!(matches!(res.cache_scope, Some(CacheScope::Private)));
+    }
+
+    /// Tests conversion of `DiscoveryError` variants into `JsonRpcErrorResponse`.
+    #[test]
+    fn test_discovery_error_into_error_response() {
+        let req_id = Some(JsonRpcRequestId::Number(12.0));
+
+        let err_invalid = DiscoveryError::InvalidParams("unsupported client capability".to_string());
+        let resp_invalid = err_invalid.into_error_response(req_id.clone());
+        assert_eq!(resp_invalid.id, req_id);
+        assert_eq!(
+            resp_invalid.error.code,
+            crate::types::jsonrpc::JsonRpcErrorCode::InvalidParams
+        );
+        assert_eq!(
+            resp_invalid.error.message,
+            "Invalid params: unsupported client capability"
+        );
+
+        let err_internal = DiscoveryError::Internal("backend lookup failed".to_string());
+        let resp_internal = err_internal.into_error_response(req_id.clone());
+        assert_eq!(resp_internal.id, req_id);
+        assert_eq!(
+            resp_internal.error.code,
+            crate::types::jsonrpc::JsonRpcErrorCode::InternalError
+        );
+        assert_eq!(resp_internal.error.message, "backend lookup failed");
     }
 }

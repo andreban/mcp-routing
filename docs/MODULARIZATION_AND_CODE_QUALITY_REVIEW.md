@@ -55,13 +55,14 @@ Per `.agents/rules/mcp_development_guidelines.md` (Section 2), complex subsystem
 - **Remedy**: Expose `pub fn into_extras(self) -> HashMap<String, Value>` and `pub fn into_parts(self) -> (Option<ResultMetaObject>, String, HashMap<String, Value>)` on `InputRequiredResult` in [`src/types/mcp/core/mrtr/request.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/types/mcp/core/mrtr/request.rs).
 - **Status**: **Completed** — Added `into_parts` and `into_extras` methods to [`InputRequiredResult`](file:///C:/Users/andre/Projects/mcp-routing/src/types/mcp/core/mrtr/request.rs#L214-L232), refactored all 5 subsystem conversions and [`CallToolResult::input_required`](file:///C:/Users/andre/Projects/mcp-routing/src/types/mcp/tools/call/response.rs#L133-L157), and added unit test coverage in [`src/types/mcp/core/mrtr/tests.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/types/mcp/core/mrtr/tests.rs#L136-L172).
 
-### 2.2 Repetitive Subsystem Error Mapping in Dispatchers
+### 2.2 Repetitive Subsystem Error Mapping in Dispatchers [COMPLETED]
 - **Location**:
   - [`src/resources/registry/dispatch.rs:86-104, 192-210, 322-340`](file:///C:/Users/andre/Projects/mcp-routing/src/resources/registry/dispatch.rs)
   - [`src/prompts/registry/dispatch.rs:43-55, 127-140`](file:///C:/Users/andre/Projects/mcp-routing/src/prompts/registry/dispatch.rs)
   - [`src/completion/registry.rs:239-251`](file:///C:/Users/andre/Projects/mcp-routing/src/completion/registry.rs#L239-L251)
 - **Issue**: Handlers for `ResourceError`, `PromptError`, and `CompletionError` repeatedly match against `InvalidParams`, `NotFound`, and `Internal` to build `JsonRpcErrorResponse::invalid_params` or `JsonRpcErrorResponse::internal_error`.
-- **Remedy**: Implement a helper method `into_error_response(self, id: Option<JsonRpcRequestId>) -> JsonRpcErrorResponse` on `ResourceError`, `PromptError`, and `CompletionError`.
+- **Remedy**: Implement a helper method `into_error_response(self, id: Option<JsonRpcRequestId>) -> JsonRpcErrorResponse` on `ResourceError`, `PromptError`, and `CompletionError` (as well as `ToolError`, `DiscoveryError`, and `SubscriptionError` for comprehensive subsystem consistency).
+- **Status**: **Completed** — Added `into_error_response` helper method to [`ResourceError`](file:///C:/Users/andre/Projects/mcp-routing/src/resources/mod.rs#L50-L60), [`PromptError`](file:///C:/Users/andre/Projects/mcp-routing/src/prompts/mod.rs#L39-L49), [`CompletionError`](file:///C:/Users/andre/Projects/mcp-routing/src/completion/mod.rs#L40-L50), [`ToolError`](file:///C:/Users/andre/Projects/mcp-routing/src/tools/mod.rs#L39-L49), [`DiscoveryError`](file:///C:/Users/andre/Projects/mcp-routing/src/server/provider.rs#L31-L41), and [`SubscriptionError`](file:///C:/Users/andre/Projects/mcp-routing/src/subscriptions/handler.rs#L38-L48). Refactored all dispatcher error handlers to single-line forwarding and added complete unit test suites.
 
 ### 2.3 Combinatorial `IntoToolResult` Tuple Implementations
 - **Location**: [`src/tools/mod.rs:138-300`](file:///C:/Users/andre/Projects/mcp-routing/src/tools/mod.rs#L138-L300)
@@ -93,7 +94,7 @@ graph TD
     B --> B1["Extract src/completion/handler.rs (642 -> 478 lines) [DONE]"]
     
     C --> C1["Add InputRequiredResult::into_extras helper (eliminates 5 duplicates) [DONE]"]
-    C --> C2["Add into_error_response to ResourceError, PromptError, CompletionError"]
+    C --> C2["Add into_error_response to ResourceError, PromptError, CompletionError [DONE]"]
     C --> C3["Macroize IntoToolResult tuple implementations in src/tools/result.rs"]
     
     D --> D1["Extract src/resources/handler.rs (475 -> 213 lines) [DONE]"]

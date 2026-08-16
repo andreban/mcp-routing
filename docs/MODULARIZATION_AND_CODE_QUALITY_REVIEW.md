@@ -65,14 +65,14 @@ Per `.agents/rules/mcp_development_guidelines.md` (Section 2), complex subsystem
 - **Issue**: Validator compilation, header parameter extraction, handler insertion, and vector storage logic were duplicated between `register` and `register_with_cache`.
 - **Implementation**: Refactored `register` across `ToolRegistry`, `PromptRegistry`, and `ResourceRegistry`, as well as `register_template` in `ResourceRegistry`, to delegate directly to their corresponding `*_with_cache` methods with `None` cache parameters, eliminating code duplication and standardizing the registration pipeline.
 
-### 2.3 Method, Name, and URI Resolution Triplication
+### 2.3 Method, Name, and URI Resolution Triplication `[COMPLETED]`
 - **Location**: [`src/utils/resolve.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/utils/resolve.rs) (`resolve_method`, `resolve_required_name`, `resolve_required_uri`)
 - **Issue**: All three functions follow identical 4-stage resolution logic:
   1. Single request: header required, return `HeaderMismatch` if missing.
   2. Trim slashes / whitespace, validate non-empty.
   3. Validate body match if body parameter present, return `HeaderMismatch` on discrepancy.
   4. Batch fallback to body parameter.
-- **Recommendation**: Extract a common generic resolution helper `resolve_header_or_body_value(...)` to eliminate triplication across resolution utilities.
+- **Implementation**: Extracted a common generic resolution helper `resolve_header_or_body_value(...)` configured by a lightweight `ResolveOptions` struct. Refactored `resolve_method`, `resolve_required_name`, and `resolve_required_uri` to delegate directly to this helper, eliminating duplicate 4-stage branching logic while maintaining strict error formatting and zero unneeded allocations.
 
 ### 2.4 Repetitive Registered Collection Extractors
 - **Location**: [`src/extract/registered.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/extract/registered.rs)
@@ -122,7 +122,7 @@ graph TD
     
     B --> B1["Remove legacy handle_* methods from registries [Done]"]
     B --> B2["Delegate register to register_with_cache [Done]"]
-    B --> B3["Consolidate resolution helpers in utils/resolve.rs"]
+    B --> B3["Consolidate resolution helpers in utils/resolve.rs [Done]"]
     B --> B4["Macroize Registered* collections [Done]"]
     
     C --> C1["Migrate integration tests from src/test.rs to tests/ [Done]"]

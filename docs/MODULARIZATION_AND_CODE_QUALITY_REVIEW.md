@@ -74,10 +74,10 @@ Per `.agents/rules/mcp_development_guidelines.md` (Section 2), complex subsystem
   4. Batch fallback to body parameter.
 - **Implementation**: Extracted a common generic resolution helper `resolve_header_or_body_value(...)` configured by a lightweight `ResolveOptions` struct. Refactored `resolve_method`, `resolve_required_name`, and `resolve_required_uri` to delegate directly to this helper, eliminating duplicate 4-stage branching logic while maintaining strict error formatting and zero unneeded allocations.
 
-### 2.4 Repetitive Registered Collection Extractors
+### 2.4 Repetitive Registered Collection Extractors `[COMPLETED]`
 - **Location**: [`src/extract/registered.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/extract/registered.rs)
 - **Issue**: `RegisteredTools`, `RegisteredPrompts`, `RegisteredResources`, and `RegisteredResourceTemplates` duplicate 8 methods and 4 trait implementations (`Deref`, `DerefMut`, `IntoIterator`, `From<Vec<T>>`, `FromRequestContext`) across 427 lines.
-- **Recommendation**: Introduce an internal declarative macro `impl_registered_collection!(RegisteredTools, Tool);` to reduce ~250 lines of boilerplate while maintaining full API ergonomics.
+- **Implementation**: Introduced the internal declarative macro `impl_registered_collection!` generating struct definitions, constructors (`new`), conversions (`into_inner`, `From<Vec<T>>`), slicing (`as_slice`), counting (`len`, `is_empty`), iterators (`iter`, `IntoIterator` by ref and value), deref coercions (`Deref`, `DerefMut`), and context extractors (`FromRequestContext` for `$struct_name` and `Option<$struct_name>`). Consolidated code from 427 lines down to 183 lines (including full unit tests) while retaining full API compatibility and zero runtime overhead.
 
 ---
 

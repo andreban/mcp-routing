@@ -179,4 +179,67 @@ mod tests {
         assert_eq!(extracted_tmpl.len(), 1);
         assert_eq!(extracted_tmpl[0].uri_template, "file:///{path}");
     }
+
+    /// Tests extraction of `RegisteredTools` and `RegisteredPrompts` from request context extensions.
+    #[test]
+    fn test_registered_tools_and_prompts_extractors() {
+        let tool = Tool::new("search");
+        let prompt = Prompt::new("summary");
+
+        let mut ext = http::Extensions::new();
+        ext.insert(RegisteredTools::new(vec![tool.clone()]));
+        ext.insert(RegisteredPrompts::new(vec![prompt.clone()]));
+
+        let ctx = RequestContext::new(None, http::HeaderMap::new(), Arc::new(ext));
+
+        let extracted_tools = RegisteredTools::from_request_context(&ctx).unwrap();
+        assert_eq!(extracted_tools.len(), 1);
+        assert_eq!(extracted_tools[0].name, "search");
+
+        let extracted_prompts = RegisteredPrompts::from_request_context(&ctx).unwrap();
+        assert_eq!(extracted_prompts.len(), 1);
+        assert_eq!(extracted_prompts[0].name, "summary");
+
+        let opt_tools = Option::<RegisteredTools>::from_request_context(&ctx).unwrap();
+        assert!(opt_tools.is_some());
+        assert_eq!(opt_tools.unwrap().len(), 1);
+    }
+
+    /// Tests helper methods and trait implementations on registered collections.
+    #[test]
+    fn test_registered_collection_methods_and_traits() {
+        let tools = RegisteredTools::default();
+        assert!(tools.is_empty());
+        assert_eq!(tools.len(), 0);
+        assert_eq!(tools.as_slice().len(), 0);
+
+        let t1 = Tool::new("tool1");
+        let t2 = Tool::new("tool2");
+        let mut collection = RegisteredTools::from(vec![t1.clone(), t2.clone()]);
+        assert_eq!(collection.len(), 2);
+        assert!(!collection.is_empty());
+
+        // Deref and DerefMut
+        assert_eq!(collection[0].name, "tool1");
+        collection[0].description = Some("updated".into());
+        assert_eq!(collection.as_slice()[0].description.as_deref(), Some("updated"));
+
+        // Borrowed IntoIterator / iter
+        let names: Vec<&str> = collection.iter().map(|t| t.name.as_str()).collect();
+        assert_eq!(names, vec!["tool1", "tool2"]);
+
+        let names_ref: Vec<&str> = (&collection).into_iter().map(|t| t.name.as_str()).collect();
+        assert_eq!(names_ref, vec!["tool1", "tool2"]);
+
+        // Owned IntoIterator and into_inner
+        let inner = collection.into_inner();
+        assert_eq!(inner.len(), 2);
+
+        let empty_ctx = RequestContext::new(None, http::HeaderMap::new(), Arc::new(http::Extensions::new()));
+        let default_tools = RegisteredTools::from_request_context(&empty_ctx).unwrap();
+        assert!(default_tools.is_empty());
+
+        let opt_missing = Option::<RegisteredTools>::from_request_context(&empty_ctx).unwrap();
+        assert!(opt_missing.is_none());
+    }
 }

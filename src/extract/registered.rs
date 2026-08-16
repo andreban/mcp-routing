@@ -413,7 +413,7 @@ mod tests {
         ext.insert(RegisteredResources::new(vec![res.clone()]));
         ext.insert(RegisteredResourceTemplates::new(vec![tmpl.clone()]));
 
-        let ctx = RequestContext::new(None, None, http::HeaderMap::new(), Arc::new(ext));
+        let ctx = RequestContext::new(None, http::HeaderMap::new(), Arc::new(ext));
 
         let extracted_res = RegisteredResources::from_request_context(&ctx).unwrap();
         assert_eq!(extracted_res.len(), 1);

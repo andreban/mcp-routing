@@ -575,7 +575,7 @@ impl_into_completion_handler!(E1, E2, E3, E4, E5);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::extract::SessionId;
+    use crate::extract::Extension;
 
     #[test]
     fn test_into_completion_result() {
@@ -601,7 +601,6 @@ mod tests {
         let h1 = (|| async { vec!["opt1", "opt2"] }).into_completion_handler();
         let ctx = RequestContext::new(
             None,
-            None,
             http::HeaderMap::new(),
             Arc::new(http::Extensions::new()),
         );
@@ -618,18 +617,23 @@ mod tests {
         assert_eq!(res.completion.values, vec!["val_1", "val_2"]);
 
         // With extractors
-        let h3 = (|SessionId(sid): SessionId, arg: CompleteArgument| async move {
-            vec![format!("{sid}:{}", arg.name)]
+        #[derive(Clone)]
+        struct Prefix(String);
+
+        let h3 = (|Extension(p): Extension<Prefix>, arg: CompleteArgument| async move {
+            vec![format!("{}:{}", p.0, arg.name)]
         })
         .into_completion_handler();
 
-        let ctx_with_sess = RequestContext::new(
-            Some(SessionId::new("session-42")),
+        let mut ext = http::Extensions::new();
+        ext.insert(Prefix("custom".to_string()));
+
+        let ctx_with_ext = RequestContext::new(
             None,
             http::HeaderMap::new(),
-            Arc::new(http::Extensions::new()),
+            Arc::new(ext),
         );
-        let res = h3.call(ctx_with_sess, params).await.unwrap();
-        assert_eq!(res.completion.values, vec!["session-42:arg"]);
+        let res = h3.call(ctx_with_ext, params).await.unwrap();
+        assert_eq!(res.completion.values, vec!["custom:arg"]);
     }
 }

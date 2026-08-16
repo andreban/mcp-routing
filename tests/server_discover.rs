@@ -422,7 +422,7 @@ async fn test_server_discover_protocol_version_validation_disabled() {
     assert_eq!(res.result.supported_versions, vec!["2026-07-28"]);
 }
 
-/// Tests dynamic server discovery provider with request extractors (`SessionId`, `Extension`, `Meta`).
+/// Tests dynamic server discovery provider with request extractors (`Extension`, `Meta`).
 #[tokio::test]
 async fn test_server_discover_dynamic_provider_with_extractors() {
     #[derive(Clone)]
@@ -432,7 +432,6 @@ async fn test_server_discover_dynamic_provider_with_extractors() {
     }
 
     async fn custom_discover_provider(
-        session: mcp_routing::extract::SessionId,
         mcp_routing::extract::Extension(tenant): mcp_routing::extract::Extension<Tenant>,
         mcp_routing::extract::Meta(meta): mcp_routing::extract::Meta,
     ) -> Result<(ServerCapabilities, String), String> {
@@ -442,8 +441,8 @@ async fn test_server_discover_dynamic_provider_with_extractors() {
             .map(|c| c.name.as_str())
             .unwrap_or("anonymous");
         let instructions = format!(
-            "Welcome {} from tenant {} ({}) in session {}",
-            client_name, tenant.tenant_id, tenant.plan, session
+            "Welcome {} from tenant {} ({})",
+            client_name, tenant.tenant_id, tenant.plan
         );
 
         let caps = ServerCapabilities {
@@ -485,8 +484,6 @@ async fn test_server_discover_dynamic_provider_with_extractors() {
             }
         }),
     );
-    req.headers_mut()
-        .insert("Mcp-Session-Id", "sess-dyn-42".parse().unwrap());
     req.extensions_mut().insert(Tenant {
         tenant_id: "corp-xyz".to_string(),
         plan: "enterprise".to_string(),
@@ -501,7 +498,7 @@ async fn test_server_discover_dynamic_provider_with_extractors() {
     let instructions = res.result.instructions.unwrap();
     assert_eq!(
         instructions,
-        "Welcome developer-cli from tenant corp-xyz (enterprise) in session sess-dyn-42"
+        "Welcome developer-cli from tenant corp-xyz (enterprise)"
     );
 
     let caps = res.result.capabilities;

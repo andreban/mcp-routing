@@ -264,15 +264,14 @@ async fn test_tools_list_custom_caching_parameters() {
     assert!(matches!(res.result.cache_scope, Some(CacheScope::Public)));
 }
 
-/// Tests registering a custom `tools_list` handler using `BearerAuth` and `SessionId` extractors.
+/// Tests registering a custom `tools_list` handler using `BearerAuth` and `Meta` extractors.
 #[tokio::test]
 async fn test_tools_list_custom_handler_with_bearer_auth_and_extractors() {
-    use mcp_routing::extract::{BearerAuth, Meta, SessionId};
+    use mcp_routing::extract::{BearerAuth, Meta};
     use mcp_routing::types::mcp::tools::list::ListToolsResult;
 
     async fn custom_list_handler(
         BearerAuth(token): BearerAuth,
-        session: Option<SessionId>,
         meta: Option<Meta>,
     ) -> Result<ListToolsResult, String> {
         let is_admin = token == "admin-secret";
@@ -283,11 +282,11 @@ async fn test_tools_list_custom_handler_with_bearer_auth_and_extractors() {
             .unwrap_or(false);
 
         let mut tools = vec![common::sample_tool("public_tool")];
-        if is_admin || is_client_vip {
+        if is_admin {
             tools.push(common::sample_tool("admin_tool"));
         }
-        if session.as_deref() == Some("beta-session") {
-            tools.push(common::sample_tool("beta_tool"));
+        if is_client_vip {
+            tools.push(common::sample_tool("vip_tool"));
         }
 
         Ok(ListToolsResult::new(tools).with_cache(Some(120_000), Some(CacheScope::Private)))
@@ -319,23 +318,27 @@ async fn test_tools_list_custom_handler_with_bearer_auth_and_extractors() {
     assert_eq!(res1.result.tools.len(), 1);
     assert_eq!(res1.result.tools[0].name, "public_tool");
 
-    // Request 2: Admin user with beta session
+    // Request 2: Admin user with VIP client info
     let mut req2 = common::build_request(
         Some("tools/list"),
         None,
         json!({
             "jsonrpc": "2.0",
             "id": 2,
-            "method": "tools/list"
+            "method": "tools/list",
+            "params": {
+                "_meta": {
+                    "io.modelcontextprotocol/clientInfo": {
+                        "name": "vip-client",
+                        "version": "1.0.0"
+                    }
+                }
+            }
         }),
     );
     req2.headers_mut().insert(
         http::header::AUTHORIZATION,
         "Bearer admin-secret".parse().unwrap(),
-    );
-    req2.headers_mut().insert(
-        http::HeaderName::from_static("mcp-session-id"),
-        "beta-session".parse().unwrap(),
     );
     let (status2, _headers2, body2) = common::execute_request(app.clone(), req2).await;
     assert_eq!(status2, StatusCode::OK);
@@ -343,7 +346,7 @@ async fn test_tools_list_custom_handler_with_bearer_auth_and_extractors() {
     assert_eq!(res2.result.tools.len(), 3);
     assert_eq!(res2.result.tools[0].name, "public_tool");
     assert_eq!(res2.result.tools[1].name, "admin_tool");
-    assert_eq!(res2.result.tools[2].name, "beta_tool");
+    assert_eq!(res2.result.tools[2].name, "vip_tool");
 
     // Request 3: Missing authorization header (should fail extractor)
     let req3 = common::build_request(

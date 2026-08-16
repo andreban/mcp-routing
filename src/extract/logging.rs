@@ -90,7 +90,6 @@ mod tests {
     use http::HeaderMap;
 
     use super::*;
-    use crate::extract::SessionId;
     use crate::types::mcp::RequestMetaObject;
 
     #[test]
@@ -99,7 +98,6 @@ mod tests {
         ext.insert(CurrentLoggingLevel(LoggingLevel::Debug));
 
         let ctx = RequestContext::new(
-            Some(SessionId::new("sess-1")),
             None,
             HeaderMap::new(),
             Arc::new(ext),
@@ -123,7 +121,6 @@ mod tests {
         };
 
         let ctx_with_level = RequestContext::new(
-            None,
             Some(meta.clone()),
             HeaderMap::new(),
             Arc::new(http::Extensions::new()),
@@ -137,7 +134,6 @@ mod tests {
 
         meta.log_level = None;
         let ctx_no_level = RequestContext::new(
-            None,
             Some(meta),
             HeaderMap::new(),
             Arc::new(http::Extensions::new()),

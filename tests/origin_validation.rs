@@ -11,7 +11,6 @@
 //! - Permitting wildcard `"*"` origin matching
 //! - Permitting requests without `Origin` headers (non-browser clients)
 //! - Permissive default behavior when `allowed_origins` is unconfigured
-//! - Preserving `mcp-session-id` response header on `403 Forbidden` rejections
 
 mod common;
 
@@ -25,7 +24,7 @@ async fn echo_tool() -> &'static str {
 }
 
 /// Builds an HTTP POST request with an optional `Origin` header.
-fn build_origin_request(origin_header: Option<&str>, session_id: Option<&str>) -> Request<Body> {
+fn build_origin_request(origin_header: Option<&str>) -> Request<Body> {
     let mut builder = Request::builder()
         .method("POST")
         .uri("/")
@@ -36,9 +35,6 @@ fn build_origin_request(origin_header: Option<&str>, session_id: Option<&str>) -
 
     if let Some(origin) = origin_header {
         builder = builder.header("Origin", origin);
-    }
-    if let Some(sid) = session_id {
-        builder = builder.header("Mcp-Session-Id", sid);
     }
 
     let payload = json!({
@@ -61,7 +57,7 @@ async fn test_origin_allowed_trusted_origin_returns_ok() {
         .allowed_origins(vec!["http://localhost:3000".to_string()])
         .register_tool("echo", echo_tool);
 
-    let req = build_origin_request(Some("http://localhost:3000"), None);
+    let req = build_origin_request(Some("http://localhost:3000"));
     let (status, _, body) = common::execute_request(app, req).await;
 
     assert_eq!(status, StatusCode::OK);
@@ -75,7 +71,7 @@ async fn test_origin_allowed_case_insensitive_and_trailing_slashes() {
         .allowed_origins(["https://App.Example.COM"])
         .register_tool("echo", echo_tool);
 
-    let req = build_origin_request(Some("https://app.example.com/"), None);
+    let req = build_origin_request(Some("https://app.example.com/"));
     let (status, _, body) = common::execute_request(app, req).await;
 
     assert_eq!(status, StatusCode::OK);
@@ -89,7 +85,7 @@ async fn test_origin_untrusted_returns_403_forbidden() {
         .allowed_origins(vec!["http://localhost:3000".to_string()])
         .register_tool("echo", echo_tool);
 
-    let req = build_origin_request(Some("http://malicious-attacker.com"), None);
+    let req = build_origin_request(Some("http://malicious-attacker.com"));
     let (status, _, body) = common::execute_request(app, req).await;
 
     assert_eq!(status, StatusCode::FORBIDDEN);
@@ -103,7 +99,7 @@ async fn test_origin_wildcard_allows_any_origin() {
         .allowed_origins(vec!["*".to_string()])
         .register_tool("echo", echo_tool);
 
-    let req = build_origin_request(Some("http://any-domain.org"), None);
+    let req = build_origin_request(Some("http://any-domain.org"));
     let (status, _, body) = common::execute_request(app, req).await;
 
     assert_eq!(status, StatusCode::OK);
@@ -117,7 +113,7 @@ async fn test_origin_missing_when_allowed_origins_configured_allows_non_browser(
         .allowed_origins(vec!["http://localhost:3000".to_string()])
         .register_tool("echo", echo_tool);
 
-    let req = build_origin_request(None, None);
+    let req = build_origin_request(None);
     let (status, _, body) = common::execute_request(app, req).await;
 
     assert_eq!(status, StatusCode::OK);
@@ -129,7 +125,7 @@ async fn test_origin_missing_when_allowed_origins_configured_allows_non_browser(
 async fn test_origin_not_configured_allows_any_origin() {
     let app = McpRouter::new(common::sample_server_info()).register_tool("echo", echo_tool);
 
-    let req = build_origin_request(Some("http://some-origin.com"), None);
+    let req = build_origin_request(Some("http://some-origin.com"));
     let (status, _, body) = common::execute_request(app, req).await;
 
     assert_eq!(status, StatusCode::OK);
@@ -143,27 +139,10 @@ async fn test_origin_blank_returns_403_forbidden_when_configured() {
         .allowed_origins(vec!["http://localhost:3000".to_string()])
         .register_tool("echo", echo_tool);
 
-    let req = build_origin_request(Some("   "), None);
+    let req = build_origin_request(Some("   "));
     let (status, _, body) = common::execute_request(app, req).await;
 
     assert_eq!(status, StatusCode::FORBIDDEN);
     assert!(body.is_null());
 }
 
-/// Tests that the `Mcp-Session-Id` header is preserved on `403 Forbidden` responses.
-#[tokio::test]
-async fn test_origin_session_id_header_propagated_on_403() {
-    let app = McpRouter::new(common::sample_server_info())
-        .allowed_origins(vec!["http://localhost:3000".to_string()])
-        .register_tool("echo", echo_tool);
-
-    let req = build_origin_request(Some("http://malicious.com"), Some("session-xyz-123"));
-    let (status, headers, body) = common::execute_request(app, req).await;
-
-    assert_eq!(status, StatusCode::FORBIDDEN);
-    assert!(body.is_null());
-    assert_eq!(
-        headers.get("mcp-session-id").and_then(|h| h.to_str().ok()),
-        Some("session-xyz-123")
-    );
-}

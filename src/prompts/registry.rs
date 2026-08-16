@@ -7,7 +7,7 @@ use std::sync::Arc;
 use http::Response;
 
 use crate::body::{ResponseBody, json_response, json_response_with_caching};
-use crate::extract::{RequestContext, SessionId};
+use crate::extract::RequestContext;
 use crate::prompts::{
     IntoPromptHandler, IntoPromptsListHandler, PromptError, PromptHandler, PromptsListHandler,
 };
@@ -145,7 +145,6 @@ impl PromptRegistry {
             let mut extensions = (*ctx.extensions).clone();
             extensions.insert(crate::extract::RegisteredPrompts((*self.prompts).clone()));
             let request_ctx = RequestContext::new(
-                ctx.session_id,
                 params.meta.clone(),
                 ctx.headers.clone(),
                 Arc::new(extensions),
@@ -276,7 +275,7 @@ impl PromptRegistry {
             .cloned()
             .unwrap_or((None, None));
         let request_ctx =
-            RequestContext::new(ctx.session_id, meta, ctx.headers.clone(), ctx.extensions);
+            RequestContext::new(meta, ctx.headers.clone(), ctx.extensions);
         let result = handler.call(request_ctx, arguments).await;
         if ctx.is_notification {
             DispatchOutcome::notification()
@@ -345,7 +344,6 @@ impl PromptRegistry {
         &self,
         req_id: Option<JsonRpcRequestId>,
         header_name: Option<&str>,
-        session_id: Option<SessionId>,
         headers: &http::HeaderMap,
         extensions: Arc<http::Extensions>,
         body: &[u8],
@@ -384,7 +382,7 @@ impl PromptRegistry {
                 .unwrap_or((None, None));
             let req_id = request.id.clone();
             let meta = request.params.as_ref().and_then(|p| p.meta.clone());
-            let ctx = RequestContext::new(session_id, meta, headers.clone(), extensions);
+            let ctx = RequestContext::new(meta, headers.clone(), extensions);
             let raw_args = request.params.and_then(|p| p.arguments);
             match handler.call(ctx, raw_args).await {
                 Ok(result) => {
@@ -436,7 +434,6 @@ mod tests {
             is_notification: false,
             is_batch: false,
             header_name: Some(std::borrow::Cow::Borrowed("non_existent_prompt")),
-            session_id: None,
             headers: &headers,
             extensions,
         };
@@ -478,7 +475,6 @@ mod tests {
             .handle_get(
                 Some(JsonRpcRequestId::Number(1.0)),
                 Some("non_existent_prompt"),
-                None,
                 &headers,
                 extensions,
                 &body_bytes,

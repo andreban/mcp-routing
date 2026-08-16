@@ -207,7 +207,6 @@ impl CompletionRegistry {
         };
 
         let request_ctx = RequestContext::new(
-            ctx.session_id,
             params.meta.clone(),
             ctx.headers.clone(),
             ctx.extensions,
@@ -256,7 +255,6 @@ impl CompletionRegistry {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::extract::SessionId;
     use crate::types::jsonrpc::JsonRpcRequestId;
     use crate::types::mcp::completion::{CompleteArgument, CompleteContext};
 
@@ -278,7 +276,6 @@ mod tests {
             is_notification: false,
             is_batch: false,
             header_name: None,
-            session_id: Some(SessionId::new("sess-1")),
             headers: &headers,
             extensions,
         };
@@ -318,7 +315,6 @@ mod tests {
             is_notification: false,
             is_batch: false,
             header_name: None,
-            session_id: None,
             headers: &headers,
             extensions,
         };
@@ -352,7 +348,6 @@ mod tests {
             is_notification: false,
             is_batch: false,
             header_name: None,
-            session_id: None,
             headers: &headers,
             extensions,
         };

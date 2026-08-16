@@ -12,7 +12,7 @@
 //! - Invalid batch elements like `[1]` and `[1, 2, 3]` (Spec Examples 8 & 9)
 //! - Malformed batch JSON syntax returning a single Parse Error (Spec Example 6)
 //! - Top-level JSON primitive payloads returning Invalid Request
-//! - Correlation header (`Mcp-Session-Id`) and shared state propagation across batch calls
+//! - Shared state propagation across batch calls
 //! - Header fallback for batch items omitting `method` or `name`
 
 mod common;
@@ -21,7 +21,7 @@ use axum::body::Body;
 use http::{Request, StatusCode};
 use mcp_routing::{
     McpRouter,
-    extract::{Extension, SessionId},
+    extract::Extension,
     types::jsonrpc::{
         INVALID_PARAMS_CODE, INVALID_REQUEST_CODE, JsonRpcErrorResponse, METHOD_NOT_FOUND_CODE,
         PARSE_ERROR_CODE,
@@ -45,14 +45,10 @@ struct AppState {
 }
 
 async fn stateful_tool(
-    session: Option<SessionId>,
     Extension(state): Extension<AppState>,
     args: EchoArgs,
 ) -> Result<String, String> {
-    let sid = session
-        .map(|s| s.to_string())
-        .unwrap_or_else(|| "none".to_string());
-    Ok(format!("{}: [{}] -> {}", state.app_name, sid, args.message))
+    Ok(format!("{}: -> {}", state.app_name, args.message))
 }
 
 /// Helper creating a standard router with tools and prompts configured.
@@ -460,9 +456,9 @@ async fn test_top_level_primitive_returns_invalid_request() {
     assert_eq!(err_resp.error.code.code(), INVALID_REQUEST_CODE);
 }
 
-/// Tests that `Mcp-Session-Id` header and shared state (`with_state`) propagate correctly to each handler in a batch.
+/// Tests that shared state (`with_state`) propagates correctly to each handler in a batch.
 #[tokio::test]
-async fn test_batch_session_id_and_state_propagation() {
+async fn test_batch_state_propagation() {
     let app = McpRouter::new(common::sample_server_info())
         .with_state(AppState {
             app_name: "BATCH_APP".to_string(),
@@ -493,28 +489,23 @@ async fn test_batch_session_id_and_state_propagation() {
     let req = Request::builder()
         .method("POST")
         .uri("/")
-        .header("Mcp-Session-Id", "session-batch-777")
         .header("Content-Type", "application/json")
         .header("MCP-Protocol-Version", "2026-07-28")
         .body(Body::from(batch_req.to_string()))
         .unwrap();
 
-    let (status, headers, body) = common::execute_request(app, req).await;
+    let (status, _headers, body) = common::execute_request(app, req).await;
     assert_eq!(status, StatusCode::OK);
-    assert_eq!(
-        headers.get("mcp-session-id").unwrap().to_str().unwrap(),
-        "session-batch-777"
-    );
 
     let arr = body.as_array().expect("Must be JSON array");
     assert_eq!(arr.len(), 2);
     assert_eq!(
         arr[0]["result"]["content"][0]["text"],
-        "BATCH_APP: [session-batch-777] -> call 1"
+        "BATCH_APP: -> call 1"
     );
     assert_eq!(
         arr[1]["result"]["content"][0]["text"],
-        "BATCH_APP: [session-batch-777] -> call 2"
+        "BATCH_APP: -> call 2"
     );
 }
 

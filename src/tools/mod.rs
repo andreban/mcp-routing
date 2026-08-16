@@ -502,7 +502,7 @@ impl_into_tool_handler!(E1, E2, E3, E4, E5);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::extract::{Extension, Meta, SessionId};
+    use crate::extract::{Extension, Meta};
     use crate::types::mcp::{Implementation, TextContent};
 
     /// Tests `IntoToolResult` implementations across primitive and complex return types.
@@ -568,8 +568,7 @@ mod tests {
         if let ContentBlock::Text(ref t) = res_val_str.content[0] {
             assert_eq!(t.text, "All good");
         }
-
-        // Generic CallToolResult<Output>
+        // Generic CallToolResult<Output>
         let custom_res = CallToolResult::structured(Output { count: 99 }).with_text("Count report");
         let res_custom = custom_res.into_tool_result();
         assert_eq!(res_custom.structured_content.unwrap()["count"], 99);
@@ -591,7 +590,6 @@ mod tests {
         }
 
         async fn echo_handler(
-            session: SessionId,
             Extension(state): Extension<AppState>,
             Meta(meta): Meta,
             params: EchoParams,
@@ -602,7 +600,7 @@ mod tests {
                 .map(|c| c.name.as_str())
                 .unwrap_or("unknown");
             Ok(format!(
-                "{}: [{session}] {client} -> {}",
+                "{}: {client} -> {}",
                 state.prefix, params.message
             ))
         }
@@ -615,7 +613,6 @@ mod tests {
         });
 
         let ctx = RequestContext::new(
-            Some(SessionId::new("session-42")),
             Some(crate::types::mcp::RequestMetaObject {
                 client_info: Some(Implementation::new("test-client", "1.0.0")),
                 client_capabilities: None,
@@ -628,18 +625,12 @@ mod tests {
             Arc::new(ext),
         );
 
-        let result = handler
-            .call(
-                ctx,
-                Some(serde_json::json!({
-                    "message": "hello world"
-                })),
-            )
-            .await;
+        let args = serde_json::json!({ "message": "ping" });
+        let result = handler.call(ctx, Some(args)).await;
 
         assert_eq!(result.is_error, Some(false));
         if let ContentBlock::Text(ref t) = result.content[0] {
-            assert_eq!(t.text, "APP: [session-42] test-client -> hello world");
+            assert_eq!(t.text, "APP: test-client -> ping");
         } else {
             panic!("Expected text block");
         }

@@ -5,7 +5,7 @@
 //!
 //! Demonstrates how to use first-class handler functions in `mcp-routing` to generate
 //! context-aware server instructions, capabilities, tool lists, and prompt lists on a per-request basis
-//! using extractors like `BearerAuth`, `SessionId`, `Meta`, and `State`.
+//! using extractors like `BearerAuth`, `Meta`, and `State`.
 
 use std::error::Error;
 use std::sync::Arc;
@@ -13,7 +13,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use axum::Router;
 use mcp_routing::{
-    BearerAuth, McpRouter, Meta, RegisteredPrompts, RegisteredTools, SessionId, State,
+    BearerAuth, McpRouter, Meta, RegisteredPrompts, RegisteredTools, State,
     types::mcp::{
         CacheScope, Implementation, PromptsCapability, ResourcesCapability, ServerCapabilities,
         ToolsCapability,
@@ -72,23 +72,21 @@ async fn admin_diagnostics_prompt() -> GetPromptResult {
 
 /// Server discovery handler function.
 ///
-/// Inspects incoming session ID, Bearer auth token, client metadata, and application state
+/// Inspects incoming Bearer auth token, client metadata, and application state
 /// to tailor capabilities and instructions.
 async fn server_discover_handler(
     auth: Option<BearerAuth>,
-    session: Option<SessionId>,
     meta: Option<Meta>,
     State(state): State<ServerState>,
 ) -> ServerDiscoverResult {
-    let session_count = state.active_sessions.fetch_add(1, Ordering::SeqCst) + 1;
+    let discovery_count = state.active_sessions.fetch_add(1, Ordering::SeqCst) + 1;
     let client_name = meta
         .as_ref()
         .and_then(|m| m.client_info.as_ref())
         .map(|c| c.name.as_str())
         .unwrap_or("standard-client");
 
-    let is_admin = auth.as_ref().map(|a| a.token()) == Some("admin-secret-token")
-        || session.as_deref().unwrap_or("").starts_with("admin-");
+    let is_admin = auth.as_ref().map(|a| a.token()) == Some("admin-secret-token");
 
     let capabilities = ServerCapabilities {
         tools: Some(ToolsCapability {
@@ -110,15 +108,14 @@ async fn server_discover_handler(
     };
 
     let instructions = format!(
-        "Welcome {client_name}! (Session: {}, Discoveries: {session_count}, Admin mode: {is_admin})",
-        session.as_deref().unwrap_or("none")
+        "Welcome {client_name}! (Discoveries: {discovery_count}, Admin mode: {is_admin})"
     );
 
     ServerDiscoverResult::new(capabilities, vec!["2026-07-28".to_string()])
         .with_instructions(instructions)
         .with_cache(
             Some(60_000),
-            Some(if session.is_some() || auth.is_some() {
+            Some(if auth.is_some() {
                 CacheScope::Private
             } else {
                 CacheScope::Public
@@ -129,11 +126,9 @@ async fn server_discover_handler(
 /// Tools list handler function filtering the pre-registered tools using `RegisteredTools`.
 async fn tools_list_handler(
     auth: Option<BearerAuth>,
-    session: Option<SessionId>,
     RegisteredTools(all_tools): RegisteredTools,
 ) -> ListToolsResult {
-    let is_admin = auth.as_ref().map(|a| a.token()) == Some("admin-secret-token")
-        || session.as_deref().unwrap_or("").starts_with("admin-");
+    let is_admin = auth.as_ref().map(|a| a.token()) == Some("admin-secret-token");
 
     let filtered = all_tools
         .into_iter()
@@ -231,7 +226,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
     println!("Discovery MCP server listening on http://127.0.0.1:3000/mcp");
     println!("Send requests with headers:");
     println!("  - Authorization: Bearer admin-secret-token (enables admin tools and prompts)");
-    println!("  - Mcp-Session-Id: admin-1234 (enables admin capabilities)");
     axum::serve(listener, app).await?;
     Ok(())
 }

@@ -20,7 +20,7 @@ use crate::router::{McpRouter, McpRouterInner};
 use crate::types::jsonrpc::JsonRpcErrorResponse;
 use crate::types::mcp::{header_mismatch_error, unsupported_protocol_version_error};
 use crate::utils::{
-    extract_protocol_version, extract_session_id, is_json_content_type, is_origin_header_allowed,
+    extract_protocol_version, is_json_content_type, is_origin_header_allowed,
 };
 
 impl McpRouterInner {
@@ -30,35 +30,21 @@ impl McpRouterInner {
         B: http_body::Body<Data = Bytes> + Send + 'static,
         B::Error: Into<BoxError>,
     {
-        let session_id = extract_session_id(req.headers());
-
-        let attach_session = |mut resp: Response<ResponseBody>| {
-            if let Some(ref sid) = session_id
-                && let Ok(header_val) = http::HeaderValue::from_str(sid.as_str())
-            {
-                resp.headers_mut().insert(
-                    http::header::HeaderName::from_static("mcp-session-id"),
-                    header_val,
-                );
-            }
-            resp
-        };
-
         if req.method() != http::Method::POST {
             tracing::debug!(method = %req.method(), "HTTP method not allowed, only POST is supported");
-            return attach_session(method_not_allowed());
+            return method_not_allowed();
         }
 
         if !is_json_content_type(req.headers()) {
             tracing::debug!("Missing or unsupported Content-Type header");
-            return attach_session(unsupported_media_type());
+            return unsupported_media_type();
         }
 
         if let Some(ref allowed) = self.server.allowed_origins
             && !is_origin_header_allowed(req.headers(), allowed)
         {
             tracing::debug!("Rejected untrusted Origin header with 403 Forbidden");
-            return attach_session(forbidden());
+            return forbidden();
         }
 
         if self.server.validate_protocol_version {
@@ -69,10 +55,10 @@ impl McpRouterInner {
                         None,
                         "Header mismatch: missing required MCP-Protocol-Version header",
                     );
-                    return attach_session(json_response_with_status(
+                    return json_response_with_status(
                         StatusCode::BAD_REQUEST,
                         &error_response,
-                    ));
+                    );
                 }
                 Some(req_ver) => {
                     if !self.server.supported_versions.iter().any(|v| v == req_ver) {
@@ -83,10 +69,10 @@ impl McpRouterInner {
                             self.server.supported_versions.clone(),
                             req_ver,
                         );
-                        return attach_session(json_response_with_status(
+                        return json_response_with_status(
                             StatusCode::BAD_REQUEST,
                             &error_response,
-                        ));
+                        );
                     }
                 }
             }
@@ -112,7 +98,7 @@ impl McpRouterInner {
             Err(err) => {
                 let err = err.into();
                 tracing::error!(?err, "Failed to read request body");
-                return attach_session(bad_request());
+                return bad_request();
             }
         };
 
@@ -122,14 +108,14 @@ impl McpRouterInner {
                 tracing::debug!(?err, "Failed to parse JSON body");
                 let error_response =
                     JsonRpcErrorResponse::parse_error(format!("Parse error: {err}"));
-                return attach_session(json_response_with_status(
+                return json_response_with_status(
                     StatusCode::BAD_REQUEST,
                     &error_response,
-                ));
+                );
             }
         };
 
-        let response = match raw_json {
+        match raw_json {
             serde_json::Value::Array(items) => {
                 if items.is_empty() {
                     let error_response = JsonRpcErrorResponse::invalid_request(
@@ -144,7 +130,6 @@ impl McpRouterInner {
                             .dispatch_item(
                                 item,
                                 &parts.headers,
-                                session_id.clone(),
                                 Arc::clone(&extensions),
                             )
                             .await
@@ -165,7 +150,6 @@ impl McpRouterInner {
                     .dispatch_object(
                         map,
                         &parts.headers,
-                        session_id.clone(),
                         Arc::clone(&extensions),
                         false,
                     )
@@ -195,9 +179,7 @@ impl McpRouterInner {
                 );
                 json_response_with_status(StatusCode::BAD_REQUEST, &error_response)
             }
-        };
-
-        attach_session(response)
+        }
     }
 }
 

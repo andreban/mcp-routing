@@ -4,7 +4,7 @@
 //! # Request Extractors and Context
 //!
 //! Provides extractors for handler functions in `mcp-routing`, including [`RequestContext`],
-//! [`SessionId`], [`Meta`], [`Authorization`], [`BearerAuth`], [`State`], [`Extension`],
+//! [`Meta`], [`Authorization`], [`BearerAuth`], [`State`], [`Extension`],
 //! [`RegisteredTools`], and [`RegisteredPrompts`].
 
 pub mod auth;
@@ -15,7 +15,6 @@ pub mod logging;
 pub mod meta;
 pub mod mrtr;
 pub mod registered;
-pub mod session;
 pub mod state;
 pub mod traits;
 
@@ -29,7 +28,6 @@ pub use mrtr::{InputResponses, RequestState};
 pub use registered::{
     RegisteredPrompts, RegisteredResourceTemplates, RegisteredResources, RegisteredTools,
 };
-pub use session::SessionId;
 pub use state::{Extension, State};
 pub use traits::FromRequestContext;
 
@@ -41,17 +39,6 @@ mod tests {
 
     use super::*;
     use crate::types::mcp::{Implementation, LoggingLevel, ProgressToken, RequestMetaObject};
-
-    #[test]
-    fn test_session_id_deref_and_display() {
-        let sid = SessionId::new("sess-12345");
-        assert_eq!(sid.as_str(), "sess-12345");
-        assert_eq!(&*sid, "sess-12345");
-        assert_eq!(sid.as_ref(), "sess-12345");
-        assert_eq!(format!("{sid}"), "sess-12345");
-        assert_eq!(SessionId::from("abc"), SessionId::new("abc"));
-        assert_eq!(SessionId::from("def".to_string()), SessionId::new("def"));
-    }
 
     #[test]
     fn test_extractors_from_context() {
@@ -81,7 +68,6 @@ mod tests {
         };
 
         let ctx = RequestContext::new(
-            Some(SessionId::new("sess-999")),
             Some(meta.clone()),
             headers,
             Arc::new(ext),
@@ -89,7 +75,6 @@ mod tests {
 
         // RequestContext extractor
         let extracted_ctx = RequestContext::from_request_context(&ctx).unwrap();
-        assert_eq!(extracted_ctx.session_id_str(), Some("sess-999"));
         assert_eq!(extracted_ctx.request_state(), Some("step2_token"));
         assert!(
             extracted_ctx
@@ -116,13 +101,6 @@ mod tests {
         assert!(ir.get("sample_1").is_some());
         let opt_ir = Option::<InputResponses>::from_request_context(&ctx).unwrap();
         assert!(opt_ir.is_some());
-
-        // SessionId extractor
-        let sid = SessionId::from_request_context(&ctx).unwrap();
-        assert_eq!(sid.as_str(), "sess-999");
-
-        let opt_sid = Option::<SessionId>::from_request_context(&ctx).unwrap();
-        assert_eq!(opt_sid.as_deref(), Some("sess-999"));
 
         // Meta extractor
         let extracted_meta = Meta::from_request_context(&ctx).unwrap();
@@ -171,17 +149,9 @@ mod tests {
     fn test_extractors_missing_data_errors() {
         let ctx = RequestContext::new(
             None,
-            None,
             HeaderMap::new(),
             Arc::new(http::Extensions::new()),
         );
-
-        // Missing SessionId
-        let sid_err = SessionId::from_request_context(&ctx).unwrap_err();
-        assert!(sid_err.0.contains("Missing required Mcp-Session-Id header"));
-
-        let opt_sid = Option::<SessionId>::from_request_context(&ctx).unwrap();
-        assert_eq!(opt_sid, None);
 
         // Missing Meta
         let meta_err = Meta::from_request_context(&ctx).unwrap_err();
@@ -231,7 +201,7 @@ mod tests {
             "Bearer secret-token-xyz".parse().unwrap(),
         );
 
-        let ctx = RequestContext::new(None, None, headers, Arc::new(http::Extensions::new()));
+        let ctx = RequestContext::new(None, headers, Arc::new(http::Extensions::new()));
 
         assert_eq!(ctx.authorization(), Some("Bearer secret-token-xyz"));
         assert_eq!(ctx.bearer_token(), Some("secret-token-xyz"));
@@ -256,7 +226,6 @@ mod tests {
             "Basic dXNlcjpwYXNz".parse().unwrap(),
         );
         let invalid_ctx = RequestContext::new(
-            None,
             None,
             invalid_headers,
             Arc::new(http::Extensions::new()),

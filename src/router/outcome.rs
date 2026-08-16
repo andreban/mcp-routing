@@ -6,7 +6,6 @@ use std::sync::Arc;
 
 use http::StatusCode;
 
-use crate::extract::SessionId;
 use crate::types::jsonrpc::{JsonRpcErrorResponse, JsonRpcRequestId};
 use crate::types::mcp::{CacheScope, mcp_error_code_to_http_status};
 
@@ -63,7 +62,6 @@ pub(crate) struct MethodContext<'a> {
     pub(crate) is_notification: bool,
     pub(crate) is_batch: bool,
     pub(crate) header_name: Option<Cow<'a, str>>,
-    pub(crate) session_id: Option<SessionId>,
     pub(crate) headers: &'a http::HeaderMap,
     pub(crate) extensions: Arc<http::Extensions>,
 }

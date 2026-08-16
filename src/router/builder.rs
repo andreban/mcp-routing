@@ -99,7 +99,7 @@ impl McpRouter {
     /// Registers a handler for generating server discovery metadata (`server/discover`).
     ///
     /// The handler function can take request extractors (such as [`RequestContext`](crate::extract::RequestContext),
-    /// [`SessionId`](crate::extract::SessionId), [`State`](crate::extract::State), [`Extension`](crate::extract::Extension),
+    /// [`State`](crate::extract::State), [`Extension`](crate::extract::Extension),
     /// [`Authorization`](crate::extract::Authorization), or [`BearerAuth`](crate::extract::BearerAuth))
     /// and return any type implementing [`IntoServerDiscoveryResult`](crate::server::IntoServerDiscoveryResult).
     pub fn discover<H, T>(mut self, handler: H) -> Self
@@ -164,7 +164,7 @@ impl McpRouter {
     /// Registers a custom handler function for generating the tools list (`tools/list`).
     ///
     /// The handler function can take request extractors (such as [`RequestContext`](crate::extract::RequestContext),
-    /// [`SessionId`](crate::extract::SessionId), [`State`](crate::extract::State), [`Extension`](crate::extract::Extension),
+    /// [`State`](crate::extract::State), [`Extension`](crate::extract::Extension),
     /// [`Authorization`](crate::extract::Authorization), or [`BearerAuth`](crate::extract::BearerAuth))
     /// and optionally a `cursor: Option<String>` parameter, and return any type implementing [`IntoToolsListResult`](crate::tools::IntoToolsListResult).
     pub fn tools_list<H, T>(mut self, handler: H) -> Self
@@ -257,7 +257,7 @@ impl McpRouter {
     /// Registers a custom handler function for generating the prompts list (`prompts/list`).
     ///
     /// The handler function can take request extractors (such as [`RequestContext`](crate::extract::RequestContext),
-    /// [`SessionId`](crate::extract::SessionId), [`State`](crate::extract::State), [`Extension`](crate::extract::Extension),
+    /// [`State`](crate::extract::State), [`Extension`](crate::extract::Extension),
     /// [`Authorization`](crate::extract::Authorization), or [`BearerAuth`](crate::extract::BearerAuth))
     /// and optionally a `cursor: Option<String>` parameter, and return any type implementing [`IntoPromptsListResult`](crate::prompts::IntoPromptsListResult).
     pub fn prompts_list<H, T>(mut self, handler: H) -> Self
@@ -354,7 +354,7 @@ impl McpRouter {
     /// Registers a custom handler function for generating the resources list (`resources/list`).
     ///
     /// The handler function can take request extractors (such as [`RequestContext`](crate::extract::RequestContext),
-    /// [`SessionId`](crate::extract::SessionId), [`State`](crate::extract::State), [`Extension`](crate::extract::Extension),
+    /// [`State`](crate::extract::State), [`Extension`](crate::extract::Extension),
     /// [`Authorization`](crate::extract::Authorization), or [`BearerAuth`](crate::extract::BearerAuth))
     /// and optionally a `cursor: Option<String>` parameter, and return any type implementing [`IntoResourcesListResult`](crate::resources::IntoResourcesListResult).
     pub fn resources_list<H, T>(mut self, handler: H) -> Self

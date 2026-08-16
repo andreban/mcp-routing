@@ -15,5 +15,3 @@ pub use content::*;
 pub use core::*;
 pub use logging::*;
 pub use resources::*;
-
-pub use crate::extract::SessionId;

@@ -274,7 +274,7 @@ impl_into_discovery_handler!(E1, E2, E3, E4, E5);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::extract::{Extension, Meta, SessionId};
+    use crate::extract::{Extension, Meta};
     use crate::types::mcp::{CacheScope, Implementation, ToolsCapability};
 
     #[tokio::test]
@@ -285,7 +285,6 @@ mod tests {
         }
 
         async fn dynamic_provider(
-            session: SessionId,
             Extension(tenant): Extension<TenantContext>,
             Meta(meta): Meta,
         ) -> Result<ServerCapabilities, String> {
@@ -294,7 +293,6 @@ mod tests {
                 .as_ref()
                 .map(|c| c.name.as_str())
                 .unwrap_or("unknown");
-            assert_eq!(session.as_str(), "sess-100");
             assert_eq!(tenant.tenant_name, "acme-corp");
             assert_eq!(client, "client-x");
 
@@ -319,7 +317,6 @@ mod tests {
         });
 
         let ctx = RequestContext::new(
-            Some(SessionId::new("sess-100")),
             Some(crate::types::mcp::RequestMetaObject {
                 client_info: Some(Implementation::new("client-x", "1.0")),
                 client_capabilities: None,

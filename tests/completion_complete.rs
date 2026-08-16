@@ -8,7 +8,7 @@ use http::{Request, StatusCode};
 use http_body_util::BodyExt;
 use mcp_routing::{
     McpRouter,
-    extract::{BearerAuth, SessionId, State},
+    extract::{BearerAuth, State},
     types::mcp::{
         CacheScope, Implementation,
         completion::{
@@ -289,10 +289,9 @@ async fn test_completion_with_extractors_and_state() {
             "sql_query",
             "table",
             |State(cfg): State<AppConfig>,
-             SessionId(sid): SessionId,
              BearerAuth(token): BearerAuth,
              arg: CompleteArgument| async move {
-                vec![format!("{}:{}:{}{}", sid, token, cfg.prefix, arg.value)]
+                vec![format!("{}:{}{}", token, cfg.prefix, arg.value)]
             },
         );
 
@@ -307,7 +306,6 @@ async fn test_completion_with_extractors_and_state() {
     });
 
     let headers = vec![
-        ("Mcp-Session-Id", "sess-test-123"),
         ("Authorization", "Bearer secret-token-456"),
     ];
 
@@ -315,7 +313,7 @@ async fn test_completion_with_extractors_and_state() {
     assert_eq!(status, StatusCode::OK);
     assert_eq!(
         body["result"]["completion"]["values"],
-        serde_json::json!(["sess-test-123:secret-token-456:corp_orders"])
+        serde_json::json!(["secret-token-456:corp_orders"])
     );
 }
 

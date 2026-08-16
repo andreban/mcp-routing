@@ -7,7 +7,7 @@ use std::sync::Arc;
 use http::Response;
 
 use crate::body::{ResponseBody, json_response, json_response_with_caching};
-use crate::extract::{RequestContext, SessionId};
+use crate::extract::RequestContext;
 use crate::router::{DispatchOutcome, MethodContext};
 use crate::tools::{
     IntoToolHandler, IntoToolsListHandler, ToolError, ToolHandler, ToolsListHandler,
@@ -181,7 +181,6 @@ impl ToolRegistry {
             let mut extensions = (*ctx.extensions).clone();
             extensions.insert(crate::extract::RegisteredTools((*self.tools).clone()));
             let request_ctx = RequestContext::new(
-                ctx.session_id,
                 params.meta.clone(),
                 ctx.headers.clone(),
                 Arc::new(extensions),
@@ -352,7 +351,6 @@ impl ToolRegistry {
         }
 
         let request_ctx = RequestContext::new(
-            ctx.session_id,
             meta,
             ctx.headers.clone(),
             Arc::clone(&ctx.extensions),
@@ -409,7 +407,6 @@ impl ToolRegistry {
         &self,
         req_id: Option<JsonRpcRequestId>,
         header_name: Option<&str>,
-        session_id: Option<SessionId>,
         headers: &http::HeaderMap,
         extensions: Arc<http::Extensions>,
         body: &[u8],
@@ -481,7 +478,7 @@ impl ToolRegistry {
                 return json_response_with_caching(&response, tool_ttl, tool_scope.as_ref());
             }
 
-            let ctx = RequestContext::new(session_id, meta, headers.clone(), extensions);
+            let ctx = RequestContext::new(meta, headers.clone(), extensions);
             let result = handler.call(ctx, raw_args).await;
             let response = CallToolResultResponse::new(req_id, result);
             return json_response_with_caching(&response, tool_ttl, tool_scope.as_ref());
@@ -537,7 +534,6 @@ mod tests {
             is_notification: false,
             is_batch: false,
             header_name: Some(std::borrow::Cow::Borrowed("non_existent_tool")),
-            session_id: None,
             headers: &headers,
             extensions,
         };
@@ -579,7 +575,6 @@ mod tests {
             .handle_call(
                 Some(JsonRpcRequestId::Number(1.0)),
                 Some("non_existent_tool"),
-                None,
                 &headers,
                 extensions,
                 &body_bytes,

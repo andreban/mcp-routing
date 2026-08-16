@@ -3,7 +3,6 @@
 
 use std::sync::Arc;
 
-use crate::extract::SessionId;
 use crate::router::{DispatchOutcome, McpRouterInner, MethodContext};
 use crate::types::jsonrpc::{JsonRpcErrorResponse, JsonRpcRequestId};
 use crate::types::mcp::header_mismatch_error;
@@ -18,13 +17,12 @@ impl McpRouterInner {
         &self,
         item: serde_json::Value,
         headers: &http::HeaderMap,
-        session_id: Option<SessionId>,
         extensions: Arc<http::Extensions>,
     ) -> Option<serde_json::Value> {
         match item {
             serde_json::Value::Object(map) => {
                 let outcome = self
-                    .dispatch_object(map, headers, session_id, extensions, true)
+                    .dispatch_object(map, headers, extensions, true)
                     .await;
                 outcome.response
             }
@@ -43,7 +41,6 @@ impl McpRouterInner {
         &self,
         mut map: serde_json::Map<String, serde_json::Value>,
         headers: &http::HeaderMap,
-        session_id: Option<SessionId>,
         extensions: Arc<http::Extensions>,
         is_batch: bool,
     ) -> DispatchOutcome {
@@ -141,7 +138,6 @@ impl McpRouterInner {
             is_notification,
             is_batch,
             header_name,
-            session_id,
             headers,
             extensions,
         };

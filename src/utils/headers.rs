@@ -7,7 +7,6 @@ use std::borrow::Cow;
 
 use http::HeaderMap;
 
-use crate::extract::SessionId;
 use crate::utils::sentinel::decode_sentinel_header;
 
 /// Validates whether the `Content-Type` header specifies `application/json`.
@@ -66,16 +65,6 @@ pub(crate) fn extract_header_method(headers: &HeaderMap) -> Option<&str> {
         .get("Mcp-Method")
         .and_then(|v| v.to_str().ok())
         .map(|s| s.trim_matches('/'))
-}
-
-/// Extracts the session ID from the `Mcp-Session-Id` HTTP header, trimming whitespace.
-pub(crate) fn extract_session_id(headers: &HeaderMap) -> Option<SessionId> {
-    headers
-        .get("Mcp-Session-Id")
-        .and_then(|v| v.to_str().ok())
-        .map(|s| s.trim())
-        .filter(|s| !s.is_empty())
-        .map(SessionId::new)
 }
 
 /// Extracts the MCP protocol version from the `MCP-Protocol-Version` HTTP header.
@@ -236,28 +225,6 @@ mod tests {
             extract_header_uri(&headers).as_deref(),
             Some("file:///app/doc with space.txt")
         );
-    }
-
-    /// Tests extracting the `Mcp-Session-Id` header and trimming whitespace.
-    #[test]
-    fn test_extract_session_id() {
-        let mut headers = HeaderMap::new();
-        assert_eq!(extract_session_id(&headers), None);
-
-        headers.insert("Mcp-Session-Id", "session-xyz".parse().unwrap());
-        assert_eq!(
-            extract_session_id(&headers),
-            Some(SessionId::new("session-xyz"))
-        );
-
-        headers.insert("Mcp-Session-Id", "  session-with-spaces  ".parse().unwrap());
-        assert_eq!(
-            extract_session_id(&headers),
-            Some(SessionId::new("session-with-spaces"))
-        );
-
-        headers.insert("Mcp-Session-Id", "   ".parse().unwrap());
-        assert_eq!(extract_session_id(&headers), None);
     }
 
     /// Tests extracting the `Mcp-Method` header and trimming slashes.

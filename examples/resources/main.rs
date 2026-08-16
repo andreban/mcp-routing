@@ -9,13 +9,13 @@
 //! 3. Resource template discovery (`resources/templates/list`) for dynamic parameterized resources.
 //! 4. Dynamic resource reading matching RFC 6570 URI templates.
 //! 5. Per-resource caching directives (`Cache-Control` header propagation).
-//! 6. Request extractors (`SessionId`, `BearerAuth`, `RequestContext`) in resource handlers.
+//! 6. Request extractors (`BearerAuth`, `RequestContext`) in resource handlers.
 
 use std::error::Error;
 
 use axum::Router;
 use mcp_routing::{
-    BearerAuth, McpRouter, SessionId,
+    BearerAuth, McpRouter,
     types::mcp::{
         CacheScope, Implementation, Role,
         resources::{ReadResourceResult, Resource, ResourceAnnotations, ResourceTemplate},
@@ -35,11 +35,9 @@ async fn readme_resource_handler() -> &'static str {
 
 /// Handler for reading system status with request extractors.
 async fn system_status_handler(
-    session: Option<SessionId>,
     auth: Option<BearerAuth>,
     uri: String,
 ) -> Result<ReadResourceResult, String> {
-    let session_str = session.as_ref().map(|s| s.as_str()).unwrap_or("anonymous");
     let auth_str = if auth.is_some() {
         "authenticated"
     } else {
@@ -49,7 +47,6 @@ async fn system_status_handler(
     let status_json = serde_json::json!({
         "status": "healthy",
         "timestamp": "2026-08-15T12:00:00Z",
-        "clientSession": session_str,
         "authStatus": auth_str,
         "resourceUri": uri,
         "uptimeSeconds": 86400,

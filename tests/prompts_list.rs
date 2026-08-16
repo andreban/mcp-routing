@@ -258,15 +258,14 @@ async fn test_prompts_capability_advertisement_in_discover() {
     assert!(res.result.capabilities.prompts.is_some());
 }
 
-/// Tests registering a custom `prompts_list` handler using `BearerAuth` and `SessionId` extractors.
+/// Tests registering a custom `prompts_list` handler using `BearerAuth` and `Meta` extractors.
 #[tokio::test]
 async fn test_prompts_list_custom_handler_with_bearer_auth_and_extractors() {
-    use mcp_routing::extract::{BearerAuth, Meta, SessionId};
+    use mcp_routing::extract::{BearerAuth, Meta};
     use mcp_routing::types::mcp::prompts::list::ListPromptsResult;
 
     async fn custom_prompts_handler(
         BearerAuth(token): BearerAuth,
-        session: Option<SessionId>,
         meta: Option<Meta>,
     ) -> Result<ListPromptsResult, String> {
         let is_admin = token == "admin-secret";
@@ -277,11 +276,11 @@ async fn test_prompts_list_custom_handler_with_bearer_auth_and_extractors() {
             .unwrap_or(false);
 
         let mut prompts = vec![common::sample_prompt("public_prompt")];
-        if is_admin || is_vip {
+        if is_admin {
             prompts.push(common::sample_prompt("admin_prompt"));
         }
-        if session.as_deref() == Some("beta-session") {
-            prompts.push(common::sample_prompt("beta_prompt"));
+        if is_vip {
+            prompts.push(common::sample_prompt("vip_prompt"));
         }
 
         Ok(ListPromptsResult::new(prompts).with_cache(Some(60_000), Some(CacheScope::Private)))
@@ -313,23 +312,27 @@ async fn test_prompts_list_custom_handler_with_bearer_auth_and_extractors() {
     assert_eq!(res1.result.prompts.len(), 1);
     assert_eq!(res1.result.prompts[0].name, "public_prompt");
 
-    // Request 2: Admin user with beta session
+    // Request 2: Admin user with VIP client info
     let mut req2 = common::build_request(
         Some("prompts/list"),
         None,
         json!({
             "jsonrpc": "2.0",
             "id": 2,
-            "method": "prompts/list"
+            "method": "prompts/list",
+            "params": {
+                "_meta": {
+                    "io.modelcontextprotocol/clientInfo": {
+                        "name": "vip-client",
+                        "version": "1.0.0"
+                    }
+                }
+            }
         }),
     );
     req2.headers_mut().insert(
         http::header::AUTHORIZATION,
         "Bearer admin-secret".parse().unwrap(),
-    );
-    req2.headers_mut().insert(
-        http::HeaderName::from_static("mcp-session-id"),
-        "beta-session".parse().unwrap(),
     );
     let (status2, _headers2, body2) = common::execute_request(app.clone(), req2).await;
     assert_eq!(status2, StatusCode::OK);
@@ -337,7 +340,7 @@ async fn test_prompts_list_custom_handler_with_bearer_auth_and_extractors() {
     assert_eq!(res2.result.prompts.len(), 3);
     assert_eq!(res2.result.prompts[0].name, "public_prompt");
     assert_eq!(res2.result.prompts[1].name, "admin_prompt");
-    assert_eq!(res2.result.prompts[2].name, "beta_prompt");
+    assert_eq!(res2.result.prompts[2].name, "vip_prompt");
 
     // Request 3: Missing authorization header (fails extractor)
     let req3 = common::build_request(

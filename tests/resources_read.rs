@@ -4,7 +4,7 @@
 use http::Request;
 use http_body_util::BodyExt;
 use mcp_routing::{
-    BearerAuth, McpRouter, SessionId, State,
+    BearerAuth, McpRouter, State,
     types::mcp::{
         CacheScope, Implementation,
         resources::{ReadResourceResult, Resource},
@@ -244,12 +244,11 @@ async fn test_resources_read_with_extractors() {
         })
         .register_resource(
             res,
-            |session: SessionId,
-             auth: BearerAuth,
+            |auth: BearerAuth,
              State(env): State<AppEnv>,
              uri: String| async move {
                 Ok::<_, String>(format!(
-                    "[{session}][{}][{}] Content for {uri}",
+                    "[{}][{}] Content for {uri}",
                     auth.token(),
                     env.region
                 ))
@@ -263,7 +262,6 @@ async fn test_resources_read_with_extractors() {
         .header("MCP-Protocol-Version", "2026-07-28")
         .header("Mcp-Method", "resources/read")
         .header("Mcp-Uri", "config://app")
-        .header("Mcp-Session-Id", "sess-res-123")
         .header("Authorization", "Bearer my-secret-token")
         .body(
             serde_json::json!({
@@ -287,7 +285,7 @@ async fn test_resources_read_with_extractors() {
     assert_eq!(resp_json["id"], 1.0);
     assert_eq!(
         resp_json["result"]["contents"][0]["text"],
-        "[sess-res-123][my-secret-token][us-east-1] Content for config://app"
+        "[my-secret-token][us-east-1] Content for config://app"
     );
 }
 

@@ -315,7 +315,7 @@ impl_into_prompt_handler!(E1, E2, E3, E4, E5);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::extract::{Extension, Meta, SessionId};
+    use crate::extract::{Extension, Meta};
     use crate::types::mcp::{Role, TextContent};
 
     /// Tests `IntoPromptResult` implementations across various types.
@@ -372,14 +372,13 @@ mod tests {
         }
 
         async fn summarize_prompt(
-            session: SessionId,
             Extension(config): Extension<AppConfig>,
             Meta(meta): Meta,
             args: SummarizeArgs,
         ) -> Result<String, String> {
             let ver = meta.protocol_version.as_deref().unwrap_or("v1");
             Ok(format!(
-                "[{session}][{ver}] Summarize in {} tone: {}",
+                "[{ver}] Summarize in {} tone: {}",
                 config.tone, args.text
             ))
         }
@@ -392,7 +391,6 @@ mod tests {
         });
 
         let ctx = RequestContext::new(
-            Some(SessionId::new("sess-prompt-1")),
             Some(crate::types::mcp::RequestMetaObject {
                 client_info: None,
                 client_capabilities: None,
@@ -419,10 +417,10 @@ mod tests {
         if let ContentBlock::Text(ref t) = result.messages[0].content {
             assert_eq!(
                 t.text,
-                "[sess-prompt-1][2026-07-28] Summarize in formal tone: Antigravity codebase"
+                "[2026-07-28] Summarize in formal tone: Antigravity codebase"
             );
         } else {
-            panic!("Expected text content");
+            panic!("Expected text block");
         }
     }
 }

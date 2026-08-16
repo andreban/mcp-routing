@@ -7,7 +7,7 @@ use std::sync::Arc;
 use http::Response;
 
 use crate::body::{ResponseBody, json_response, json_response_with_caching};
-use crate::extract::{RequestContext, SessionId};
+use crate::extract::RequestContext;
 use crate::router::{DispatchOutcome, MethodContext};
 use crate::server::discover::validate_protocol_version;
 use crate::server::provider::{DiscoveryError, ServerDiscoveryHandler};
@@ -142,7 +142,6 @@ impl ServerConfig {
 
         let result = if let Some(ref provider) = self.discovery_provider {
             let request_ctx = RequestContext::new(
-                ctx.session_id,
                 params.meta.clone(),
                 ctx.headers.clone(),
                 ctx.extensions,
@@ -186,7 +185,6 @@ impl ServerConfig {
     pub async fn handle_discover(
         &self,
         req_id: Option<JsonRpcRequestId>,
-        session_id: Option<SessionId>,
         headers: &http::HeaderMap,
         extensions: Arc<http::Extensions>,
         body: &[u8],
@@ -232,7 +230,7 @@ impl ServerConfig {
 
         let result = if let Some(ref provider) = self.discovery_provider {
             let meta = request.params.as_ref().and_then(|p| p.meta.clone());
-            let request_ctx = RequestContext::new(session_id, meta, headers.clone(), extensions);
+            let request_ctx = RequestContext::new(meta, headers.clone(), extensions);
             match provider.call(request_ctx, base_result).await {
                 Ok(res) => res,
                 Err(DiscoveryError::InvalidParams(err)) => {

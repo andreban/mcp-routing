@@ -401,7 +401,7 @@ impl_into_resource_handler!(E1, E2, E3, E4, E5);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::extract::{Extension, SessionId};
+    use crate::extract::Extension;
 
     #[test]
     fn test_into_resource_result() {
@@ -442,11 +442,10 @@ mod tests {
         struct RootDir(String);
 
         async fn read_file(
-            session: SessionId,
             Extension(root): Extension<RootDir>,
             uri: String,
         ) -> Result<String, String> {
-            Ok(format!("[{session}] Content of {uri} under {}", root.0))
+            Ok(format!("Content of {uri} under {}", root.0))
         }
 
         let handler = read_file.into_resource_handler();
@@ -454,12 +453,7 @@ mod tests {
         let mut ext = http::Extensions::new();
         ext.insert(RootDir("/var/data".to_string()));
 
-        let ctx = RequestContext::new(
-            Some(SessionId::new("sess-res-1")),
-            None,
-            http::HeaderMap::new(),
-            Arc::new(ext),
-        );
+        let ctx = RequestContext::new(None, http::HeaderMap::new(), Arc::new(ext));
 
         let result = handler
             .call(ctx, "file:///logs/app.log".to_string(), None, None)
@@ -470,10 +464,7 @@ mod tests {
         assert_eq!(result.ttl_ms, Some(0));
         assert_eq!(result.cache_scope, Some(CacheScope::Public));
         if let ResourceContents::Text(ref t) = result.contents[0] {
-            assert_eq!(
-                t.text,
-                "[sess-res-1] Content of file:///logs/app.log under /var/data"
-            );
+            assert_eq!(t.text, "Content of file:///logs/app.log under /var/data");
         } else {
             panic!("Expected text resource");
         }

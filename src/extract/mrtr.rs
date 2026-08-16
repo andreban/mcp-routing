@@ -202,7 +202,7 @@ mod tests {
         let mut ext = http::Extensions::new();
         ext.insert(RequestState::new("state_abc_123"));
 
-        let ctx = RequestContext::new(None, None, HeaderMap::new(), Arc::new(ext));
+        let ctx = RequestContext::new(None, HeaderMap::new(), Arc::new(ext));
 
         let required = RequestState::from_request_context(&ctx).unwrap();
         assert_eq!(required.as_str(), "state_abc_123");
@@ -212,7 +212,6 @@ mod tests {
         assert_eq!(optional.as_deref(), Some("state_abc_123"));
 
         let empty_ctx = RequestContext::new(
-            None,
             None,
             HeaderMap::new(),
             Arc::new(http::Extensions::new()),
@@ -235,7 +234,7 @@ mod tests {
         let mut ext = http::Extensions::new();
         ext.insert(InputResponses::new(responses_map));
 
-        let ctx = RequestContext::new(None, None, HeaderMap::new(), Arc::new(ext));
+        let ctx = RequestContext::new(None, HeaderMap::new(), Arc::new(ext));
 
         let extracted = InputResponses::from_request_context(&ctx).unwrap();
         assert!(extracted.get("prompt_user").is_some());
@@ -246,7 +245,6 @@ mod tests {
         assert!(opt.is_some());
 
         let empty_ctx = RequestContext::new(
-            None,
             None,
             HeaderMap::new(),
             Arc::new(http::Extensions::new()),

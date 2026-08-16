@@ -12,7 +12,7 @@ A [Tower](https://crates.io/crates/tower)-native routing library for building [M
 - **Tower-Native**: Implements `tower::Service` for any HTTP request body implementing `http_body::Body<Data = Bytes>`.
 - **Header & Body Routing**: Dispatches requests via standard `Mcp-Method`, `Mcp-Name`, and `Mcp-Uri` headers with automatic fallback to JSON-RPC body parameters.
 - **Typed Asynchronous Handlers**: Register async Rust functions with automatic JSON-RPC argument deserialization, structured output, and error mapping.
-- **Rich Extractors**: Extract `SessionId`, `BearerAuth`, `State<T>`, `Extension<T>`, `Meta`, `CurrentLoggingLevel`, `RequestContext`, and registered registries.
+- **Rich Extractors**: Extract `BearerAuth`, `State<T>`, `Extension<T>`, `Meta`, `CurrentLoggingLevel`, `RequestContext`, and registered registries.
 - **Dynamic Providers**: Dynamically generate or filter discovery metadata, tools, prompts, resources, and templates per request.
 - **Input Pre-Validation**: Pre-compiled JSON Schema validation for tool arguments prior to deserialization.
 - **HTTP Caching Directives**: Automatic generation of `Cache-Control` (`public`/`private`, `max-age`) and `ETag` headers based on metadata `ttl_ms` and `cache_scope`.
@@ -130,7 +130,6 @@ Register tools with static definitions or dynamic list providers:
 ```rust
 // Typed tool handler with extractors and structured output
 async fn query_db(
-    session: SessionId,
     auth: BearerAuth,
     params: QueryParams,
 ) -> Result<Json<DbResult>, String> {
@@ -235,7 +234,6 @@ Handlers can accept up to 5 Tower and MCP extractors in their signatures:
 
 | Extractor | Source / Description |
 |---|---|
-| [`SessionId`](src/extract/mod.rs) | MCP session correlation identifier from `Mcp-Session-Id` header |
 | [`BearerAuth`](src/extract/mod.rs) | Bearer token from `Authorization: Bearer <token>` header |
 | [`Authorization`](src/extract/mod.rs) | Raw `Authorization` header |
 | [`State<T>`](src/extract/mod.rs) | Application state shared across Tower layers / Axum handlers (`.with_state(state)`) |
@@ -243,7 +241,7 @@ Handlers can accept up to 5 Tower and MCP extractors in their signatures:
 | [`Meta`](src/extract/mod.rs) / [`RequestMetaObject`](src/types/mcp/core/metadata.rs) | Client info, protocol version, log level, progress tokens |
 | [`CurrentLoggingLevel`](src/extract/logging.rs) | Dynamic server logging threshold |
 | [`LoggingLevel`](src/types/mcp/core/metadata.rs) / `Option<LoggingLevel>` | Per-request log level from `_meta.io.modelcontextprotocol/logLevel` |
-| [`RequestContext`](src/extract/context.rs) | Full MCP request context (headers, session, extensions, metadata) |
+| [`RequestContext`](src/extract/context.rs) | Full MCP request context (headers, extensions, metadata) |
 | [`RegisteredTools`](src/extract/mod.rs) | Injected registry of registered tools (useful in custom `.tools_list()`) |
 | [`RegisteredPrompts`](src/extract/mod.rs) | Injected registry of registered prompts (useful in custom `.prompts_list()`) |
 | [`RegisteredResources`](src/extract/mod.rs) | Injected registry of direct resources (useful in custom `.resources_list()`) |

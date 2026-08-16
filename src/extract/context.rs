@@ -1,21 +1,18 @@
 // Copyright 2026 André Cipriani Bandarra
 // SPDX-License-Identifier: Apache-2.0
 
-//! Request context containing headers, session ID, extensions, and metadata.
+//! Request context containing headers, extensions, and metadata.
 
 use std::sync::Arc;
 
 use http::HeaderMap;
 
-use crate::extract::session::SessionId;
 use crate::extract::traits::FromRequestContext;
 use crate::types::mcp::{Implementation, LoggingLevel, ProgressToken, RequestMetaObject};
 
 /// Context extracted from the incoming HTTP request and JSON-RPC envelope.
 #[derive(Debug, Clone)]
 pub struct RequestContext {
-    /// Session ID extracted from the `Mcp-Session-Id` header, if present.
-    pub session_id: Option<SessionId>,
     /// Protocol-level metadata extracted from `params._meta`, if present.
     pub meta: Option<RequestMetaObject>,
     /// HTTP headers from the incoming request.
@@ -27,27 +24,15 @@ pub struct RequestContext {
 impl RequestContext {
     /// Creates a new [`RequestContext`].
     pub fn new(
-        session_id: Option<SessionId>,
         meta: Option<RequestMetaObject>,
         headers: HeaderMap,
         extensions: Arc<http::Extensions>,
     ) -> Self {
         Self {
-            session_id,
             meta,
             headers,
             extensions,
         }
-    }
-
-    /// Returns the session ID, if present.
-    pub fn session_id(&self) -> Option<&SessionId> {
-        self.session_id.as_ref()
-    }
-
-    /// Returns the session ID as a string slice, if present.
-    pub fn session_id_str(&self) -> Option<&str> {
-        self.session_id.as_deref()
     }
 
     /// Returns the request metadata, if present.

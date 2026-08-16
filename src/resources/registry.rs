@@ -7,7 +7,7 @@ use std::sync::Arc;
 use http::Response;
 
 use crate::body::{ResponseBody, json_response, json_response_with_caching};
-use crate::extract::{RequestContext, SessionId};
+use crate::extract::RequestContext;
 use crate::resources::{
     IntoResourceHandler, IntoResourceTemplatesListHandler, IntoResourcesListHandler, ResourceError,
     ResourceHandler, ResourceTemplatesListHandler, ResourcesListHandler,
@@ -217,7 +217,6 @@ impl ResourceRegistry {
                 (*self.resources).clone(),
             ));
             let request_ctx = RequestContext::new(
-                ctx.session_id,
                 params.meta.clone(),
                 ctx.headers.clone(),
                 Arc::new(extensions),
@@ -324,7 +323,6 @@ impl ResourceRegistry {
                 (*self.resource_templates).clone(),
             ));
             let request_ctx = RequestContext::new(
-                ctx.session_id,
                 params.meta.clone(),
                 ctx.headers.clone(),
                 Arc::new(extensions),
@@ -482,7 +480,7 @@ impl ResourceRegistry {
         };
 
         let request_ctx =
-            RequestContext::new(ctx.session_id, meta, ctx.headers.clone(), ctx.extensions);
+            RequestContext::new(meta, ctx.headers.clone(), ctx.extensions);
         let result = handler
             .call(
                 request_ctx,
@@ -594,7 +592,6 @@ impl ResourceRegistry {
         &self,
         req_id: Option<JsonRpcRequestId>,
         header_uri: Option<&str>,
-        session_id: Option<SessionId>,
         headers: &http::HeaderMap,
         extensions: Arc<http::Extensions>,
         body: &[u8],
@@ -651,7 +648,7 @@ impl ResourceRegistry {
         if let Some((handler, res_ttl, res_scope)) = matched_handler {
             let req_id = request.id.clone();
             let meta = request.params.as_ref().and_then(|p| p.meta.clone());
-            let ctx = RequestContext::new(session_id, meta, headers.clone(), extensions);
+            let ctx = RequestContext::new(meta, headers.clone(), extensions);
             match handler
                 .call(ctx, resource_uri.to_string(), res_ttl, res_scope.clone())
                 .await
@@ -709,7 +706,6 @@ mod tests {
             is_notification: false,
             is_batch: false,
             header_name: None,
-            session_id: None,
             headers: &headers,
             extensions,
         };
@@ -751,7 +747,6 @@ mod tests {
             .handle_read(
                 Some(JsonRpcRequestId::Number(1.0)),
                 Some("file:///non_existent.txt"),
-                None,
                 &headers,
                 extensions,
                 &body_bytes,

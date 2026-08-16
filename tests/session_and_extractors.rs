@@ -1,6 +1,15 @@
 // Copyright 2026 André Cipriani Bandarra
 // SPDX-License-Identifier: Apache-2.0
 
+//! # Extractor Integration Tests
+//!
+//! Black-box integration tests verifying MCP handler extractors:
+//! - `Extension<T>` for shared dependencies injected via request extensions
+//! - `Meta` for per-request `_meta` object propagation
+//! - `RequestContext` for comprehensive request introspection
+//! - `State<T>` for application state shared via `.with_state()`
+//! - Axum shared state integration between web and MCP routes
+
 use bytes::Bytes;
 use http::{Request, StatusCode};
 use http_body_util::{BodyExt, Full};
@@ -9,7 +18,7 @@ use serde_json::json;
 use tower::Service;
 
 use mcp_routing::{
-    Extension, McpRouter, Meta, RequestContext, SessionId,
+    Extension, McpRouter, Meta, RequestContext,
     types::mcp::{
         Implementation,
         prompts::{Prompt, get::GetPromptResult},
@@ -55,17 +64,6 @@ fn create_test_server() -> McpRouter {
         meta: None,
     };
 
-    let session_only_tool = Tool {
-        icons: Vec::new(),
-        name: "session_info".to_string(),
-        title: Some("Session Info".to_string()),
-        description: Some("Returns session info".to_string()),
-        input_schema: json!({"type": "object"}),
-        output_schema: None,
-        annotations: None,
-        meta: None,
-    };
-
     let context_tool = Tool {
         icons: Vec::new(),
         name: "context_info".to_string(),
@@ -89,22 +87,16 @@ fn create_test_server() -> McpRouter {
         meta: None,
     };
 
-    // Tool handler with 3 extractors + Args
+    // Tool handler with 2 Extension extractors + Args
     async fn handle_query_db(
-        session: SessionId,
         Extension(db): Extension<DatabaseConnection>,
         Extension(auth): Extension<AuthUser>,
         params: ExecuteToolParams,
     ) -> Result<String, String> {
         Ok(format!(
-            "Session: {session}, User: {}, DB: {}, Query: {}",
+            "User: {}, DB: {}, Query: {}",
             auth.user_id, db.url, params.query
         ))
-    }
-
-    // Tool handler with 1 extractor, 0 Args
-    async fn handle_session_info(session: SessionId) -> Result<String, String> {
-        Ok(format!("Active session: {session}"))
     }
 
     // Tool handler with RequestContext + Args
@@ -117,17 +109,15 @@ fn create_test_server() -> McpRouter {
             .map(|c| c.name.as_str())
             .unwrap_or("unknown");
         let proto = ctx.protocol_version().unwrap_or("unknown");
-        let sid = ctx.session_id_str().unwrap_or("none");
         let has_custom_header = ctx.headers().contains_key("X-Custom-Trace");
         Ok(format!(
-            "Client: {client_name}, Proto: {proto}, Session: {sid}, CustomHeader: {has_custom_header}, Query: {}",
+            "Client: {client_name}, Proto: {proto}, CustomHeader: {has_custom_header}, Query: {}",
             params.query
         ))
     }
 
-    // Prompt handler with SessionId + Meta + Args
+    // Prompt handler with Meta + Args
     async fn handle_format_prompt(
-        session: SessionId,
         Meta(meta): Meta,
         params: PromptFormatParams,
     ) -> Result<GetPromptResult, String> {
@@ -136,147 +126,20 @@ fn create_test_server() -> McpRouter {
             .map(|l| format!("{l:?}"))
             .unwrap_or_else(|| "default".to_string());
         Ok(GetPromptResult::user(format!(
-            "[{session}][log:{level}] Tell me about: {}",
+            "[log:{level}] Tell me about: {}",
             params.topic
         )))
     }
 
     McpRouter::new(server_info)
         .register_tool(query_tool, handle_query_db)
-        .register_tool(session_only_tool, handle_session_info)
         .register_tool(context_tool, handle_context_info)
         .register_prompt(prompt_item, handle_format_prompt)
 }
 
+/// Tests that multiple `Extension<T>` extractors work together with typed tool arguments.
 #[tokio::test]
-async fn test_mcp_session_id_header_propagation_on_discover() {
-    let mut router = create_test_server();
-
-    let request_payload = json!({
-        "jsonrpc": "2.0",
-        "id": 1,
-        "method": "server/discover"
-    });
-
-    let request = Request::builder()
-        .method(http::Method::POST)
-        .header(http::header::CONTENT_TYPE, "application/json")
-        .header("MCP-Protocol-Version", "2026-07-28")
-        .header("Mcp-Method", "server/discover")
-        .header("Mcp-Session-Id", "sess-alpha-123")
-        .body(Full::new(Bytes::from(
-            serde_json::to_vec(&request_payload).unwrap(),
-        )))
-        .unwrap();
-
-    let response = router.call(request).await.unwrap();
-    assert_eq!(response.status(), StatusCode::OK);
-    assert_eq!(
-        response
-            .headers()
-            .get("Mcp-Session-Id")
-            .unwrap()
-            .to_str()
-            .unwrap(),
-        "sess-alpha-123"
-    );
-}
-
-#[tokio::test]
-async fn test_mcp_session_id_header_propagation_on_tools_list() {
-    let mut router = create_test_server();
-
-    let request_payload = json!({
-        "jsonrpc": "2.0",
-        "id": 2,
-        "method": "tools/list"
-    });
-
-    let request = Request::builder()
-        .method(http::Method::POST)
-        .header(http::header::CONTENT_TYPE, "application/json")
-        .header("MCP-Protocol-Version", "2026-07-28")
-        .header("Mcp-Method", "tools/list")
-        .header("Mcp-Session-Id", "sess-beta-456")
-        .body(Full::new(Bytes::from(
-            serde_json::to_vec(&request_payload).unwrap(),
-        )))
-        .unwrap();
-
-    let response = router.call(request).await.unwrap();
-    assert_eq!(response.status(), StatusCode::OK);
-    assert_eq!(
-        response
-            .headers()
-            .get("Mcp-Session-Id")
-            .unwrap()
-            .to_str()
-            .unwrap(),
-        "sess-beta-456"
-    );
-}
-
-#[tokio::test]
-async fn test_mcp_session_id_propagation_on_error_responses() {
-    let mut router = create_test_server();
-
-    // 405 Method Not Allowed
-    let req_get = Request::builder()
-        .method(http::Method::GET)
-        .header("Mcp-Session-Id", "sess-err-1")
-        .body(Full::new(Bytes::new()))
-        .unwrap();
-    let resp = router.call(req_get).await.unwrap();
-    assert_eq!(resp.status(), StatusCode::METHOD_NOT_ALLOWED);
-    assert_eq!(
-        resp.headers()
-            .get("Mcp-Session-Id")
-            .unwrap()
-            .to_str()
-            .unwrap(),
-        "sess-err-1"
-    );
-
-    // 415 Unsupported Media Type
-    let req_unsupported = Request::builder()
-        .method(http::Method::POST)
-        .header(http::header::CONTENT_TYPE, "text/plain")
-        .header("Mcp-Session-Id", "sess-err-2")
-        .body(Full::new(Bytes::from_static(b"hello")))
-        .unwrap();
-    let resp = router.call(req_unsupported).await.unwrap();
-    assert_eq!(resp.status(), StatusCode::UNSUPPORTED_MEDIA_TYPE);
-    assert_eq!(
-        resp.headers()
-            .get("Mcp-Session-Id")
-            .unwrap()
-            .to_str()
-            .unwrap(),
-        "sess-err-2"
-    );
-
-    // Parse Error
-    let req_parse_err = Request::builder()
-        .method(http::Method::POST)
-        .header(http::header::CONTENT_TYPE, "application/json")
-        .header("MCP-Protocol-Version", "2026-07-28")
-        .header("Mcp-Session-Id", "sess-err-3")
-        .body(Full::new(Bytes::from_static(b"not json")))
-        .unwrap();
-    let resp = router.call(req_parse_err).await.unwrap();
-    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
-    assert_eq!(
-        resp.headers()
-            .get("Mcp-Session-Id")
-            .unwrap()
-            .to_str()
-            .unwrap(),
-        "sess-err-3"
-    );
-}
-
-#[tokio::test]
-async fn test_multiple_extractors_with_extensions_and_session() {
+async fn test_multiple_extractors_with_extensions() {
     let mut router = create_test_server();
 
     let request_payload = json!({
@@ -297,7 +160,6 @@ async fn test_multiple_extractors_with_extensions_and_session() {
         .header("MCP-Protocol-Version", "2026-07-28")
         .header("Mcp-Method", "tools/call")
         .header("Mcp-Name", "query_db")
-        .header("Mcp-Session-Id", "sess-db-777")
         .body(Full::new(Bytes::from(
             serde_json::to_vec(&request_payload).unwrap(),
         )))
@@ -313,15 +175,6 @@ async fn test_multiple_extractors_with_extensions_and_session() {
 
     let response = router.call(request).await.unwrap();
     assert_eq!(response.status(), StatusCode::OK);
-    assert_eq!(
-        response
-            .headers()
-            .get("Mcp-Session-Id")
-            .unwrap()
-            .to_str()
-            .unwrap(),
-        "sess-db-777"
-    );
 
     let bytes = response.into_body().collect().await.unwrap().to_bytes();
     let json_val: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
@@ -330,10 +183,11 @@ async fn test_multiple_extractors_with_extensions_and_session() {
     let text = json_val["result"]["content"][0]["text"].as_str().unwrap();
     assert_eq!(
         text,
-        "Session: sess-db-777, User: user_42, DB: postgres://localhost:5432/testdb, Query: SELECT * FROM users;"
+        "User: user_42, DB: postgres://localhost:5432/testdb, Query: SELECT * FROM users;"
     );
 }
 
+/// Tests that a missing required `Extension<T>` returns an extraction error in the tool result.
 #[tokio::test]
 async fn test_missing_extension_returns_extraction_error() {
     let mut router = create_test_server();
@@ -356,7 +210,6 @@ async fn test_missing_extension_returns_extraction_error() {
         .header("MCP-Protocol-Version", "2026-07-28")
         .header("Mcp-Method", "tools/call")
         .header("Mcp-Name", "query_db")
-        .header("Mcp-Session-Id", "sess-db-777")
         .body(Full::new(Bytes::from(
             serde_json::to_vec(&request_payload).unwrap(),
         )))
@@ -376,40 +229,7 @@ async fn test_missing_extension_returns_extraction_error() {
     assert!(text.contains("Extraction error: Missing request extension"));
 }
 
-#[tokio::test]
-async fn test_missing_required_session_id_returns_extraction_error() {
-    let mut router = create_test_server();
-
-    let request_payload = json!({
-        "jsonrpc": "2.0",
-        "id": 12,
-        "method": "tools/call",
-        "params": {
-            "name": "session_info"
-        }
-    });
-
-    // Omit Mcp-Session-Id header
-    let request = Request::builder()
-        .method(http::Method::POST)
-        .header(http::header::CONTENT_TYPE, "application/json")
-        .header("MCP-Protocol-Version", "2026-07-28")
-        .header("Mcp-Method", "tools/call")
-        .header("Mcp-Name", "session_info")
-        .body(Full::new(Bytes::from(
-            serde_json::to_vec(&request_payload).unwrap(),
-        )))
-        .unwrap();
-
-    let response = router.call(request).await.unwrap();
-    let bytes = response.into_body().collect().await.unwrap().to_bytes();
-    let json_val: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
-
-    assert_eq!(json_val["result"]["isError"], true);
-    let text = json_val["result"]["content"][0]["text"].as_str().unwrap();
-    assert!(text.contains("Extraction error: Missing required Mcp-Session-Id header"));
-}
-
+/// Tests that per-request `_meta` object is propagated to prompt handlers via the `Meta` extractor.
 #[tokio::test]
 async fn test_per_request_meta_propagation_in_prompts_get() {
     let mut router = create_test_server();
@@ -435,7 +255,6 @@ async fn test_per_request_meta_propagation_in_prompts_get() {
         .header("MCP-Protocol-Version", "2026-07-28")
         .header("Mcp-Method", "prompts/get")
         .header("Mcp-Name", "format_prompt")
-        .header("Mcp-Session-Id", "sess-prompt-99")
         .body(Full::new(Bytes::from(
             serde_json::to_vec(&request_payload).unwrap(),
         )))
@@ -443,15 +262,6 @@ async fn test_per_request_meta_propagation_in_prompts_get() {
 
     let response = router.call(request).await.unwrap();
     assert_eq!(response.status(), StatusCode::OK);
-    assert_eq!(
-        response
-            .headers()
-            .get("Mcp-Session-Id")
-            .unwrap()
-            .to_str()
-            .unwrap(),
-        "sess-prompt-99"
-    );
 
     let bytes = response.into_body().collect().await.unwrap().to_bytes();
     let json_val: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
@@ -461,10 +271,11 @@ async fn test_per_request_meta_propagation_in_prompts_get() {
         .unwrap();
     assert_eq!(
         message_text,
-        "[sess-prompt-99][log:Debug] Tell me about: Rust Concurrency"
+        "[log:Debug] Tell me about: Rust Concurrency"
     );
 }
 
+/// Tests `RequestContext` extractor with client info, protocol version, and custom headers.
 #[tokio::test]
 async fn test_request_context_extractor_comprehensive() {
     let mut router = create_test_server();
@@ -494,7 +305,6 @@ async fn test_request_context_extractor_comprehensive() {
         .header("MCP-Protocol-Version", "2026-07-28")
         .header("Mcp-Method", "tools/call")
         .header("Mcp-Name", "context_info")
-        .header("Mcp-Session-Id", "sess-ctx-1")
         .header("X-Custom-Trace", "trace-xyz")
         .body(Full::new(Bytes::from(
             serde_json::to_vec(&request_payload).unwrap(),
@@ -511,10 +321,11 @@ async fn test_request_context_extractor_comprehensive() {
     let text = json_val["result"]["content"][0]["text"].as_str().unwrap();
     assert_eq!(
         text,
-        "Client: claude-desktop, Proto: 2026-07-28, Session: sess-ctx-1, CustomHeader: true, Query: hello"
+        "Client: claude-desktop, Proto: 2026-07-28, CustomHeader: true, Query: hello"
     );
 }
 
+/// Tests `State<T>` extractor with application state injected via `.with_state()`.
 #[tokio::test]
 async fn test_with_state_and_state_extractor() {
     #[derive(Clone, Debug, PartialEq, Eq)]
@@ -597,6 +408,7 @@ async fn test_with_state_and_state_extractor() {
     assert_eq!(text, "Env: production, Pool: 64, Key: timeout");
 }
 
+/// Tests that `State<T>` works across both Axum web routes and MCP tool routes sharing the same state.
 #[tokio::test]
 async fn test_axum_shared_state_between_web_and_mcp() {
     use axum::Router as AxumRouter;

@@ -208,9 +208,9 @@ This document itemizes all required changes and recommendations, categorized by 
 - **Spec Requirement**:
   - Protocol-level session management was removed in `2026-07-28` (SEP-2567). Servers SHOULD NOT require or mint protocol session IDs; transports are designed to be stateless.
 - **Current Implementation**:
-  - `src/router/service.rs` generates a UUID session ID for each request if none is present and attaches `mcp-session-id` response header to all responses.
+  - `SessionId` extractor, `session_id` fields, `Mcp-Session-Id` header extraction/echo, and UUID session generation have all been removed. The router is fully stateless per SEP-2567.
 - **Action Items**:
-  - [ ] Make `Mcp-Session-Id` header handling purely optional/pass-through rather than generating or enforcing it as standard protocol state.
+  - [x] Remove `SessionId` extractor, `session_id` from `RequestContext` and `MethodContext`, session header echo from `service.rs`, and all related tests/examples/docs.
 
 ---
 
@@ -244,5 +244,5 @@ This document itemizes all required changes and recommendations, categorized by 
 | **Multi Round-Trip Requests (MRTR)** | 💡 Missing Feature | `schema.ts:580-618` | Implement `InputRequiredResult` & retry params |
 | **Capabilities Extensions & Roots** | ✅ Compliant | `schema.ts:1018,1056` | Add `extensions` & `roots` to capability structs |
 | **`logging/setLevel` Sunset** | ✅ Compliant | SEP-2577 | Removed deprecated endpoint in favor of per-request `_meta` |
-| **Sessionless Transport (`Mcp-Session-Id`)** | ℹ️ Modernization | SEP-2567 | Demote from mandatory protocol state |
+| **Sessionless Transport (`Mcp-Session-Id`)** | ✅ Compliant | SEP-2567 | Removed `SessionId` extractor, session header echo, and UUID generation |
 | **`subscriptions/listen` Stream** | ℹ️ Future Roadmap | SEP-2575 | Implement long-lived SSE channel |

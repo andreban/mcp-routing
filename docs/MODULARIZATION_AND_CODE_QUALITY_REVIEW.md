@@ -64,10 +64,11 @@ Per `.agents/rules/mcp_development_guidelines.md` (Section 2), complex subsystem
 - **Remedy**: Implement a helper method `into_error_response(self, id: Option<JsonRpcRequestId>) -> JsonRpcErrorResponse` on `ResourceError`, `PromptError`, and `CompletionError` (as well as `ToolError`, `DiscoveryError`, and `SubscriptionError` for comprehensive subsystem consistency).
 - **Status**: **Completed** — Added `into_error_response` helper method to [`ResourceError`](file:///C:/Users/andre/Projects/mcp-routing/src/resources/mod.rs#L50-L60), [`PromptError`](file:///C:/Users/andre/Projects/mcp-routing/src/prompts/mod.rs#L39-L49), [`CompletionError`](file:///C:/Users/andre/Projects/mcp-routing/src/completion/mod.rs#L40-L50), [`ToolError`](file:///C:/Users/andre/Projects/mcp-routing/src/tools/mod.rs#L39-L49), [`DiscoveryError`](file:///C:/Users/andre/Projects/mcp-routing/src/server/provider.rs#L31-L41), and [`SubscriptionError`](file:///C:/Users/andre/Projects/mcp-routing/src/subscriptions/handler.rs#L38-L48). Refactored all dispatcher error handlers to single-line forwarding and added complete unit test suites.
 
-### 2.3 Combinatorial `IntoToolResult` Tuple Implementations
+### 2.3 Combinatorial `IntoToolResult` Tuple Implementations [COMPLETED]
 - **Location**: [`src/tools/mod.rs:138-300`](file:///C:/Users/andre/Projects/mcp-routing/src/tools/mod.rs#L138-L300)
 - **Issue**: Over 160 lines of repetitive trait implementations for `(Value, String)`, `(String, Value)`, `(Json<T>, String)`, `(String, Json<T>)`, `(Value, ContentBlock)`, `(ContentBlock, Value)`, `(Json<T>, ContentBlock)`, `(Json<T>, Vec<ContentBlock>)`, etc.
 - **Remedy**: Introduce a declarative macro `impl_into_tool_result_tuple!` (similar to `impl_registered_collection!` in `src/extract/registered.rs`) inside [`src/tools/result.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/tools/result.rs).
+- **Status**: **Completed** — Extracted `IntoToolResult` and all implementations into dedicated submodule [`src/tools/result.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/tools/result.rs), replaced over 160 lines of repetitive tuple conversions with declarative macro `impl_into_tool_result_tuple!`, re-exported `IntoToolResult` from [`src/tools/mod.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/tools/mod.rs), and added full unit test coverage.
 
 ---
 
@@ -88,14 +89,14 @@ Per `.agents/rules/mcp_development_guidelines.md` (Section 2), complex subsystem
 ```mermaid
 graph TD
     A["Review Findings (~500 Line Standard)"] --> B["Priority 1: Completion Handler Extraction [DONE]"]
-    A --> C["Priority 2: Code Deduplication & Helpers"]
+    A --> C["Priority 2: Code Deduplication & Helpers [DONE]"]
     A --> D["Priority 3: Subsystem Standardization [DONE]"]
     
     B --> B1["Extract src/completion/handler.rs (642 -> 478 lines) [DONE]"]
     
     C --> C1["Add InputRequiredResult::into_extras helper (eliminates 5 duplicates) [DONE]"]
     C --> C2["Add into_error_response to ResourceError, PromptError, CompletionError [DONE]"]
-    C --> C3["Macroize IntoToolResult tuple implementations in src/tools/result.rs"]
+    C --> C3["Macroize IntoToolResult tuple implementations in src/tools/result.rs [DONE]"]
     
     D --> D1["Extract src/resources/handler.rs (475 -> 213 lines) [DONE]"]
     D --> D2["Extract src/prompts/handler.rs (429 -> 253 lines) [DONE]"]

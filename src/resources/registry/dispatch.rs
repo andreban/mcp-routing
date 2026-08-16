@@ -256,8 +256,7 @@ impl ResourceRegistry {
             };
         };
 
-        let request_ctx =
-            RequestContext::new(meta, ctx.headers.clone(), ctx.extensions);
+        let request_ctx = RequestContext::new(meta, ctx.headers.clone(), ctx.extensions);
         let result = handler
             .call(
                 request_ctx,

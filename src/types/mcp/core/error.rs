@@ -208,7 +208,8 @@ impl JsonRpcError<MissingRequiredClientCapabilityData> {
         message: impl Into<Cow<'static, str>>,
         required_capabilities: ClientCapabilities,
     ) -> Self {
-        MissingRequiredClientCapabilityData::new(required_capabilities).into_typed_json_rpc_error(message)
+        MissingRequiredClientCapabilityData::new(required_capabilities)
+            .into_typed_json_rpc_error(message)
     }
 }
 
@@ -237,7 +238,8 @@ impl JsonRpcErrorResponse<JsonRpcError<serde_json::Value>> {
         message: impl Into<Cow<'static, str>>,
         required_capabilities: ClientCapabilities,
     ) -> Self {
-        MissingRequiredClientCapabilityData::new(required_capabilities).into_error_response(id, message)
+        MissingRequiredClientCapabilityData::new(required_capabilities)
+            .into_error_response(id, message)
     }
 }
 
@@ -249,7 +251,8 @@ impl JsonRpcErrorResponse<JsonRpcError<UnsupportedProtocolVersionData>> {
         supported: Vec<String>,
         requested: impl Into<String>,
     ) -> Self {
-        UnsupportedProtocolVersionData::new(supported, requested).into_typed_error_response(id, message)
+        UnsupportedProtocolVersionData::new(supported, requested)
+            .into_typed_error_response(id, message)
     }
 }
 
@@ -260,7 +263,8 @@ impl JsonRpcErrorResponse<JsonRpcError<MissingRequiredClientCapabilityData>> {
         message: impl Into<Cow<'static, str>>,
         required_capabilities: ClientCapabilities,
     ) -> Self {
-        MissingRequiredClientCapabilityData::new(required_capabilities).into_typed_error_response(id, message)
+        MissingRequiredClientCapabilityData::new(required_capabilities)
+            .into_typed_error_response(id, message)
     }
 }
 
@@ -441,10 +445,8 @@ mod tests {
     /// Tests [`UnsupportedProtocolVersionData`] conversion methods to typed and untyped errors and responses.
     #[test]
     fn test_unsupported_protocol_version_data_helpers() {
-        let data = UnsupportedProtocolVersionData::new(
-            vec!["2026-07-28".to_string()],
-            "2024-11-05",
-        );
+        let data =
+            UnsupportedProtocolVersionData::new(vec!["2026-07-28".to_string()], "2024-11-05");
 
         let err = data.clone().into_json_rpc_error("Unsupported version");
         assert_eq!(err.code.code(), UNSUPPORTED_PROTOCOL_VERSION);
@@ -453,13 +455,17 @@ mod tests {
         assert_eq!(val["supported"][0], "2026-07-28");
         assert_eq!(val["requested"], "2024-11-05");
 
-        let typed_err = data.clone().into_typed_json_rpc_error("Unsupported version");
+        let typed_err = data
+            .clone()
+            .into_typed_json_rpc_error("Unsupported version");
         assert_eq!(typed_err.code.code(), UNSUPPORTED_PROTOCOL_VERSION);
         let typed_data = typed_err.data.unwrap();
         assert_eq!(typed_data.supported, vec!["2026-07-28".to_string()]);
         assert_eq!(typed_data.requested, "2024-11-05");
 
-        let resp = data.clone().into_error_response(Some(10.into()), "Unsupported version");
+        let resp = data
+            .clone()
+            .into_error_response(Some(10.into()), "Unsupported version");
         assert_eq!(resp.id, Some(10.into()));
         assert_eq!(resp.error.code.code(), UNSUPPORTED_PROTOCOL_VERSION);
 
@@ -486,14 +492,27 @@ mod tests {
 
         let typed_err = data.clone().into_typed_json_rpc_error("Missing capability");
         assert_eq!(typed_err.code.code(), MISSING_REQUIRED_CLIENT_CAPABILITY);
-        assert!(typed_err.data.unwrap().required_capabilities.sampling.is_some());
+        assert!(
+            typed_err
+                .data
+                .unwrap()
+                .required_capabilities
+                .sampling
+                .is_some()
+        );
 
-        let resp = data.clone().into_error_response(Some("cap-id".into()), "Missing capability");
+        let resp = data
+            .clone()
+            .into_error_response(Some("cap-id".into()), "Missing capability");
         assert_eq!(resp.id, Some("cap-id".into()));
         assert_eq!(resp.error.code.code(), MISSING_REQUIRED_CLIENT_CAPABILITY);
 
-        let typed_resp = data.into_typed_error_response(Some("cap-id-2".into()), "Missing capability");
+        let typed_resp =
+            data.into_typed_error_response(Some("cap-id-2".into()), "Missing capability");
         assert_eq!(typed_resp.id, Some("cap-id-2".into()));
-        assert_eq!(typed_resp.error.code.code(), MISSING_REQUIRED_CLIENT_CAPABILITY);
+        assert_eq!(
+            typed_resp.error.code.code(),
+            MISSING_REQUIRED_CLIENT_CAPABILITY
+        );
     }
 }

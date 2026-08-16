@@ -42,17 +42,29 @@ pub async fn dynamic_prompts_list(
 pub fn register(router: McpRouter) -> McpRouter {
     let planner_prompt_def = Prompt::new("movie_night_planner")
         .title("Movie Night Planner")
-        .description("Interactive multi-turn prompt assisting users in curating themed movie nights")
+        .description(
+            "Interactive multi-turn prompt assisting users in curating themed movie nights",
+        )
         .argument(PromptArgument::new("group_size").description("Number of participants"))
         .argument(PromptArgument::new("mood").description("Desired theme or emotional tone"))
-        .argument(PromptArgument::new("max_runtime_minutes").description("Runtime limit in minutes"))
+        .argument(
+            PromptArgument::new("max_runtime_minutes").description("Runtime limit in minutes"),
+        )
         .argument(PromptArgument::new("disliked_genres").description("Genres to avoid"));
 
     let review_prompt_def = Prompt::new("draft_review")
         .title("Film Review Drafter")
         .description("Generates an articulate, spoiler-free film review based on user notes")
-        .argument(PromptArgument::new("movie_id").description("Movie ID").required(true))
-        .argument(PromptArgument::new("rating").description("Score (1-10)").required(true))
+        .argument(
+            PromptArgument::new("movie_id")
+                .description("Movie ID")
+                .required(true),
+        )
+        .argument(
+            PromptArgument::new("rating")
+                .description("Score (1-10)")
+                .required(true),
+        )
         .argument(PromptArgument::new("raw_thoughts").description("Raw notes and impressions"));
 
     router
@@ -65,7 +77,9 @@ pub fn register(router: McpRouter) -> McpRouter {
 /// Multi-turn prompt handler generating a customized movie night planner session.
 pub async fn movie_night_planner_prompt(params: PlannerParams) -> Result<GetPromptResult, String> {
     let group_size = params.group_size.unwrap_or(2);
-    let mood = params.mood.unwrap_or_else(|| "exciting and thought-provoking".to_string());
+    let mood = params
+        .mood
+        .unwrap_or_else(|| "exciting and thought-provoking".to_string());
     let runtime_limit = params
         .max_runtime_minutes
         .map(|m| format!("{m} minutes"))
@@ -88,13 +102,11 @@ pub async fn movie_night_planner_prompt(params: PlannerParams) -> Result<GetProm
         Let me review the CineList catalog to select titles within your runtime limit and matching streaming availability..."
     );
 
-    Ok(
-        GetPromptResult::new(vec![
-            PromptMessage::user_text(user_msg),
-            PromptMessage::assistant_text(assistant_msg),
-        ])
-        .with_description("Multi-turn interactive movie night planning workflow"),
-    )
+    Ok(GetPromptResult::new(vec![
+        PromptMessage::user_text(user_msg),
+        PromptMessage::assistant_text(assistant_msg),
+    ])
+    .with_description("Multi-turn interactive movie night planning workflow"))
 }
 
 /// Structured prompt handler generating a spoiler-free review template.

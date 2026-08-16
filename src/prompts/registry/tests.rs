@@ -3,10 +3,10 @@
 
 //! Unit tests for PromptRegistry dispatch and execution.
 
-use std::sync::Arc;
 use super::*;
 use crate::router::MethodContext;
 use crate::types::jsonrpc::JsonRpcRequestId;
+use std::sync::Arc;
 
 /// Tests that dispatching `prompts/get` for an unknown prompt returns an invalid params error.
 #[tokio::test]

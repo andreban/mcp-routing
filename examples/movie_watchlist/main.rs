@@ -69,13 +69,23 @@ async fn main() -> Result<(), Box<dyn Error>> {
     println!("  - Bob   (Token: 'token_bob_secret')   -> Thriller/Noir focus, Max/Prime");
     println!("\nTry running:");
     println!("  1. Dynamic Server Discovery (Unauthenticated vs Alice):");
-    println!(r#"     curl -X POST http://127.0.0.1:3000/mcp -H 'Content-Type: application/json' -d '{{"jsonrpc":"2.0","id":1,"method":"server/discover"}}'"#);
-    println!(r#"     curl -X POST http://127.0.0.1:3000/mcp -H 'Content-Type: application/json' -H 'Authorization: Bearer token_alice_secret' -d '{{"jsonrpc":"2.0","id":2,"method":"server/discover"}}'"#);
+    println!(
+        r#"     curl -X POST http://127.0.0.1:3000/mcp -H 'Content-Type: application/json' -d '{{"jsonrpc":"2.0","id":1,"method":"server/discover"}}'"#
+    );
+    println!(
+        r#"     curl -X POST http://127.0.0.1:3000/mcp -H 'Content-Type: application/json' -H 'Authorization: Bearer token_alice_secret' -d '{{"jsonrpc":"2.0","id":2,"method":"server/discover"}}'"#
+    );
     println!("  2. Dynamic Tool Discovery (Unauthenticated vs Alice):");
-    println!(r#"     curl -X POST http://127.0.0.1:3000/mcp -H 'Content-Type: application/json' -d '{{"jsonrpc":"2.0","id":3,"method":"tools/list"}}'"#);
-    println!(r#"     curl -X POST http://127.0.0.1:3000/mcp -H 'Content-Type: application/json' -H 'Authorization: Bearer token_alice_secret' -d '{{"jsonrpc":"2.0","id":4,"method":"tools/list"}}'"#);
+    println!(
+        r#"     curl -X POST http://127.0.0.1:3000/mcp -H 'Content-Type: application/json' -d '{{"jsonrpc":"2.0","id":3,"method":"tools/list"}}'"#
+    );
+    println!(
+        r#"     curl -X POST http://127.0.0.1:3000/mcp -H 'Content-Type: application/json' -H 'Authorization: Bearer token_alice_secret' -d '{{"jsonrpc":"2.0","id":4,"method":"tools/list"}}'"#
+    );
     println!("  3. Dynamic Resource Discovery (Alice sees her private watchlists):");
-    println!(r#"     curl -X POST http://127.0.0.1:3000/mcp -H 'Content-Type: application/json' -H 'Authorization: Bearer token_alice_secret' -d '{{"jsonrpc":"2.0","id":5,"method":"resources/list"}}'"#);
+    println!(
+        r#"     curl -X POST http://127.0.0.1:3000/mcp -H 'Content-Type: application/json' -H 'Authorization: Bearer token_alice_secret' -d '{{"jsonrpc":"2.0","id":5,"method":"resources/list"}}'"#
+    );
 
     axum::serve(listener, app).await?;
     Ok(())

@@ -512,11 +512,7 @@ mod tests {
         let mut ext = http::Extensions::new();
         ext.insert(Prefix("custom".to_string()));
 
-        let ctx_with_ext = RequestContext::new(
-            None,
-            http::HeaderMap::new(),
-            Arc::new(ext),
-        );
+        let ctx_with_ext = RequestContext::new(None, http::HeaderMap::new(), Arc::new(ext));
         let res = h3.call(ctx_with_ext, params).await.unwrap();
         assert_eq!(res.completion.values, vec!["custom:arg"]);
     }

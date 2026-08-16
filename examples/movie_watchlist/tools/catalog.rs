@@ -17,13 +17,12 @@ use serde_json::json;
 
 use crate::auth::resolve_optional_user;
 use crate::models::{
-    GetMovieDetailsParams, MovieDb, MovieDetails, MovieSearchResults, MovieSummary,
-    PosterParams, SearchParams,
+    GetMovieDetailsParams, MovieDb, MovieDetails, MovieSearchResults, MovieSummary, PosterParams,
+    SearchParams,
 };
 
 /// 1x1 transparent PNG encoded in Base64 for multimodal responses.
-const PLACEHOLDER_PNG_BASE64: &str =
-    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+const PLACEHOLDER_PNG_BASE64: &str = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
 
 /// Registers all catalog-related tools onto the [`McpRouter`].
 pub fn register(router: McpRouter) -> McpRouter {
@@ -68,7 +67,9 @@ pub fn register(router: McpRouter) -> McpRouter {
 
     let poster_tool = Tool::new("generate_movie_poster")
         .title("Generate Movie Poster Card")
-        .description("Generates a multimodal visual poster card with PNG badge and markdown summary")
+        .description(
+            "Generates a multimodal visual poster card with PNG badge and markdown summary",
+        )
         .input_schema(json!({
             "type": "object",
             "properties": {
@@ -146,7 +147,11 @@ pub async fn search_movies(
         })
         .collect();
 
-    matches.sort_by(|a, b| b.rating.partial_cmp(&a.rating).unwrap_or(std::cmp::Ordering::Equal));
+    matches.sort_by(|a, b| {
+        b.rating
+            .partial_cmp(&a.rating)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     let total = matches.len();
     matches.truncate(limit);
 
@@ -174,7 +179,12 @@ pub async fn get_movie_details(
     let movie = guard
         .catalog
         .get(&params.movie_id)
-        .or_else(|| guard.catalog.values().find(|m| m.id.eq_ignore_ascii_case(&params.movie_id)))
+        .or_else(|| {
+            guard
+                .catalog
+                .values()
+                .find(|m| m.id.eq_ignore_ascii_case(&params.movie_id))
+        })
         .cloned()
         .ok_or_else(|| format!("Movie with ID '{}' not found in catalog", params.movie_id))?;
 
@@ -207,7 +217,12 @@ pub async fn generate_movie_poster(
     let movie = guard
         .catalog
         .get(&params.movie_id)
-        .or_else(|| guard.catalog.values().find(|m| m.id.eq_ignore_ascii_case(&params.movie_id)))
+        .or_else(|| {
+            guard
+                .catalog
+                .values()
+                .find(|m| m.id.eq_ignore_ascii_case(&params.movie_id))
+        })
         .ok_or_else(|| format!("Movie '{}' not found in catalog", params.movie_id))?;
 
     let card_markdown = format!(

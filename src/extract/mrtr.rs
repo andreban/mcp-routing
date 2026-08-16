@@ -212,11 +212,8 @@ mod tests {
         let optional = Option::<RequestState>::from_request_context(&ctx).unwrap();
         assert_eq!(optional.as_deref(), Some("state_abc_123"));
 
-        let empty_ctx = RequestContext::new(
-            None,
-            HeaderMap::new(),
-            Arc::new(http::Extensions::new()),
-        );
+        let empty_ctx =
+            RequestContext::new(None, HeaderMap::new(), Arc::new(http::Extensions::new()));
         assert!(RequestState::from_request_context(&empty_ctx).is_err());
         assert_eq!(
             Option::<RequestState>::from_request_context(&empty_ctx).unwrap(),
@@ -246,11 +243,8 @@ mod tests {
         let opt = Option::<InputResponses>::from_request_context(&ctx).unwrap();
         assert!(opt.is_some());
 
-        let empty_ctx = RequestContext::new(
-            None,
-            HeaderMap::new(),
-            Arc::new(http::Extensions::new()),
-        );
+        let empty_ctx =
+            RequestContext::new(None, HeaderMap::new(), Arc::new(http::Extensions::new()));
         assert!(InputResponses::from_request_context(&empty_ctx).is_err());
         assert!(
             Option::<InputResponses>::from_request_context(&empty_ctx)

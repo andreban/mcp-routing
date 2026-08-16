@@ -47,9 +47,7 @@ impl McpRouter {
     {
         let inner = Arc::make_mut(&mut self.inner);
         if inner.server.capabilities.prompts.is_none() {
-            inner.server.capabilities.prompts = Some(PromptsCapability {
-                list_changed: None,
-            });
+            inner.server.capabilities.prompts = Some(PromptsCapability { list_changed: None });
         }
         inner.prompts.set_list_handler(handler);
         self
@@ -67,9 +65,7 @@ impl McpRouter {
     {
         let inner = Arc::make_mut(&mut self.inner);
         if inner.server.capabilities.prompts.is_none() {
-            inner.server.capabilities.prompts = Some(PromptsCapability {
-                list_changed: None,
-            });
+            inner.server.capabilities.prompts = Some(PromptsCapability { list_changed: None });
         }
         inner.prompts.register(prompt, handler);
         self
@@ -93,9 +89,7 @@ impl McpRouter {
     {
         let inner = Arc::make_mut(&mut self.inner);
         if inner.server.capabilities.prompts.is_none() {
-            inner.server.capabilities.prompts = Some(PromptsCapability {
-                list_changed: None,
-            });
+            inner.server.capabilities.prompts = Some(PromptsCapability { list_changed: None });
         }
         inner
             .prompts

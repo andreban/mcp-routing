@@ -413,7 +413,9 @@ mod tests {
     /// Tests `sse_response` helper sets 200 OK, `text/event-stream`, `no-cache`, and passes body frames.
     #[tokio::test]
     async fn test_sse_response() {
-        let resp = sse_response(ResponseBody::from_bytes(Bytes::from_static(b"event: message\ndata: 1\n\n")));
+        let resp = sse_response(ResponseBody::from_bytes(Bytes::from_static(
+            b"event: message\ndata: 1\n\n",
+        )));
         assert_eq!(resp.status(), StatusCode::OK);
         assert_eq!(
             resp.headers().get(header::CONTENT_TYPE).unwrap(),

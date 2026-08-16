@@ -262,9 +262,7 @@ async fn test_resources_read_with_extractors() {
         })
         .register_resource(
             res,
-            |auth: BearerAuth,
-             State(env): State<AppEnv>,
-             uri: String| async move {
+            |auth: BearerAuth, State(env): State<AppEnv>, uri: String| async move {
                 Ok::<_, String>(format!(
                     "[{}][{}] Content for {uri}",
                     auth.token(),

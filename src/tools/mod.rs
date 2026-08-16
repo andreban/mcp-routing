@@ -52,10 +52,10 @@ impl ToolError {
 mod tests {
     //! Unit tests for tool error conversions and handler adaptations.
 
-    use std::sync::Arc;
     use super::*;
     use crate::extract::{Extension, Meta, RequestContext};
     use crate::types::mcp::{ContentBlock, Implementation};
+    use std::sync::Arc;
 
     /// Tests tool handler invocation with context extractors and deserialized arguments.
     #[tokio::test]
@@ -80,10 +80,7 @@ mod tests {
                 .as_ref()
                 .map(|c| c.name.as_str())
                 .unwrap_or("unknown");
-            Ok(format!(
-                "{}: {client} -> {}",
-                state.prefix, params.message
-            ))
+            Ok(format!("{}: {client} -> {}", state.prefix, params.message))
         }
 
         let handler = echo_handler.into_tool_handler();

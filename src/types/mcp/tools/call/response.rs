@@ -10,9 +10,7 @@ use serde_json::Value;
 
 use crate::types::{
     jsonrpc::JsonRpcResultResponse,
-    mcp::{
-        AudioContent, ContentBlock, ImageContent, ResultMetaObject, TextContent,
-    },
+    mcp::{AudioContent, ContentBlock, ImageContent, ResultMetaObject, TextContent},
 };
 
 pub type CallToolResultResponse<S = Value> = JsonRpcResultResponse<CallToolResult<S>>;

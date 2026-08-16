@@ -8,10 +8,7 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::types::{
-    jsonrpc::JsonRpcRequest,
-    mcp::RequestMetaObject,
-};
+use crate::types::{jsonrpc::JsonRpcRequest, mcp::RequestMetaObject};
 
 pub type CallToolRequest<A = Value> = JsonRpcRequest<CallToolParams<A>>;
 

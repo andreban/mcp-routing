@@ -222,7 +222,10 @@ mod tests {
         // Deref and DerefMut
         assert_eq!(collection[0].name, "tool1");
         collection[0].description = Some("updated".into());
-        assert_eq!(collection.as_slice()[0].description.as_deref(), Some("updated"));
+        assert_eq!(
+            collection.as_slice()[0].description.as_deref(),
+            Some("updated")
+        );
 
         // Borrowed IntoIterator / iter
         let names: Vec<&str> = collection.iter().map(|t| t.name.as_str()).collect();
@@ -235,7 +238,11 @@ mod tests {
         let inner = collection.into_inner();
         assert_eq!(inner.len(), 2);
 
-        let empty_ctx = RequestContext::new(None, http::HeaderMap::new(), Arc::new(http::Extensions::new()));
+        let empty_ctx = RequestContext::new(
+            None,
+            http::HeaderMap::new(),
+            Arc::new(http::Extensions::new()),
+        );
         let default_tools = RegisteredTools::from_request_context(&empty_ctx).unwrap();
         assert!(default_tools.is_empty());
 

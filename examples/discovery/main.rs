@@ -107,9 +107,8 @@ async fn server_discover_handler(
         extensions: None,
     };
 
-    let instructions = format!(
-        "Welcome {client_name}! (Discoveries: {discovery_count}, Admin mode: {is_admin})"
-    );
+    let instructions =
+        format!("Welcome {client_name}! (Discoveries: {discovery_count}, Admin mode: {is_admin})");
 
     ServerDiscoverResult::new(capabilities, vec!["2026-07-28".to_string()])
         .with_instructions(instructions)

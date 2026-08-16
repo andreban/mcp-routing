@@ -299,19 +299,20 @@ async fn test_completion_with_extractors_and_state() {
         prefix: String,
     }
 
-    let mut router = create_base_router()
-        .with_state(AppConfig {
-            prefix: "corp_".to_string(),
-        })
-        .register_prompt_arg_completion(
-            "sql_query",
-            "table",
-            |State(cfg): State<AppConfig>,
-             BearerAuth(token): BearerAuth,
-             arg: CompleteArgument| async move {
-                vec![format!("{}:{}{}", token, cfg.prefix, arg.value)]
-            },
-        );
+    let mut router =
+        create_base_router()
+            .with_state(AppConfig {
+                prefix: "corp_".to_string(),
+            })
+            .register_prompt_arg_completion(
+                "sql_query",
+                "table",
+                |State(cfg): State<AppConfig>,
+                 BearerAuth(token): BearerAuth,
+                 arg: CompleteArgument| async move {
+                    vec![format!("{}:{}{}", token, cfg.prefix, arg.value)]
+                },
+            );
 
     let payload = serde_json::json!({
         "jsonrpc": "2.0",
@@ -323,9 +324,7 @@ async fn test_completion_with_extractors_and_state() {
         }
     });
 
-    let headers = vec![
-        ("Authorization", "Bearer secret-token-456"),
-    ];
+    let headers = vec![("Authorization", "Bearer secret-token-456")];
 
     let (status, body, _) = send_mcp_request(&mut router, payload, Some(headers)).await;
     assert_eq!(status, StatusCode::OK);

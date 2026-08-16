@@ -269,10 +269,7 @@ async fn test_per_request_meta_propagation_in_prompts_get() {
     let message_text = json_val["result"]["messages"][0]["content"]["text"]
         .as_str()
         .unwrap();
-    assert_eq!(
-        message_text,
-        "[log:Debug] Tell me about: Rust Concurrency"
-    );
+    assert_eq!(message_text, "[log:Debug] Tell me about: Rust Concurrency");
 }
 
 /// Tests `RequestContext` extractor with client info, protocol version, and custom headers.

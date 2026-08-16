@@ -283,7 +283,10 @@ mod tests {
         );
 
         let deserialized: ServerCapabilities = serde_json::from_value(s_val).unwrap();
-        assert_eq!(deserialized.tools.as_ref().and_then(|t| t.list_changed), Some(true));
+        assert_eq!(
+            deserialized.tools.as_ref().and_then(|t| t.list_changed),
+            Some(true)
+        );
         assert_eq!(
             deserialized.resources.as_ref().and_then(|r| r.subscribe),
             Some(true)
@@ -292,7 +295,10 @@ mod tests {
             deserialized.resources.as_ref().and_then(|r| r.list_changed),
             Some(false)
         );
-        assert_eq!(deserialized.prompts.as_ref().and_then(|p| p.list_changed), Some(true));
+        assert_eq!(
+            deserialized.prompts.as_ref().and_then(|p| p.list_changed),
+            Some(true)
+        );
         assert!(deserialized.completions.is_some());
         assert!(deserialized.logging.is_some());
         assert!(deserialized.experimental.is_some());

@@ -19,8 +19,7 @@ use mcp_routing::{
 use super::auth::{resolve_optional_user, verify_user_access};
 use super::models::MovieDb;
 
-const LOGO_PNG_BASE64: &str =
-    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+const LOGO_PNG_BASE64: &str = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
 
 /// Dynamic `resources/list` provider demonstrating request-aware resource discovery.
 ///
@@ -80,10 +79,12 @@ pub fn register(router: McpRouter) -> McpRouter {
         .title("Branding Logo")
         .mime_type("image/png");
 
-    let dynamic_movie_template =
-        ResourceTemplate::new("movies://catalog/{genre}/{movie_id}", "Catalog Movie Record")
-            .title("Dynamic Movie Inspector")
-            .mime_type("application/json");
+    let dynamic_movie_template = ResourceTemplate::new(
+        "movies://catalog/{genre}/{movie_id}",
+        "Catalog Movie Record",
+    )
+    .title("Dynamic Movie Inspector")
+    .mime_type("application/json");
 
     let dynamic_watchlist_template = ResourceTemplate::new(
         "movies://users/{user_id}/watchlists/{list_id}",
@@ -201,7 +202,12 @@ pub async fn dynamic_catalog_handler(
     let movie = guard
         .catalog
         .get(movie_id)
-        .or_else(|| guard.catalog.values().find(|m| m.id.eq_ignore_ascii_case(movie_id)))
+        .or_else(|| {
+            guard
+                .catalog
+                .values()
+                .find(|m| m.id.eq_ignore_ascii_case(movie_id))
+        })
         .ok_or_else(|| format!("Movie '{movie_id}' not found in catalog"))?;
 
     let json_text = serde_json::to_string_pretty(movie).map_err(|e| e.to_string())?;

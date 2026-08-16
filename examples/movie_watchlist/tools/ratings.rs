@@ -144,7 +144,11 @@ pub async fn get_recommendations(
             let mut score = m.rating;
             let mut reasons = Vec::new();
 
-            let matched_genres: Vec<&String> = m.genres.iter().filter(|g| liked_genres.contains(*g)).collect();
+            let matched_genres: Vec<&String> = m
+                .genres
+                .iter()
+                .filter(|g| liked_genres.contains(*g))
+                .collect();
             if !matched_genres.is_empty() {
                 score += matched_genres.len() as f32 * 0.5;
                 reasons.push(format!("Matches your affinity for {:?}", matched_genres));
@@ -160,7 +164,10 @@ pub async fn get_recommendations(
                 let matches_mood = match mood_lower.as_str() {
                     "mind-bending" => m.genres.iter().any(|g| g == "Sci-Fi" || g == "Thriller"),
                     "cozy" => m.genres.iter().any(|g| g == "Animation" || g == "Comedy"),
-                    "edge-of-your-seat" => m.genres.iter().any(|g| g == "Action" || g == "Thriller" || g == "Crime"),
+                    "edge-of-your-seat" => m
+                        .genres
+                        .iter()
+                        .any(|g| g == "Action" || g == "Thriller" || g == "Crime"),
                     "tearjerker" => m.genres.iter().any(|g| g == "Drama"),
                     "atmospheric" => m.genres.iter().any(|g| g == "Horror" || g == "Sci-Fi"),
                     _ => false,
@@ -201,7 +208,11 @@ pub async fn get_recommendations(
         })
         .collect();
 
-    candidates.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+    candidates.sort_by(|a, b| {
+        b.score
+            .partial_cmp(&a.score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     let limit = params.limit.unwrap_or(5).clamp(1, 20);
     candidates.truncate(limit);
 

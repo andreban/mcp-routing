@@ -3,8 +3,8 @@
 
 //! Result type discriminator and constants for MCP MRTR operations.
 
-use std::fmt;
 use serde::{Deserialize, Serialize};
+use std::fmt;
 
 /// Result type discriminator constant for complete results.
 pub const RESULT_TYPE_COMPLETE: &str = "complete";

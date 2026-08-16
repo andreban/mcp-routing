@@ -74,9 +74,10 @@ Per `.agents/rules/mcp_development_guidelines.md` (Section 2), complex subsystem
 
 ## 3. Idiomatic Rust & Code Quality
 
-### 3.1 Extractor Trait & Handler Macro Consistency
-- Across `src/completion/`, `src/prompts/`, `src/resources/`, and `src/server/`, the handler conversion macros (`impl_into_completion_handler!`, `impl_into_prompt_handler!`, `impl_into_resource_handler!`, `impl_into_discovery_handler!`) follow consistent 1-to-5 extractor arity patterns.
-- Placing each handler conversion family in a dedicated `handler.rs` submodule (as done for `src/tools/handler.rs` and `src/subscriptions/handler.rs`) establishes uniform subsystem architecture across the entire crate.
+### 3.1 Extractor Trait & Handler Macro Consistency [COMPLETED]
+- Across `src/completion/`, `src/prompts/`, `src/resources/`, `src/tools/`, `src/subscriptions/`, and `src/server/`, the handler conversion macros (`impl_into_completion_handler!`, `impl_into_prompt_handler!`, `impl_into_resource_handler!`, `impl_into_tool_handler!`, `impl_into_subscription_handler!`, `impl_into_discovery_handler!`) follow consistent 1-to-5 extractor arity patterns.
+- Placing each handler conversion family in a dedicated `handler.rs` submodule (`src/server/handler.rs`, `src/tools/handler.rs`, `src/subscriptions/handler.rs`, `src/completion/handler.rs`, `src/prompts/handler.rs`, `src/resources/handler.rs`) establishes uniform subsystem architecture across the entire crate.
+- **Status**: **Completed** — Extracted dynamic server discovery handler traits and macros into [`src/server/handler.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/server/handler.rs), maintained backward-compatible aliases in [`src/server/provider.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/server/provider.rs), standardized all handler conversion macros across subsystems to 1-to-5 extractors, and added comprehensive unit test suites with extractor validation in [`src/tools/handler.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/tools/handler.rs) and [`src/server/handler.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/server/handler.rs).
 
 ### 3.2 Error Construct Ergonomics [COMPLETED]
 - `JsonRpcError` and `JsonRpcErrorResponse` provide both typed and Value-based constructors (`unsupported_protocol_version`, `unsupported_protocol_version_typed`, etc.).

@@ -98,11 +98,7 @@ mod tests {
         let mut ext = http::Extensions::new();
         ext.insert(CurrentLoggingLevel(LoggingLevel::Debug));
 
-        let ctx = RequestContext::new(
-            None,
-            HeaderMap::new(),
-            Arc::new(ext),
-        );
+        let ctx = RequestContext::new(None, HeaderMap::new(), Arc::new(ext));
 
         let current = CurrentLoggingLevel::from_request_context(&ctx).unwrap();
         assert_eq!(current.0, LoggingLevel::Debug);

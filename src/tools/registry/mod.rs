@@ -6,9 +6,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use crate::tools::{
-    IntoToolHandler, IntoToolsListHandler, ToolHandler, ToolsListHandler,
-};
+use crate::tools::{IntoToolHandler, IntoToolsListHandler, ToolHandler, ToolsListHandler};
 use crate::types::mcp::{CacheScope, tools::Tool};
 
 pub mod dispatch;

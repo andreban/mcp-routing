@@ -78,7 +78,6 @@ pub mod types;
 pub mod utils;
 
 pub use body::{BoxError, ResponseBody, compute_etag, format_cache_control};
-pub use utils::{format_sse_frame, format_sse_message};
 pub use completion::{
     CompletionError, CompletionHandler, CompletionRegistry, IntoCompletionHandler,
     IntoCompletionResult,
@@ -111,3 +110,4 @@ pub use tools::{
     IntoToolHandler, IntoToolResult, IntoToolsListHandler, IntoToolsListResult, Json as ToolJson,
     ToolError, ToolHandler, ToolRegistry, ToolsListHandler,
 };
+pub use utils::{format_sse_frame, format_sse_message};

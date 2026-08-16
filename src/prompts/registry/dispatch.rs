@@ -166,8 +166,7 @@ impl PromptRegistry {
             .get(prompt_name)
             .cloned()
             .unwrap_or((None, None));
-        let request_ctx =
-            RequestContext::new(meta, ctx.headers.clone(), ctx.extensions);
+        let request_ctx = RequestContext::new(meta, ctx.headers.clone(), ctx.extensions);
         let result = handler.call(request_ctx, arguments).await;
         if ctx.is_notification {
             DispatchOutcome::notification()

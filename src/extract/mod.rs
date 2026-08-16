@@ -69,11 +69,7 @@ mod tests {
             extra: std::collections::HashMap::new(),
         };
 
-        let ctx = RequestContext::new(
-            Some(meta.clone()),
-            headers,
-            Arc::new(ext),
-        );
+        let ctx = RequestContext::new(Some(meta.clone()), headers, Arc::new(ext));
 
         // RequestContext extractor
         let extracted_ctx = RequestContext::from_request_context(&ctx).unwrap();
@@ -150,11 +146,7 @@ mod tests {
     /// Tests error propagation when required extractor data is missing from context.
     #[test]
     fn test_extractors_missing_data_errors() {
-        let ctx = RequestContext::new(
-            None,
-            HeaderMap::new(),
-            Arc::new(http::Extensions::new()),
-        );
+        let ctx = RequestContext::new(None, HeaderMap::new(), Arc::new(http::Extensions::new()));
 
         // Missing Meta
         let meta_err = Meta::from_request_context(&ctx).unwrap_err();
@@ -229,11 +221,8 @@ mod tests {
             http::header::AUTHORIZATION,
             "Basic dXNlcjpwYXNz".parse().unwrap(),
         );
-        let invalid_ctx = RequestContext::new(
-            None,
-            invalid_headers,
-            Arc::new(http::Extensions::new()),
-        );
+        let invalid_ctx =
+            RequestContext::new(None, invalid_headers, Arc::new(http::Extensions::new()));
         let raw_auth = Authorization::from_request_context(&invalid_ctx).unwrap();
         assert_eq!(raw_auth.as_str(), "Basic dXNlcjpwYXNz");
 

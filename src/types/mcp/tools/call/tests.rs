@@ -79,8 +79,7 @@ fn test_call_tool_result_builder_constructors() {
         annotations: None,
         meta: None,
     });
-    let with_content_res =
-        CallToolResult::<serde_json::Value>::with_content(vec![block.clone()]);
+    let with_content_res = CallToolResult::<serde_json::Value>::with_content(vec![block.clone()]);
     assert_eq!(with_content_res.is_error, Some(false));
     assert_eq!(with_content_res.content.len(), 1);
 
@@ -89,10 +88,8 @@ fn test_call_tool_result_builder_constructors() {
     assert_eq!(struct_res.structured_content.unwrap()["status"], "ok");
     assert!(struct_res.content.is_empty());
 
-    let struct_text_res = CallToolResult::structured_with_text(
-        serde_json::json!({ "count": 10 }),
-        "Found 10 items",
-    );
+    let struct_text_res =
+        CallToolResult::structured_with_text(serde_json::json!({ "count": 10 }), "Found 10 items");
     assert_eq!(struct_text_res.structured_content.unwrap()["count"], 10);
     assert_eq!(struct_text_res.content.len(), 1);
 

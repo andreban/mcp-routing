@@ -183,7 +183,8 @@ where
         _ctx: RequestContext,
         _params: SubscriptionsListenParams,
         base_ack: SubscriptionsAcknowledgedParams,
-    ) -> Pin<Box<dyn Future<Output = Result<SubscriptionsListenOutcome, SubscriptionError>> + Send>> {
+    ) -> Pin<Box<dyn Future<Output = Result<SubscriptionsListenOutcome, SubscriptionError>> + Send>>
+    {
         let fut = (self.0)();
         Box::pin(async move { fut.await.apply_to_outcome(base_ack) })
     }
@@ -250,9 +251,6 @@ impl_into_subscription_handler!(E1, E2);
 impl_into_subscription_handler!(E1, E2, E3);
 impl_into_subscription_handler!(E1, E2, E3, E4);
 impl_into_subscription_handler!(E1, E2, E3, E4, E5);
-impl_into_subscription_handler!(E1, E2, E3, E4, E5, E6);
-impl_into_subscription_handler!(E1, E2, E3, E4, E5, E6, E7);
-impl_into_subscription_handler!(E1, E2, E3, E4, E5, E6, E7, E8);
 
 #[cfg(test)]
 mod tests {
@@ -267,7 +265,10 @@ mod tests {
         let res = NotificationSubscriptions::new().with_tools_list_changed(true);
 
         let outcome = res.apply_to_outcome(base).unwrap();
-        assert_eq!(outcome.acknowledged.notifications.tools_list_changed, Some(true));
+        assert_eq!(
+            outcome.acknowledged.notifications.tools_list_changed,
+            Some(true)
+        );
         assert!(outcome.stream_body.is_none());
     }
 

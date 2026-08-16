@@ -3,10 +3,10 @@
 
 //! Unit tests for ToolRegistry dispatch and execution.
 
-use std::sync::Arc;
 use super::*;
 use crate::router::MethodContext;
 use crate::types::jsonrpc::JsonRpcRequestId;
+use std::sync::Arc;
 
 /// Tests that dispatching `tools/call` with an unknown tool returns an invalid params error.
 #[tokio::test]

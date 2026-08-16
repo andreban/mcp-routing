@@ -206,11 +206,8 @@ impl CompletionRegistry {
             ));
         };
 
-        let request_ctx = RequestContext::new(
-            params.meta.clone(),
-            ctx.headers.clone(),
-            ctx.extensions,
-        );
+        let request_ctx =
+            RequestContext::new(params.meta.clone(), ctx.headers.clone(), ctx.extensions);
 
         match handler.call(request_ctx, params).await {
             Ok(res) => {

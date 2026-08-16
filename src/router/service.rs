@@ -13,16 +13,14 @@ use http_body_util::BodyExt;
 use tower::Service;
 
 use crate::body::{
-    bad_request, empty_response, forbidden, json_response, json_response_with_caching,
-    json_response_with_status, method_not_allowed, sse_response, unsupported_media_type, BoxError,
-    ResponseBody,
+    BoxError, ResponseBody, bad_request, empty_response, forbidden, json_response,
+    json_response_with_caching, json_response_with_status, method_not_allowed, sse_response,
+    unsupported_media_type,
 };
 use crate::router::{McpRouter, McpRouterInner};
 use crate::types::jsonrpc::JsonRpcErrorResponse;
 use crate::types::mcp::{header_mismatch_error, unsupported_protocol_version_error};
-use crate::utils::{
-    extract_protocol_version, is_json_content_type, is_origin_header_allowed,
-};
+use crate::utils::{extract_protocol_version, is_json_content_type, is_origin_header_allowed};
 
 impl McpRouterInner {
     /// Dispatches an incoming HTTP request into JSON-RPC handling.
@@ -56,10 +54,7 @@ impl McpRouterInner {
                         None,
                         "Header mismatch: missing required MCP-Protocol-Version header",
                     );
-                    return json_response_with_status(
-                        StatusCode::BAD_REQUEST,
-                        &error_response,
-                    );
+                    return json_response_with_status(StatusCode::BAD_REQUEST, &error_response);
                 }
                 Some(req_ver) => {
                     if !self.server.supported_versions.iter().any(|v| v == req_ver) {
@@ -70,10 +65,7 @@ impl McpRouterInner {
                             self.server.supported_versions.clone(),
                             req_ver,
                         );
-                        return json_response_with_status(
-                            StatusCode::BAD_REQUEST,
-                            &error_response,
-                        );
+                        return json_response_with_status(StatusCode::BAD_REQUEST, &error_response);
                     }
                 }
             }
@@ -109,10 +101,7 @@ impl McpRouterInner {
                 tracing::debug!(?err, "Failed to parse JSON body");
                 let error_response =
                     JsonRpcErrorResponse::parse_error(format!("Parse error: {err}"));
-                return json_response_with_status(
-                    StatusCode::BAD_REQUEST,
-                    &error_response,
-                );
+                return json_response_with_status(StatusCode::BAD_REQUEST, &error_response);
             }
         };
 
@@ -128,11 +117,7 @@ impl McpRouterInner {
                     let mut responses: Vec<serde_json::Value> = Vec::with_capacity(items.len());
                     for item in items {
                         if let Some(resp) = self
-                            .dispatch_item(
-                                item,
-                                &parts.headers,
-                                Arc::clone(&extensions),
-                            )
+                            .dispatch_item(item, &parts.headers, Arc::clone(&extensions))
                             .await
                         {
                             responses.push(resp);
@@ -148,12 +133,7 @@ impl McpRouterInner {
             }
             serde_json::Value::Object(map) => {
                 let outcome = self
-                    .dispatch_object(
-                        map,
-                        &parts.headers,
-                        Arc::clone(&extensions),
-                        false,
-                    )
+                    .dispatch_object(map, &parts.headers, Arc::clone(&extensions), false)
                     .await;
 
                 if let Some(stream_body) = outcome.stream_body {

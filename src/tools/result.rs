@@ -118,11 +118,11 @@ macro_rules! impl_into_tool_result_tuple {
             T: serde::Serialize + Send,
         {
             fn into_tool_result(self) -> CallToolResult {
-                match serde_json::to_value(&self.0 .0) {
+                match serde_json::to_value(&self.0.0) {
                     Ok(val) => CallToolResult::structured_with_text(val, self.1),
-                    Err(err) => {
-                        CallToolResult::error(format!("Failed to serialize structured output: {err}"))
-                    }
+                    Err(err) => CallToolResult::error(format!(
+                        "Failed to serialize structured output: {err}"
+                    )),
                 }
             }
         }
@@ -132,11 +132,11 @@ macro_rules! impl_into_tool_result_tuple {
             T: serde::Serialize + Send,
         {
             fn into_tool_result(self) -> CallToolResult {
-                match serde_json::to_value(&self.1 .0) {
+                match serde_json::to_value(&self.1.0) {
                     Ok(val) => CallToolResult::structured_with_text(val, self.0),
-                    Err(err) => {
-                        CallToolResult::error(format!("Failed to serialize structured output: {err}"))
-                    }
+                    Err(err) => CallToolResult::error(format!(
+                        "Failed to serialize structured output: {err}"
+                    )),
                 }
             }
         }
@@ -160,11 +160,11 @@ macro_rules! impl_into_tool_result_tuple {
             T: serde::Serialize + Send,
         {
             fn into_tool_result(self) -> CallToolResult {
-                match serde_json::to_value(&self.0 .0) {
+                match serde_json::to_value(&self.0.0) {
                     Ok(val) => CallToolResult::structured_with_content(val, $into_vec(self.1)),
-                    Err(err) => {
-                        CallToolResult::error(format!("Failed to serialize structured output: {err}"))
-                    }
+                    Err(err) => CallToolResult::error(format!(
+                        "Failed to serialize structured output: {err}"
+                    )),
                 }
             }
         }
@@ -174,11 +174,11 @@ macro_rules! impl_into_tool_result_tuple {
             T: serde::Serialize + Send,
         {
             fn into_tool_result(self) -> CallToolResult {
-                match serde_json::to_value(&self.1 .0) {
+                match serde_json::to_value(&self.1.0) {
                     Ok(val) => CallToolResult::structured_with_content(val, $into_vec(self.0)),
-                    Err(err) => {
-                        CallToolResult::error(format!("Failed to serialize structured output: {err}"))
-                    }
+                    Err(err) => CallToolResult::error(format!(
+                        "Failed to serialize structured output: {err}"
+                    )),
                 }
             }
         }
@@ -331,7 +331,10 @@ mod tests {
         let res_input_req = input_req.into_tool_result();
         assert_eq!(res_input_req.result_type.as_deref(), Some("input_required"));
         assert_eq!(
-            res_input_req.extras.get("requestState").and_then(|v| v.as_str()),
+            res_input_req
+                .extras
+                .get("requestState")
+                .and_then(|v| v.as_str()),
             Some("state-123")
         );
     }
@@ -420,11 +423,19 @@ mod tests {
         assert_eq!(res2.content.len(), 1);
 
         // (Value, Vec<ContentBlock>) and (Vec<ContentBlock>, Value)
-        let res3 = (serde_json::json!({ "id": 3 }), vec![make_block("b3a"), make_block("b3b")]).into_tool_result();
+        let res3 = (
+            serde_json::json!({ "id": 3 }),
+            vec![make_block("b3a"), make_block("b3b")],
+        )
+            .into_tool_result();
         assert_eq!(res3.structured_content.unwrap()["id"], 3);
         assert_eq!(res3.content.len(), 2);
 
-        let res4 = (vec![make_block("b4a"), make_block("b4b")], serde_json::json!({ "id": 4 })).into_tool_result();
+        let res4 = (
+            vec![make_block("b4a"), make_block("b4b")],
+            serde_json::json!({ "id": 4 }),
+        )
+            .into_tool_result();
         assert_eq!(res4.structured_content.unwrap()["id"], 4);
         assert_eq!(res4.content.len(), 2);
 

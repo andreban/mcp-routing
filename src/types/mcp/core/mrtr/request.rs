@@ -3,10 +3,10 @@
 
 //! Multi Round-Trip Request (MRTR) request types per MCP 2026-07-28 specification (SEP-2322).
 
-use std::collections::HashMap;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::collections::HashMap;
 
 use crate::types::mcp::ResultMetaObject;
 use crate::types::mcp::core::mrtr::types::RESULT_TYPE_INPUT_REQUIRED;

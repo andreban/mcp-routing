@@ -24,8 +24,9 @@ use serde_json::json;
 use tokio::sync::{RwLock, broadcast, mpsc};
 
 use mcp_routing::{
-    BoxError, McpRouter, ResponseBody, format_sse_message,
+    BoxError, McpRouter, ResponseBody,
     extract::{Json, RequestContext, State},
+    format_sse_message,
     types::mcp::{
         Implementation, NotificationSubscriptions,
         resources::Resource,
@@ -97,9 +98,9 @@ async fn append_log(
     }
 
     // Emit event strictly for the resource that was modified
-    let _ = state
-        .event_tx
-        .send(DomainEvent::ResourceUpdated("file:///logs/app.log".to_string()));
+    let _ = state.event_tx.send(DomainEvent::ResourceUpdated(
+        "file:///logs/app.log".to_string(),
+    ));
 
     Ok(format!("Logged: {}", args.entry))
 }
@@ -116,9 +117,9 @@ async fn update_config(
     }
 
     // Emit event strictly for the configuration resource that was modified
-    let _ = state
-        .event_tx
-        .send(DomainEvent::ResourceUpdated("file:///config/settings.json".to_string()));
+    let _ = state.event_tx.send(DomainEvent::ResourceUpdated(
+        "file:///config/settings.json".to_string(),
+    ));
 
     Ok(format!("Updated config: {} = {}", args.key, args.value))
 }
@@ -135,7 +136,10 @@ async fn toggle_advanced_mode(state: State<AppState>) -> Result<String, String> 
     // Emit event strictly because the toolset availability changed
     let _ = state.event_tx.send(DomainEvent::ToolsListChanged);
 
-    Ok(format!("Advanced mode is now: {}", if new_mode { "ENABLED" } else { "DISABLED" }))
+    Ok(format!(
+        "Advanced mode is now: {}",
+        if new_mode { "ENABLED" } else { "DISABLED" }
+    ))
 }
 
 /// Handles `subscriptions/listen` requests, acknowledges supported filters, and spawns a
@@ -224,7 +228,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
         icons: Vec::new(),
         name: "append_log".to_string(),
         title: Some("Append Log Entry".to_string()),
-        description: Some("Appends a log line to file:///logs/app.log and emits a resource updated notification".to_string()),
+        description: Some(
+            "Appends a log line to file:///logs/app.log and emits a resource updated notification"
+                .to_string(),
+        ),
         input_schema: json!({
             "type": "object",
             "properties": {
@@ -259,7 +266,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
         icons: Vec::new(),
         name: "toggle_advanced_mode".to_string(),
         title: Some("Toggle Advanced Mode".to_string()),
-        description: Some("Toggles advanced tools and emits a tools list changed notification".to_string()),
+        description: Some(
+            "Toggles advanced tools and emits a tools list changed notification".to_string(),
+        ),
         input_schema: json!({
             "type": "object",
             "properties": {}
@@ -270,13 +279,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
     };
 
     let log_resource = Resource::new("file:///logs/app.log", "Application Log File");
-    let config_resource = Resource::new("file:///config/settings.json", "Application Configuration");
+    let config_resource =
+        Resource::new("file:///config/settings.json", "Application Configuration");
 
     let log_state = app_state.clone();
     let config_state = app_state.clone();
 
     let mcp_router = McpRouter::new(server_info)
-        .instructions("MCP server demonstrating event-driven subscriptions/listen notification streams")
+        .instructions(
+            "MCP server demonstrating event-driven subscriptions/listen notification streams",
+        )
         .with_state(app_state)
         .register_tool(append_tool, append_log)
         .register_tool(update_config_tool, update_config)
@@ -306,8 +318,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
     println!("1. Open an SSE subscription stream:");
     println!("   POST /mcp (Header: Mcp-Method: subscriptions/listen)");
     println!("2. Notifications are triggered ONLY when actual state changes occur:");
-    println!("   - Call `append_log` -> signals `notifications/resources/updated` for `file:///logs/app.log`");
-    println!("   - Call `update_config` -> signals `notifications/resources/updated` for `file:///config/settings.json`");
+    println!(
+        "   - Call `append_log` -> signals `notifications/resources/updated` for `file:///logs/app.log`"
+    );
+    println!(
+        "   - Call `update_config` -> signals `notifications/resources/updated` for `file:///config/settings.json`"
+    );
     println!("   - Call `toggle_advanced_mode` -> signals `notifications/tools/list_changed`");
     println!("============================================================");
 

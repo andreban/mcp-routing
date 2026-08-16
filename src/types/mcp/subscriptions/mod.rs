@@ -317,9 +317,8 @@ mod tests {
         ));
         assert_eq!(prompts_notif.method, "notifications/prompts/list_changed");
 
-        let res_notif = resources_list_changed_notification(Some(
-            ListChangedParams::new().with_meta(meta),
-        ));
+        let res_notif =
+            resources_list_changed_notification(Some(ListChangedParams::new().with_meta(meta)));
         assert_eq!(res_notif.method, "notifications/resources/list_changed");
     }
 }

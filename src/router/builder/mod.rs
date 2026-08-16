@@ -91,10 +91,7 @@ impl McpRouter {
     ///
     /// When configured, incoming HTTP requests containing an `Origin` header that does not
     /// match any of the allowed origins will be rejected with `HTTP 403 Forbidden`.
-    pub fn allowed_origins(
-        mut self,
-        origins: impl IntoIterator<Item = impl Into<String>>,
-    ) -> Self {
+    pub fn allowed_origins(mut self, origins: impl IntoIterator<Item = impl Into<String>>) -> Self {
         Arc::make_mut(&mut self.inner)
             .server
             .set_allowed_origins(origins);

@@ -14,9 +14,9 @@ use serde_json::json;
 
 use crate::auth::resolve_user;
 use crate::models::{
-    AddWatchlistParams, CreateWatchlistParams, DeleteWatchlistParams, GetWatchlistParams,
-    MovieDb, RemoveWatchlistParams, UserWatchlistsResult, Watchlist, WatchlistItem,
-    WatchlistItemSummary, WatchlistSummary,
+    AddWatchlistParams, CreateWatchlistParams, DeleteWatchlistParams, GetWatchlistParams, MovieDb,
+    RemoveWatchlistParams, UserWatchlistsResult, Watchlist, WatchlistItem, WatchlistItemSummary,
+    WatchlistSummary,
 };
 
 /// Registers all watchlist-related tools onto the [`McpRouter`].
@@ -37,7 +37,9 @@ pub fn register(router: McpRouter) -> McpRouter {
 
     let get_list_tool = Tool::new("get_watchlist")
         .title("Get Watchlist")
-        .description("Retrieves full contents and movies for a specific watchlist of the authenticated user")
+        .description(
+            "Retrieves full contents and movies for a specific watchlist of the authenticated user",
+        )
         .input_schema(json!({
             "type": "object",
             "properties": {
@@ -141,12 +143,15 @@ pub async fn list_watchlists(
                 .items
                 .iter()
                 .filter_map(|item| {
-                    guard.catalog.get(&item.movie_id).map(|m| WatchlistItemSummary {
-                        movie_id: m.id.clone(),
-                        title: m.title.clone(),
-                        year: m.year,
-                        notes: item.notes.clone(),
-                    })
+                    guard
+                        .catalog
+                        .get(&item.movie_id)
+                        .map(|m| WatchlistItemSummary {
+                            movie_id: m.id.clone(),
+                            title: m.title.clone(),
+                            year: m.year,
+                            notes: item.notes.clone(),
+                        })
                 })
                 .collect();
 
@@ -178,21 +183,26 @@ pub async fn get_watchlist(
         .get(&user_id)
         .ok_or_else(|| format!("User '{user_id}' not found"))?;
 
-    let list = user
-        .watchlists
-        .get(&params.list_name)
-        .ok_or_else(|| format!("Watchlist '{}' not found for user '{user_id}'", params.list_name))?;
+    let list = user.watchlists.get(&params.list_name).ok_or_else(|| {
+        format!(
+            "Watchlist '{}' not found for user '{user_id}'",
+            params.list_name
+        )
+    })?;
 
     let items_summary = list
         .items
         .iter()
         .filter_map(|item| {
-            guard.catalog.get(&item.movie_id).map(|m| WatchlistItemSummary {
-                movie_id: m.id.clone(),
-                title: m.title.clone(),
-                year: m.year,
-                notes: item.notes.clone(),
-            })
+            guard
+                .catalog
+                .get(&item.movie_id)
+                .map(|m| WatchlistItemSummary {
+                    movie_id: m.id.clone(),
+                    title: m.title.clone(),
+                    year: m.year,
+                    notes: item.notes.clone(),
+                })
         })
         .collect();
 
@@ -229,7 +239,8 @@ pub async fn create_watchlist(
         items: Vec::new(),
     };
 
-    user.watchlists.insert(trimmed_name.to_string(), new_watchlist);
+    user.watchlists
+        .insert(trimmed_name.to_string(), new_watchlist);
 
     Ok(Json(WatchlistSummary {
         list_name: trimmed_name.to_string(),
@@ -249,19 +260,28 @@ pub async fn add_to_watchlist(
     let MovieDb { catalog, users, .. } = &mut *guard;
 
     if !catalog.contains_key(&params.movie_id) {
-        return Err(format!("Movie with ID '{}' not found in catalog", params.movie_id));
+        return Err(format!(
+            "Movie with ID '{}' not found in catalog",
+            params.movie_id
+        ));
     }
 
     let user = users
         .get_mut(&user_id)
         .ok_or_else(|| format!("User '{user_id}' not found"))?;
 
-    let list = user
-        .watchlists
-        .get_mut(&params.list_name)
-        .ok_or_else(|| format!("Watchlist '{}' does not exist for user '{user_id}'", params.list_name))?;
+    let list = user.watchlists.get_mut(&params.list_name).ok_or_else(|| {
+        format!(
+            "Watchlist '{}' does not exist for user '{user_id}'",
+            params.list_name
+        )
+    })?;
 
-    if !list.items.iter().any(|item| item.movie_id == params.movie_id) {
+    if !list
+        .items
+        .iter()
+        .any(|item| item.movie_id == params.movie_id)
+    {
         list.items.push(WatchlistItem {
             movie_id: params.movie_id.clone(),
             added_at: "2026-08-16T12:05:00Z".to_string(),
@@ -349,5 +369,8 @@ pub async fn delete_watchlist(
         return Err(format!("Watchlist '{}' does not exist", params.list_name));
     }
 
-    Ok(format!("Watchlist '{}' was successfully deleted.", params.list_name))
+    Ok(format!(
+        "Watchlist '{}' was successfully deleted.",
+        params.list_name
+    ))
 }

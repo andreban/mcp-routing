@@ -75,8 +75,9 @@ async fn test_subscriptions_listen_with_resource_subscriptions() {
     let server_info = sample_server_info();
     let resource = Resource::new("file:///logs/app.log", "App Logs");
 
-    let app = McpRouter::new(server_info)
-        .register_resource(resource, || async { Ok::<String, String>("log content".to_string()) });
+    let app = McpRouter::new(server_info).register_resource(resource, || async {
+        Ok::<String, String>("log content".to_string())
+    });
 
     let req_body = json!({
         "jsonrpc": "2.0",
@@ -162,15 +163,13 @@ async fn test_subscriptions_listen_custom_handler_with_extractors() {
         .with_state(AuthConfig {
             required_token: "secret-token-999".to_string(),
         })
-        .subscriptions_listen(
-            |auth: BearerAuth, state: State<AuthConfig>| async move {
-                if auth.token() == state.0.required_token {
-                    Ok(NotificationSubscriptions::new().with_tools_list_changed(true))
-                } else {
-                    Err("Unauthorized subscription".to_string())
-                }
-            },
-        );
+        .subscriptions_listen(|auth: BearerAuth, state: State<AuthConfig>| async move {
+            if auth.token() == state.0.required_token {
+                Ok(NotificationSubscriptions::new().with_tools_list_changed(true))
+            } else {
+                Err("Unauthorized subscription".to_string())
+            }
+        });
 
     // Authorized request
     let req_body = json!({

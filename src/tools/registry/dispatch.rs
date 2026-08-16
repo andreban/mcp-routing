@@ -207,11 +207,8 @@ impl ToolRegistry {
             }
         }
 
-        let request_ctx = RequestContext::new(
-            meta,
-            ctx.headers.clone(),
-            Arc::clone(&ctx.extensions),
-        );
+        let request_ctx =
+            RequestContext::new(meta, ctx.headers.clone(), Arc::clone(&ctx.extensions));
         let result = handler.call(request_ctx, arguments).await;
         if ctx.is_notification {
             DispatchOutcome::notification()

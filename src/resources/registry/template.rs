@@ -10,7 +10,8 @@ use crate::resources::registry::ResourceRegistry;
 use crate::types::mcp::CacheScope;
 use crate::utils::match_uri_template;
 
-pub(crate) type MatchedResourceHandler = (Arc<dyn ResourceHandler>, Option<u64>, Option<CacheScope>);
+pub(crate) type MatchedResourceHandler =
+    (Arc<dyn ResourceHandler>, Option<u64>, Option<CacheScope>);
 
 impl ResourceRegistry {
     /// Resolves an exact or template-matching resource handler for the given URI.

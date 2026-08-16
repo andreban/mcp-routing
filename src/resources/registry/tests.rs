@@ -3,10 +3,10 @@
 
 //! Unit tests for ResourceRegistry dispatch and execution.
 
-use std::sync::Arc;
 use super::*;
 use crate::router::MethodContext;
 use crate::types::jsonrpc::JsonRpcRequestId;
+use std::sync::Arc;
 
 /// Tests that dispatching `resources/read` for an unknown resource returns an invalid params error.
 #[tokio::test]

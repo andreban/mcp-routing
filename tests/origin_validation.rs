@@ -145,4 +145,3 @@ async fn test_origin_blank_returns_403_forbidden_when_configured() {
     assert_eq!(status, StatusCode::FORBIDDEN);
     assert!(body.is_null());
 }
-

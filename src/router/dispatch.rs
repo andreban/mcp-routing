@@ -21,9 +21,7 @@ impl McpRouterInner {
     ) -> Option<serde_json::Value> {
         match item {
             serde_json::Value::Object(map) => {
-                let outcome = self
-                    .dispatch_object(map, headers, extensions, true)
-                    .await;
+                let outcome = self.dispatch_object(map, headers, extensions, true).await;
                 outcome.response
             }
             _ => {
@@ -178,8 +176,12 @@ impl McpRouterInner {
                     .as_ref()
                     .and_then(|r| r.list_changed)
                     .unwrap_or(true);
-                let known_resources: Vec<String> =
-                    self.resources.resources.iter().map(|r| r.uri.clone()).collect();
+                let known_resources: Vec<String> = self
+                    .resources
+                    .resources
+                    .iter()
+                    .map(|r| r.uri.clone())
+                    .collect();
                 self.subscriptions
                     .dispatch_listen(
                         ctx,

@@ -146,11 +146,8 @@ impl SubscriptionsRegistry {
         let base_ack = SubscriptionsAcknowledgedParams::new(ack_notifications).with_meta(ack_meta);
 
         let outcome = if let Some(ref handler) = self.listen_handler {
-            let request_ctx = RequestContext::new(
-                params.meta.clone(),
-                ctx.headers.clone(),
-                ctx.extensions,
-            );
+            let request_ctx =
+                RequestContext::new(params.meta.clone(), ctx.headers.clone(), ctx.extensions);
             match handler.call(request_ctx, params, base_ack).await {
                 Ok(res) => res,
                 Err(err) => return DispatchOutcome::error(err.into_error_response(ctx.req_id)),

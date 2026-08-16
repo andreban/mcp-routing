@@ -142,10 +142,7 @@ fn test_input_required_into_extras() {
     let result = InputRequiredResult {
         meta: None,
         result_type: "input_required".to_string(),
-        input_requests: HashMap::from([(
-            "roots_1".to_string(),
-            InputRequest::roots(),
-        )]),
+        input_requests: HashMap::from([("roots_1".to_string(), InputRequest::roots())]),
         request_state: Some("opaque_state_12345".to_string()),
         extras: custom_extras,
     };
@@ -169,4 +166,3 @@ fn test_input_required_into_extras_empty() {
     let extras = result.into_extras();
     assert!(extras.is_empty());
 }
-

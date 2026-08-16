@@ -6,13 +6,11 @@ use std::sync::Arc;
 
 use crate::extract::RequestContext;
 use crate::router::{DispatchOutcome, MethodContext};
-use crate::server::provider::ServerDiscoveryHandler;
+use crate::server::handler::ServerDiscoveryHandler;
 use crate::types::jsonrpc::JsonRpcErrorResponse;
 use crate::types::mcp::{
     CacheScope, Implementation, ResultMetaObject, ServerCapabilities, ToolsCapability,
-    server::discover::{
-        ServerDiscoverParams, ServerDiscoverResult, ServerDiscoverResultResponse,
-    },
+    server::discover::{ServerDiscoverParams, ServerDiscoverResult, ServerDiscoverResultResponse},
     unsupported_protocol_version_error,
 };
 
@@ -133,11 +131,8 @@ impl ServerConfig {
         };
 
         let result = if let Some(ref provider) = self.discovery_provider {
-            let request_ctx = RequestContext::new(
-                params.meta.clone(),
-                ctx.headers.clone(),
-                ctx.extensions,
-            );
+            let request_ctx =
+                RequestContext::new(params.meta.clone(), ctx.headers.clone(), ctx.extensions);
             match provider.call(request_ctx, base_result).await {
                 Ok(res) => res,
                 Err(err) => return DispatchOutcome::error(err.into_error_response(ctx.req_id)),

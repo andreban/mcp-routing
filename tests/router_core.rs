@@ -172,7 +172,10 @@ async fn test_mcp_router_body_method_fallback_tools_list() {
 
     let bytes = response.into_body().collect().await.unwrap().to_bytes();
     let res: JsonRpcErrorResponse = serde_json::from_slice(&bytes).unwrap();
-    assert_eq!(res.error.code.code(), mcp_routing::types::mcp::HEADER_MISMATCH);
+    assert_eq!(
+        res.error.code.code(),
+        mcp_routing::types::mcp::HEADER_MISMATCH
+    );
 }
 
 /// Tests that a mismatch between `Mcp-Method` header and body `method` returns a HeaderMismatch error (-32020).
@@ -195,7 +198,10 @@ async fn test_mcp_router_mcp_method_mismatch_returns_header_mismatch() {
 
     let bytes = response.into_body().collect().await.unwrap().to_bytes();
     let res: JsonRpcErrorResponse = serde_json::from_slice(&bytes).unwrap();
-    assert_eq!(res.error.code.code(), mcp_routing::types::mcp::HEADER_MISMATCH);
+    assert_eq!(
+        res.error.code.code(),
+        mcp_routing::types::mcp::HEADER_MISMATCH
+    );
 }
 
 /// Tests that missing `Mcp-Name` header on `tools/call` returns a HeaderMismatch error (-32020).
@@ -226,7 +232,10 @@ async fn test_mcp_router_missing_mcp_name_header_returns_header_mismatch() {
 
     let bytes = response.into_body().collect().await.unwrap().to_bytes();
     let res: JsonRpcErrorResponse = serde_json::from_slice(&bytes).unwrap();
-    assert_eq!(res.error.code.code(), mcp_routing::types::mcp::HEADER_MISMATCH);
+    assert_eq!(
+        res.error.code.code(),
+        mcp_routing::types::mcp::HEADER_MISMATCH
+    );
 }
 
 /// Tests that `Mcp-Name` header mismatch with body `params.name` returns a HeaderMismatch error (-32020).
@@ -258,7 +267,10 @@ async fn test_mcp_router_mcp_name_mismatch_returns_header_mismatch() {
 
     let bytes = response.into_body().collect().await.unwrap().to_bytes();
     let res: JsonRpcErrorResponse = serde_json::from_slice(&bytes).unwrap();
-    assert_eq!(res.error.code.code(), mcp_routing::types::mcp::HEADER_MISMATCH);
+    assert_eq!(
+        res.error.code.code(),
+        mcp_routing::types::mcp::HEADER_MISMATCH
+    );
 }
 
 /// Tests that non-standard method suffix strings return a JSON-RPC Method Not Found error (-32601).
@@ -313,7 +325,10 @@ async fn test_mcp_router_missing_method_in_header_and_body_returns_bad_request()
     let res: JsonRpcErrorResponse = serde_json::from_slice(&bytes).unwrap();
     assert_eq!(res.jsonrpc, "2.0");
     assert_eq!(res.id, Some(1.into()));
-    assert_eq!(res.error.code.code(), mcp_routing::types::mcp::HEADER_MISMATCH);
+    assert_eq!(
+        res.error.code.code(),
+        mcp_routing::types::mcp::HEADER_MISMATCH
+    );
 }
 
 /// Tests that empty tool name in `tools/call` returns a JSON-RPC Invalid Params error (-32602).

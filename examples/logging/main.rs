@@ -68,9 +68,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     };
 
     let mcp_router = McpRouter::new(server_info)
-        .instructions(
-            "MCP server demonstrating logging capabilities and per-request log levels",
-        )
+        .instructions("MCP server demonstrating logging capabilities and per-request log levels")
         // Initialize default logging level to Info and advertise logging capability
         .logging_level(LoggingLevel::Info)
         .register_tool(process_tool, process_task);

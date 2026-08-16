@@ -197,6 +197,7 @@ pub(crate) fn validate_tool_header_params(
 mod tests {
     use super::*;
 
+    /// Tests extracting properties marked with `x-mcp-header: true` from JSON schemas.
     #[test]
     fn test_extract_header_params_from_schema() {
         let schema = serde_json::json!({
@@ -228,6 +229,7 @@ mod tests {
         assert!(extract_header_params_from_schema(&no_header_schema).is_empty());
     }
 
+    /// Tests retrieving case-insensitive `Mcp-Param-{Name}` headers from `HeaderMap`.
     #[test]
     fn test_get_mcp_param_header() {
         let mut headers = HeaderMap::new();
@@ -241,6 +243,7 @@ mod tests {
         assert_eq!(get_mcp_param_header(&headers, "unknown"), None);
     }
 
+    /// Tests matching JSON parameter values against header strings.
     #[test]
     fn test_match_param_value() {
         assert!(match_param_value(&serde_json::json!("main"), "main"));
@@ -254,6 +257,7 @@ mod tests {
         assert!(!match_param_value(&serde_json::json!(true), "false"));
     }
 
+    /// Tests validation of `Mcp-Param-{Name}` request headers against tool call arguments.
     #[test]
     fn test_validate_tool_header_params() {
         let header_params = vec!["repo".to_string(), "branch".to_string()];

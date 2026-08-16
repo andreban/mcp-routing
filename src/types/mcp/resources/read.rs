@@ -144,6 +144,7 @@ impl ReadResourceResult {
 mod tests {
     use super::*;
 
+    /// Tests serialization and deserialization of `ReadResourceRequest` payloads.
     #[test]
     fn test_read_resource_request_serde() {
         let json_data = serde_json::json!({
@@ -161,6 +162,7 @@ mod tests {
         assert_eq!(params.uri, "file:///logs/app.log");
     }
 
+    /// Tests serialization and deserialization of `ReadResourceResult` payloads with text contents.
     #[test]
     fn test_read_resource_result_serde() {
         let json_data = serde_json::json!({
@@ -197,6 +199,7 @@ mod tests {
         assert_eq!(reserialized["cacheScope"], "public");
     }
 
+    /// Tests convenience constructors for `ReadResourceResult` text and blob contents.
     #[test]
     fn test_read_resource_result_constructors() {
         let res_text =

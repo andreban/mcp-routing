@@ -197,6 +197,7 @@ mod tests {
     use serde_json::json;
     use std::sync::Arc;
 
+    /// Tests extracting `RequestState` and `Option<RequestState>` from request context.
     #[test]
     fn test_request_state_extractor() {
         let mut ext = http::Extensions::new();
@@ -223,6 +224,7 @@ mod tests {
         );
     }
 
+    /// Tests extracting `InputResponses` and `Option<InputResponses>` from request context.
     #[test]
     fn test_input_responses_extractor() {
         let mut responses_map = HashMap::new();

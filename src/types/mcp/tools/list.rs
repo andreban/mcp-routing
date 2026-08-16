@@ -97,6 +97,7 @@ impl ListToolsResult {
 mod tests {
     use super::*;
 
+    /// Tests serialization and deserialization of `ListToolsResult` payloads.
     #[test]
     fn test_list_tools_result_serde() {
         let json_data = serde_json::json!({
@@ -126,6 +127,7 @@ mod tests {
         assert_eq!(reserialized["tools"][0]["name"], "echo");
     }
 
+    /// Tests serialization and deserialization of `ListToolsRequest` payloads with cursor.
     #[test]
     fn test_list_tools_request_serde() {
         let json_data = serde_json::json!({

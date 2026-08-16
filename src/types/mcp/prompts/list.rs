@@ -97,6 +97,7 @@ impl ListPromptsResult {
 mod tests {
     use super::*;
 
+    /// Tests serialization and deserialization of `ListPromptsResult` payloads.
     #[test]
     fn test_list_prompts_result_serde() {
         let json_data = serde_json::json!({
@@ -125,6 +126,7 @@ mod tests {
         assert_eq!(reserialized["prompts"][0]["name"], "review_code");
     }
 
+    /// Tests serialization and deserialization of `ListPromptsRequest` payloads with pagination cursor.
     #[test]
     fn test_list_prompts_request_serde() {
         let json_data = serde_json::json!({

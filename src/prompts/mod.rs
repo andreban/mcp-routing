@@ -359,6 +359,7 @@ mod tests {
         assert_eq!(res_block.messages.len(), 1);
     }
 
+    /// Tests invoking prompt handlers with extractors (`Extension`, `Meta`) and typed arguments.
     #[tokio::test]
     async fn test_prompt_handler_with_extractors_and_args() {
         #[derive(serde::Deserialize)]

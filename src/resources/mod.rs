@@ -403,6 +403,7 @@ mod tests {
     use super::*;
     use crate::extract::Extension;
 
+    /// Tests `IntoResourceResult` conversions for strings, result types, and errors.
     #[test]
     fn test_into_resource_result() {
         // String
@@ -436,6 +437,7 @@ mod tests {
         assert!(matches!(err, ResourceError::Internal(ref s) if s == "file not found"));
     }
 
+    /// Tests invoking resource handlers with extractors (`Extension`) and target URI parameter.
     #[tokio::test]
     async fn test_resource_handler_with_extractors_and_uri() {
         #[derive(Clone)]

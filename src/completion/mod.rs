@@ -577,6 +577,7 @@ mod tests {
     use super::*;
     use crate::extract::Extension;
 
+    /// Tests conversion implementations of `IntoCompletionResult` for vectors, slices, and errors.
     #[test]
     fn test_into_completion_result() {
         let res1: CompleteResult = vec!["a".to_string(), "b".to_string()]
@@ -595,6 +596,7 @@ mod tests {
         assert!(matches!(res_err, Err(CompletionError::Internal(msg)) if msg == "failed"));
     }
 
+    /// Tests invoking completion handlers with no args, `CompleteArgument`, and extractors.
     #[tokio::test]
     async fn test_completion_handlers_invocation() {
         // No args

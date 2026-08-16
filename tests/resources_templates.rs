@@ -1,6 +1,15 @@
 // Copyright 2026 André Cipriani Bandarra
 // SPDX-License-Identifier: Apache-2.0
 
+//! # Resource Templates Discovery (`resources/templates/list`) Integration Tests
+//!
+//! Verifies the behavior of the Model Context Protocol (MCP) `resources/templates/list` endpoint, including:
+//! - Empty resource template catalog responses
+//! - Registration and advertisement of multiple rich URI templates with parameters and annotations
+//! - Dynamic reading dispatch via registered URI templates matching incoming `resources/read` URIs
+//! - Custom caching directives (`ttlMs`, `cacheScope`, `Cache-Control`)
+//! - Custom template list handlers with extractors (`RegisteredResourceTemplates`)
+
 use http::Request;
 use http_body_util::BodyExt;
 use mcp_routing::{
@@ -16,6 +25,7 @@ fn create_test_server() -> Implementation {
     Implementation::new("test-template-server", "1.0.0").with_title("Test Template Server")
 }
 
+/// Tests that an empty resource template registry returns an empty list in `resources/templates/list`.
 #[tokio::test]
 async fn test_resource_templates_list_empty() {
     let mut router = McpRouter::new(create_test_server());
@@ -49,6 +59,7 @@ async fn test_resource_templates_list_empty() {
     );
 }
 
+/// Tests advertising multiple resource templates with rich metadata, descriptions, and annotations.
 #[tokio::test]
 async fn test_resource_templates_list_multiple_rich_templates() {
     let tmpl1 = ResourceTemplate::new("file:///{+path}", "File Explorer")
@@ -103,6 +114,7 @@ async fn test_resource_templates_list_multiple_rich_templates() {
     assert_eq!(templates[1]["name"], "Database Tables");
 }
 
+/// Tests dynamically dispatching resource reading against a registered URI template.
 #[tokio::test]
 async fn test_resource_templates_dynamic_read_dispatching() {
     let tmpl = ResourceTemplate::new("file:///{+path}", "Files");
@@ -147,6 +159,7 @@ async fn test_resource_templates_dynamic_read_dispatching() {
     );
 }
 
+/// Tests HTTP caching directives for resource templates discovery responses.
 #[tokio::test]
 async fn test_resource_templates_list_caching_directives() {
     let mut router = McpRouter::new(create_test_server())
@@ -181,6 +194,7 @@ async fn test_resource_templates_list_caching_directives() {
     assert_eq!(resp_json["result"]["cacheScope"], "public");
 }
 
+/// Tests custom resource template listing handlers using `RegisteredResourceTemplates` extractor.
 #[tokio::test]
 async fn test_resource_templates_list_custom_handler_with_extractors() {
     let mut router = McpRouter::new(create_test_server())

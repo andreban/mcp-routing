@@ -92,6 +92,7 @@ mod tests {
     use super::*;
     use crate::types::mcp::RequestMetaObject;
 
+    /// Tests extracting the server's configured `CurrentLoggingLevel` from request extensions.
     #[test]
     fn test_current_logging_level_extractor() {
         let mut ext = http::Extensions::new();
@@ -109,6 +110,7 @@ mod tests {
         assert_eq!(format!("{current}"), "debug");
     }
 
+    /// Tests extracting per-request `LoggingLevel` and `Option<LoggingLevel>` from request metadata.
     #[test]
     fn test_request_logging_level_extractors() {
         let mut meta = RequestMetaObject {

@@ -373,6 +373,7 @@ impl<S> CallToolResult<S> {
 mod tests {
     use super::*;
 
+    /// Tests serialization and deserialization of `CallToolRequest` payloads.
     #[test]
     fn test_call_tool_request_serde() {
         let json_data = serde_json::json!({
@@ -394,6 +395,7 @@ mod tests {
         assert_eq!(params.arguments.unwrap()["value"], "hello");
     }
 
+    /// Tests serialization and deserialization of `CallToolResult` payloads.
     #[test]
     fn test_call_tool_result_serde() {
         let json_data = serde_json::json!({

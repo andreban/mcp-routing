@@ -56,6 +56,7 @@ pub fn validate_protocol_version(
 mod tests {
     use super::*;
 
+    /// Tests validating protocol version strings against supported versions.
     #[test]
     fn test_validate_protocol_version() {
         let supported = vec!["2026-07-28".to_string(), "2026-01-01".to_string()];

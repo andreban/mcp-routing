@@ -94,6 +94,7 @@ fn typed_params_tool() -> Tool {
     tool
 }
 
+/// Tests matching parameter header against tool arguments with successful execution.
 #[tokio::test]
 async fn test_param_header_matching_success() {
     let app =
@@ -132,6 +133,7 @@ async fn test_param_header_matching_success() {
     );
 }
 
+/// Tests that a missing required parameter header returns HTTP 400 Bad Request with `HEADER_MISMATCH`.
 #[tokio::test]
 async fn test_param_header_missing_returns_header_mismatch() {
     let app =
@@ -177,6 +179,7 @@ async fn test_param_header_missing_returns_header_mismatch() {
     );
 }
 
+/// Tests that a mismatched parameter header value returns HTTP 400 Bad Request with `HEADER_MISMATCH`.
 #[tokio::test]
 async fn test_param_header_value_mismatch_returns_header_mismatch() {
     let app =
@@ -218,6 +221,7 @@ async fn test_param_header_value_mismatch_returns_header_mismatch() {
     );
 }
 
+/// Tests successful Base64 sentinel header decoding for parameter headers containing special characters and unicode.
 #[tokio::test]
 async fn test_param_header_sentinel_encoded_success() {
     let app =
@@ -260,6 +264,7 @@ async fn test_param_header_sentinel_encoded_success() {
     );
 }
 
+/// Tests that a Base64 sentinel header value that mismatches the body parameter returns `HEADER_MISMATCH`.
 #[tokio::test]
 async fn test_param_header_sentinel_encoded_mismatch() {
     let app =
@@ -296,6 +301,7 @@ async fn test_param_header_sentinel_encoded_mismatch() {
     assert_eq!(body["error"]["code"], HEADER_MISMATCH);
 }
 
+/// Tests validation and conversion of typed numeric and boolean parameter headers.
 #[tokio::test]
 async fn test_param_header_typed_numeric_and_boolean() {
     let app = McpRouter::new(sample_server_info())
@@ -335,6 +341,7 @@ async fn test_param_header_typed_numeric_and_boolean() {
     );
 }
 
+/// Tests that optional parameter headers omitted from both headers and body succeed.
 #[tokio::test]
 async fn test_param_header_optional_field_omitted_success() {
     let app =
@@ -374,6 +381,7 @@ async fn test_param_header_optional_field_omitted_success() {
     );
 }
 
+/// Tests that optional parameter headers provided in both headers and body succeed.
 #[tokio::test]
 async fn test_param_header_optional_field_provided_in_both_success() {
     let app =
@@ -415,6 +423,7 @@ async fn test_param_header_optional_field_provided_in_both_success() {
     );
 }
 
+/// Tests that providing a parameter header when the parameter is omitted in body arguments returns `HEADER_MISMATCH`.
 #[tokio::test]
 async fn test_param_header_provided_without_body_param_returns_mismatch() {
     let app =
@@ -452,6 +461,7 @@ async fn test_param_header_provided_without_body_param_returns_mismatch() {
     assert_eq!(body["error"]["code"], HEADER_MISMATCH);
 }
 
+/// Tests that batch tool execution succeeds when top-level parameter headers are omitted.
 #[tokio::test]
 async fn test_param_header_batch_request_without_header_success() {
     let app =

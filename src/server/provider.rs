@@ -277,6 +277,7 @@ mod tests {
     use crate::extract::{Extension, Meta};
     use crate::types::mcp::{CacheScope, Implementation, ToolsCapability};
 
+    /// Tests invoking discovery provider handlers with extractors (`Extension`, `Meta`).
     #[tokio::test]
     async fn test_discovery_provider_with_extractors() {
         #[derive(Clone)]

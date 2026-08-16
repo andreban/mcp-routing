@@ -1,6 +1,19 @@
 // Copyright 2026 André Cipriani Bandarra
 // SPDX-License-Identifier: Apache-2.0
 
+//! # Argument Autocompletion (`completion/complete`) Integration Tests
+//!
+//! Verifies the behavior of the Model Context Protocol (MCP) `completion/complete` endpoint, including:
+//! - Argument completions for prompt references (`ref/prompt`) with specific argument names or fallback handlers
+//! - Argument completions for resource template references (`ref/resource`) with template context arguments
+//! - Global default fallback completion handlers
+//! - Extractor integration (`State`, `BearerAuth`) within completion handlers
+//! - Result clamping (max 100 items), total count tracking, and pagination flags
+//! - Capability advertisement in `server/discover` responses
+//! - Custom cache TTL and cache scope configuration
+//! - Error handling for unhandled targets and malformed/missing parameters
+//! - Batch request processing and header-based routing fallback
+
 mod common;
 
 use axum::body::Body;
@@ -93,6 +106,7 @@ async fn send_mcp_request(
     (status, json, resp_headers)
 }
 
+/// Tests autocompletion for a specific named argument of a registered prompt.
 #[tokio::test]
 async fn test_completion_prompt_specific_argument() {
     let mut router = create_base_router()
@@ -133,6 +147,7 @@ async fn test_completion_prompt_specific_argument() {
     );
 }
 
+/// Tests fallback autocompletion across all arguments for a prompt.
 #[tokio::test]
 async fn test_completion_prompt_all_arguments_fallback() {
     let mut router = create_base_router().register_prompt_completion(
@@ -181,6 +196,7 @@ async fn test_completion_prompt_all_arguments_fallback() {
     );
 }
 
+/// Tests autocompletion for resource templates with context argument inspection.
 #[tokio::test]
 async fn test_completion_resource_template_with_context() {
     let mut router = create_base_router()
@@ -232,6 +248,7 @@ async fn test_completion_resource_template_with_context() {
     );
 }
 
+/// Tests the default fallback completion provider when no resource- or prompt-specific completion handler matches.
 #[tokio::test]
 async fn test_completion_default_fallback_provider() {
     let mut router = create_base_router().completion(|params: CompleteParams| async move {
@@ -274,6 +291,7 @@ async fn test_completion_default_fallback_provider() {
     );
 }
 
+/// Tests completion handlers receiving request extractors such as `State` and `BearerAuth`.
 #[tokio::test]
 async fn test_completion_with_extractors_and_state() {
     #[derive(Clone)]
@@ -317,6 +335,7 @@ async fn test_completion_with_extractors_and_state() {
     );
 }
 
+/// Tests clamping of completion results to the maximum limit (100) and pagination flags.
 #[tokio::test]
 async fn test_completion_clamping_and_pagination() {
     let mut router = create_base_router().completion(|| async {
@@ -347,6 +366,7 @@ async fn test_completion_clamping_and_pagination() {
     assert_eq!(body["result"]["completion"]["hasMore"], true);
 }
 
+/// Tests advertisement of `completions` capability in `server/discover` responses.
 #[tokio::test]
 async fn test_completion_capability_advertisement_in_discover() {
     let mut router = create_base_router().completion(|| async { vec!["opt1"] });
@@ -362,6 +382,7 @@ async fn test_completion_capability_advertisement_in_discover() {
     assert!(body["result"]["capabilities"]["completions"].is_object());
 }
 
+/// Tests HTTP caching headers (`Cache-Control`, `ETag`) returned for completion responses when configured.
 #[tokio::test]
 async fn test_completion_caching_directives() {
     let mut router = create_base_router()
@@ -387,6 +408,7 @@ async fn test_completion_caching_directives() {
     assert!(headers.get("ETag").is_some());
 }
 
+/// Tests error handling when requesting completion for an unhandled target.
 #[tokio::test]
 async fn test_completion_unhandled_target_returns_invalid_params() {
     let mut router = create_base_router().register_prompt_arg_completion(
@@ -416,6 +438,7 @@ async fn test_completion_unhandled_target_returns_invalid_params() {
     );
 }
 
+/// Tests validation failure when `completion/complete` parameters are missing or malformed.
 #[tokio::test]
 async fn test_completion_invalid_params() {
     let mut router = create_base_router().completion(|| async { vec!["suggestion"] });
@@ -446,6 +469,7 @@ async fn test_completion_invalid_params() {
     assert_eq!(body2["error"]["code"], -32602);
 }
 
+/// Tests batch execution of multiple `completion/complete` requests in a single JSON-RPC batch.
 #[tokio::test]
 async fn test_completion_batch_request() {
     let mut router = create_base_router().register_prompt_arg_completion(
@@ -489,6 +513,7 @@ async fn test_completion_batch_request() {
     );
 }
 
+/// Tests `completion/complete` routing when the method is passed via `Mcp-Method` header.
 #[tokio::test]
 async fn test_completion_via_header_routing() {
     let mut router = create_base_router().register_prompt_arg_completion(

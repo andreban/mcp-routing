@@ -97,6 +97,7 @@ impl ListResourceTemplatesResult {
 mod tests {
     use super::*;
 
+    /// Tests serialization and deserialization of `ListResourceTemplatesResult` payloads.
     #[test]
     fn test_list_resource_templates_result_serde() {
         let json_data = serde_json::json!({
@@ -125,6 +126,7 @@ mod tests {
         );
     }
 
+    /// Tests serialization and deserialization of `ListResourceTemplatesRequest` payloads.
     #[test]
     fn test_list_resource_templates_request_serde() {
         let json_data = serde_json::json!({

@@ -98,17 +98,20 @@ Per `.agents/rules/mcp_development_guidelines.md` (Section 2), complex subsystem
    - [`examples/movie_watchlist/resources.rs:141`](file:///C:/Users/andre/Projects/mcp-routing/examples/movie_watchlist/resources.rs#L141): `sorted_genres.sort_by(|a, b| b.1.cmp(&a.1));`
    - *Implementation*: Refactored to `sorted_genres.sort_by_key(|b| std::cmp::Reverse(b.1));`. All examples now pass `cargo clippy --all-targets` with zero warnings.
 
-### 3.2 Test Suite Documentation Standards
+### 3.2 Test Suite Documentation Standards `[COMPLETED]`
 Per `.agents/rules/testing_standards.md`:
 - **Module-Level Documentation (`//!`)**:
-  - Missing in:
+  - Added comprehensive top-level module documentation to:
     - [`tests/completion_complete.rs`](file:///C:/Users/andre/Projects/mcp-routing/tests/completion_complete.rs)
     - [`tests/mrtr.rs`](file:///C:/Users/andre/Projects/mcp-routing/tests/mrtr.rs)
     - [`tests/resources_list.rs`](file:///C:/Users/andre/Projects/mcp-routing/tests/resources_list.rs)
     - [`tests/resources_read.rs`](file:///C:/Users/andre/Projects/mcp-routing/tests/resources_read.rs)
     - [`tests/resources_templates.rs`](file:///C:/Users/andre/Projects/mcp-routing/tests/resources_templates.rs)
 - **Function-Level Documentation (`///`)**:
-  - Missing on several test functions in `tests/completion_complete.rs`, `tests/mrtr.rs`, `tests/param_headers.rs`, `tests/resources_list.rs`, `tests/resources_read.rs`, `tests/resources_templates.rs`, and unit test modules under `src/types/mcp/` and `src/utils/`.
+  - Added detailed function doc comments describing input preconditions, behaviors, and assertions across all test functions in:
+    - Integration tests: `tests/completion_complete.rs`, `tests/mrtr.rs`, `tests/param_headers.rs`, `tests/resources_list.rs`, `tests/resources_read.rs`, `tests/resources_templates.rs`.
+    - Unit tests: `src/completion/mod.rs`, `src/completion/registry.rs`, `src/extract/logging.rs`, `src/extract/mod.rs`, `src/extract/mrtr.rs`, `src/prompts/mod.rs`, `src/resources/mod.rs`, `src/server/discover.rs`, `src/server/provider.rs`, `src/types/mcp/completion/mod.rs`, `src/types/mcp/prompts/get.rs`, `src/types/mcp/prompts/list.rs`, `src/types/mcp/resources/list.rs`, `src/types/mcp/resources/read.rs`, `src/types/mcp/resources/templates.rs`, `src/types/mcp/server/discover.rs`, `src/types/mcp/tools/call.rs`, `src/types/mcp/tools/list.rs`, `src/utils/headers.rs`, and `src/utils/params.rs`.
+  - All test files across `tests/` and unit test modules across `src/` are now 100% documented in full compliance with `.agents/rules/testing_standards.md`.
 
 ---
 
@@ -116,9 +119,9 @@ Per `.agents/rules/testing_standards.md`:
 
 ```mermaid
 graph TD
-    A["Review Findings"] --> B["Priority 1: Code Duplication & Dead Code"]
+    A["Review Findings"] --> B["Priority 1: Code Duplication & Dead Code [Done]"]
     A --> C["Priority 2: Modularization & Test Migration [Done]"]
-    A --> D["Priority 3: Documentation & Clippy Fixes"]
+    A --> D["Priority 3: Documentation & Clippy Fixes [Done]"]
     
     B --> B1["Remove legacy handle_* methods from registries [Done]"]
     B --> B2["Delegate register to register_with_cache [Done]"]
@@ -129,7 +132,7 @@ graph TD
     C --> C2["Decompose ResourceRegistry & ToolRegistry [Done]"]
     C --> C3["Split McpRouter builder into submodule files [Done]"]
     
-    D --> D1["Add //! and /// doc comments across test suites"]
+    D --> D1["Add //! and /// doc comments across test suites [Done]"]
     D --> D2["Apply Clippy let-chains and sort_by_key in examples [Done]"]
 ```
 
@@ -137,4 +140,4 @@ graph TD
 
 ## Conclusion
 
-The `mcp-routing` project demonstrates high technical quality and strict adherence to the MCP `2026-07-28` specification. Implementing the modularization, deduplication, and documentation improvements outlined above will bring the codebase into full compliance with all workspace rules and enhance long-term maintainability.
+The `mcp-routing` project demonstrates high technical quality and strict adherence to the MCP `2026-07-28` specification. Implementing the modularization, deduplication, and documentation improvements outlined above brings the codebase into full compliance with all workspace rules and enhances long-term maintainability.

@@ -40,6 +40,7 @@ mod tests {
     use super::*;
     use crate::types::mcp::{Implementation, LoggingLevel, ProgressToken, RequestMetaObject};
 
+    /// Tests extracting various request-scoped extractors from `RequestContext`.
     #[test]
     fn test_extractors_from_context() {
         #[derive(Clone, Debug, PartialEq, Eq)]
@@ -146,6 +147,7 @@ mod tests {
         );
     }
 
+    /// Tests error propagation when required extractor data is missing from context.
     #[test]
     fn test_extractors_missing_data_errors() {
         let ctx = RequestContext::new(
@@ -194,6 +196,7 @@ mod tests {
         assert!(opt_bearer.is_none());
     }
 
+    /// Tests extracting `Authorization` and `BearerAuth` headers.
     #[test]
     fn test_authorization_and_bearer_auth_extractors() {
         let mut headers = HeaderMap::new();

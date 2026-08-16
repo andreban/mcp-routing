@@ -101,6 +101,7 @@ mod tests {
     use super::*;
     use crate::types::mcp::{ContentBlock, Role};
 
+    /// Tests serialization and deserialization of `GetPromptRequest` payloads.
     #[test]
     fn test_get_prompt_request_serde() {
         let json_data = serde_json::json!({
@@ -122,6 +123,7 @@ mod tests {
         assert_eq!(params.arguments.unwrap()["text"], "Antigravity is great");
     }
 
+    /// Tests serialization and deserialization of `GetPromptResult` payloads.
     #[test]
     fn test_get_prompt_result_serde() {
         let json_data = serde_json::json!({
@@ -156,6 +158,7 @@ mod tests {
         );
     }
 
+    /// Tests fluent builder constructors for `GetPromptResult`.
     #[test]
     fn test_get_prompt_result_constructors() {
         let res = GetPromptResult::user("Explain Rust lifetimes")

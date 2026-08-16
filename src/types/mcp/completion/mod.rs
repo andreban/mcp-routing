@@ -353,6 +353,7 @@ impl CompleteResult {
 mod tests {
     use super::*;
 
+    /// Tests serialization and deserialization of prompt references (`ref/prompt`).
     #[test]
     fn test_prompt_reference_serde() {
         let reference = Reference::prompt("code_review");
@@ -369,6 +370,7 @@ mod tests {
         assert_eq!(parsed, reference);
     }
 
+    /// Tests serialization and deserialization of resource references (`ref/resource`).
     #[test]
     fn test_resource_reference_serde() {
         let reference = Reference::resource("file:///{path}");
@@ -385,6 +387,7 @@ mod tests {
         assert_eq!(parsed, reference);
     }
 
+    /// Tests serialization and deserialization of `CompleteRequest` payloads.
     #[test]
     fn test_complete_request_serde() {
         let json_data = serde_json::json!({
@@ -423,6 +426,7 @@ mod tests {
         );
     }
 
+    /// Tests serialization and deserialization of `CompleteResult` payloads with total and pagination flags.
     #[test]
     fn test_complete_result_serde() {
         let result = CompleteResult::new(vec!["python", "pytorch", "pyside"])
@@ -447,6 +451,7 @@ mod tests {
         assert_eq!(parsed.completion.has_more, Some(true));
     }
 
+    /// Tests clamping completion value lists to a specified maximum limit.
     #[test]
     fn test_completion_values_clamp_to_limit() {
         let mut vals = Vec::new();

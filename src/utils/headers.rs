@@ -240,6 +240,7 @@ mod tests {
         assert_eq!(extract_header_method(&headers), Some(""));
     }
 
+    /// Tests extracting the `MCP-Protocol-Version` HTTP header with case-insensitivity.
     #[test]
     fn test_extract_protocol_version() {
         let mut headers = HeaderMap::new();
@@ -254,6 +255,7 @@ mod tests {
         assert_eq!(extract_protocol_version(&headers), Some("2026-07-28"));
     }
 
+    /// Tests extracting the protocol version from JSON-RPC `_meta` in request body params or root.
     #[test]
     fn test_extract_body_protocol_version() {
         let body_with_params_meta: serde_json::Map<String, serde_json::Value> =

@@ -258,6 +258,7 @@ mod tests {
     use crate::types::jsonrpc::JsonRpcRequestId;
     use crate::types::mcp::completion::{CompleteArgument, CompleteContext};
 
+    /// Tests dispatching autocompletion for registered prompt arguments.
     #[tokio::test]
     async fn test_completion_registry_dispatch_prompt() {
         let mut registry = CompletionRegistry::new();
@@ -293,6 +294,7 @@ mod tests {
         );
     }
 
+    /// Tests dispatching autocompletion for registered resource template arguments with context.
     #[tokio::test]
     async fn test_completion_registry_dispatch_resource_template() {
         let mut registry = CompletionRegistry::new();
@@ -337,6 +339,7 @@ mod tests {
         );
     }
 
+    /// Tests that dispatching completion for an unregistered prompt returns `-32602` Invalid Params.
     #[tokio::test]
     async fn test_completion_registry_unhandled_returns_invalid_params() {
         let registry = CompletionRegistry::new();

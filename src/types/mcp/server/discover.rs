@@ -103,6 +103,7 @@ impl ServerDiscoverResult {
 mod tests {
     use super::*;
 
+    /// Tests serialization and deserialization of `ServerDiscoverRequest` payloads.
     #[test]
     fn test_server_discover_request_serde() {
         let json_data = serde_json::json!({
@@ -125,6 +126,7 @@ mod tests {
         );
     }
 
+    /// Tests serialization and deserialization of `ServerDiscoverResult` payloads.
     #[test]
     fn test_server_discover_result_serde() {
         let json_data = serde_json::json!({

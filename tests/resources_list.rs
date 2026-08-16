@@ -1,6 +1,18 @@
 // Copyright 2026 André Cipriani Bandarra
 // SPDX-License-Identifier: Apache-2.0
 
+//! # Resource Discovery (`resources/list`) Integration Tests
+//!
+//! Verifies the behavior of the Model Context Protocol (MCP) `resources/list` endpoint, including:
+//! - Empty resource catalog responses
+//! - Registration and advertisement of multiple rich resources with MIME types, sizes, and annotations
+//! - Header-based routing via `Mcp-Method: resources/list` and body fallback validation
+//! - Server capability advertisement verification in `server/discover`
+//! - Custom caching directives (`ttlMs`, `cacheScope`, `Cache-Control`)
+//! - Dynamic custom resource list handlers with extractors (`Extension`, `RegisteredResources`)
+//! - Pagination support with cursor parameters and next cursor tokens
+//! - Error propagation from custom listing handlers
+
 use http::Request;
 use http_body_util::BodyExt;
 use mcp_routing::{
@@ -18,6 +30,7 @@ fn create_test_server() -> Implementation {
         .with_description("Server for testing resources capability")
 }
 
+/// Tests that an empty resource registry returns an empty list in `resources/list`.
 #[tokio::test]
 async fn test_resources_list_empty() {
     let mut router = McpRouter::new(create_test_server());
@@ -48,6 +61,7 @@ async fn test_resources_list_empty() {
     assert_eq!(resp_json["result"]["resources"], serde_json::json!([]));
 }
 
+/// Tests advertising multiple resources with rich metadata, MIME types, and annotations.
 #[tokio::test]
 async fn test_resources_list_multiple_rich_resources() {
     let res1 = Resource::new("file:///project/readme.md", "README")
@@ -111,6 +125,7 @@ async fn test_resources_list_multiple_rich_resources() {
     assert_eq!(resources[1]["size"], 512);
 }
 
+/// Tests resource list routing via `Mcp-Method` header and verifies error on missing header.
 #[tokio::test]
 async fn test_resources_list_via_header_and_body_fallback() {
     let res = Resource::new("memo://insights", "Insights");
@@ -160,6 +175,7 @@ async fn test_resources_list_via_header_and_body_fallback() {
     );
 }
 
+/// Tests that the `resources` capability is properly advertised in `server/discover`.
 #[tokio::test]
 async fn test_resources_capability_advertisement_in_discover() {
     let res = Resource::new("file:///data.csv", "Data");
@@ -184,6 +200,7 @@ async fn test_resources_capability_advertisement_in_discover() {
     assert!(resp_json["result"]["capabilities"]["resources"].is_object());
 }
 
+/// Tests HTTP caching headers and payload TTL metadata for resource listing.
 #[tokio::test]
 async fn test_resources_list_caching_directives() {
     let mut router = McpRouter::new(create_test_server())
@@ -217,6 +234,7 @@ async fn test_resources_list_caching_directives() {
     assert_eq!(resp_json["result"]["cacheScope"], "public");
 }
 
+/// Tests custom resource listing handlers with dependency extractors and dynamic filtering.
 #[tokio::test]
 async fn test_resources_list_custom_handler_with_extractors_and_filtering() {
     #[derive(Clone)]
@@ -262,6 +280,7 @@ async fn test_resources_list_custom_handler_with_extractors_and_filtering() {
     assert_eq!(resources[0]["uri"], "tenant://alpha/doc");
 }
 
+/// Tests custom resource listing handlers handling cursor-based pagination.
 #[tokio::test]
 async fn test_resources_list_custom_handler_with_pagination_cursor() {
     let mut router =
@@ -335,6 +354,7 @@ async fn test_resources_list_custom_handler_with_pagination_cursor() {
     assert!(json2["result"]["nextCursor"].is_null());
 }
 
+/// Tests error propagation when a custom resource listing handler returns an error.
 #[tokio::test]
 async fn test_resources_list_custom_handler_error_propagation() {
     let mut router = McpRouter::new(create_test_server()).resources_list(|| async {

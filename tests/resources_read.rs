@@ -1,6 +1,18 @@
 // Copyright 2026 André Cipriani Bandarra
 // SPDX-License-Identifier: Apache-2.0
 
+//! # Resource Content Retrieval (`resources/read`) Integration Tests
+//!
+//! Verifies the behavior of the Model Context Protocol (MCP) `resources/read` endpoint, including:
+//! - Exact URI matching for registered resource reading
+//! - Header-based routing via `Mcp-Method: resources/read` and `Mcp-Uri`
+//! - Fallback support for `Mcp-Name` header when `Mcp-Uri` is omitted
+//! - Rejection on header/body URI mismatch (`HEADER_MISMATCH`)
+//! - Text vs binary blob content serialization and MIME type reporting
+//! - Request extractor integration (`BearerAuth`, `State`, etc.) in resource read handlers
+//! - Per-resource HTTP caching directives (`ttlMs`, `cacheScope`, `Cache-Control`)
+//! - Error handling for missing URIs, unregistered resources, and internal handler failures
+
 use http::Request;
 use http_body_util::BodyExt;
 use mcp_routing::{
@@ -17,6 +29,7 @@ fn create_test_server() -> Implementation {
         .with_title("Test Resource Read Server")
 }
 
+/// Tests reading a resource by exact URI matching.
 #[tokio::test]
 async fn test_resources_read_exact_match_success() {
     let res = Resource::new("file:///project/README.md", "README");
@@ -60,6 +73,7 @@ async fn test_resources_read_exact_match_success() {
     assert_eq!(contents[0]["text"], "Content of file:///project/README.md");
 }
 
+/// Tests routing `resources/read` using `Mcp-Uri` HTTP header.
 #[tokio::test]
 async fn test_resources_read_header_routing_with_uri() {
     let res = Resource::new("memo://meeting-notes", "Meeting Notes");
@@ -99,6 +113,7 @@ async fn test_resources_read_header_routing_with_uri() {
     );
 }
 
+/// Tests routing `resources/read` using fallback `Mcp-Name` header when `Mcp-Uri` is omitted.
 #[tokio::test]
 async fn test_resources_read_header_routing_with_name_header_fallback() {
     let res = Resource::new("memo://system-status", "System Status");
@@ -138,6 +153,7 @@ async fn test_resources_read_header_routing_with_name_header_fallback() {
     );
 }
 
+/// Tests that a mismatch between `Mcp-Uri` header and body `uri` returns HTTP 400 with `HEADER_MISMATCH`.
 #[tokio::test]
 async fn test_resources_read_header_body_mismatch_returns_header_mismatch() {
     let res1 = Resource::new("memo://primary", "Primary");
@@ -179,6 +195,7 @@ async fn test_resources_read_header_body_mismatch_returns_header_mismatch() {
     );
 }
 
+/// Tests reading binary blob resource content and MIME type handling.
 #[tokio::test]
 async fn test_resources_read_blob_content() {
     let res = Resource::new("file:///data/binary.dat", "Binary Data")
@@ -230,6 +247,7 @@ async fn test_resources_read_blob_content() {
     );
 }
 
+/// Tests resource reading with request extractors (`BearerAuth`, `State`).
 #[tokio::test]
 async fn test_resources_read_with_extractors() {
     #[derive(Clone)]
@@ -289,6 +307,7 @@ async fn test_resources_read_with_extractors() {
     );
 }
 
+/// Tests resource reading with per-resource caching directives.
 #[tokio::test]
 async fn test_resources_read_with_caching_directives() {
     let res = Resource::new("file:///cacheable/data.json", "Cacheable Data");
@@ -337,6 +356,7 @@ async fn test_resources_read_with_caching_directives() {
     assert_eq!(resp_json["result"]["cacheScope"], "public");
 }
 
+/// Tests that providing an empty URI returns `-32602` Invalid Params.
 #[tokio::test]
 async fn test_resources_read_missing_uri_returns_invalid_params() {
     let mut router = McpRouter::new(create_test_server());
@@ -377,6 +397,7 @@ async fn test_resources_read_missing_uri_returns_invalid_params() {
     );
 }
 
+/// Tests that attempting to read an unregistered resource URI returns `-32602` Invalid Params.
 #[tokio::test]
 async fn test_resources_read_unknown_resource_returns_invalid_params() {
     let mut router = McpRouter::new(create_test_server());
@@ -417,6 +438,7 @@ async fn test_resources_read_unknown_resource_returns_invalid_params() {
     );
 }
 
+/// Tests that business logic failures inside resource read handlers propagate as `-32603` Internal Error.
 #[tokio::test]
 async fn test_resources_read_business_logic_error_returns_internal_error() {
     let res = Resource::new("file:///error.txt", "Error Resource");

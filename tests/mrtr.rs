@@ -1,6 +1,15 @@
 // Copyright 2026 André Cipriani Bandarra
 // SPDX-License-Identifier: Apache-2.0
 
+//! # Multi-Round-Trip (MRTR) Protocol Integration Tests
+//!
+//! Verifies stateless Multi-Round-Trip Request (MRTR) semantics across Model Context Protocol (MCP) endpoints:
+//! - Interactive elicitation and sampling requests (`inputRequests`, `requestState`, `inputResponses`)
+//! - Extractor-based access to `RequestState` and `InputResponses` in handlers
+//! - Load-shedding patterns via `InputRequiredResult::load_shed`
+//! - Result tagging (`resultType: complete` vs `resultType: input_required`)
+//! - Multi-round-trip flows across `tools/call`, `prompts/get`, `resources/read`, and `completion/complete`
+
 mod common;
 
 use common::{build_request, execute_request, sample_server_info};
@@ -23,6 +32,7 @@ struct ConfirmationResponse {
     approved: bool,
 }
 
+/// Tests multi-round-trip tool execution with user confirmation elicitation.
 #[tokio::test]
 async fn test_tool_call_multi_round_trip_elicitation() {
     let server_info = sample_server_info();
@@ -134,6 +144,7 @@ async fn test_tool_call_multi_round_trip_elicitation() {
     );
 }
 
+/// Tests MRTR tool execution utilizing `RequestState` and `InputResponses` extractors.
 #[tokio::test]
 async fn test_tool_call_mrtr_with_extractors() {
     let server_info = sample_server_info();
@@ -229,6 +240,7 @@ async fn test_tool_call_mrtr_with_extractors() {
     );
 }
 
+/// Tests MRTR load shedding using `InputRequiredResult::load_shed` and request resumption.
 #[tokio::test]
 async fn test_load_shedding_mrtr() {
     let server_info = sample_server_info();
@@ -300,6 +312,7 @@ async fn test_load_shedding_mrtr() {
     );
 }
 
+/// Tests that completion result payloads include the `resultType: complete` tag.
 #[tokio::test]
 async fn test_completion_complete_result_type() {
     let server_info = sample_server_info();
@@ -337,6 +350,7 @@ async fn test_completion_complete_result_type() {
     assert_eq!(json_res["result"]["completion"]["values"][2], "typescript");
 }
 
+/// Tests MRTR flow for prompt generation with interactive parameter elicitation.
 #[tokio::test]
 async fn test_prompts_get_mrtr() {
     let server_info = sample_server_info();
@@ -423,6 +437,7 @@ async fn test_prompts_get_mrtr() {
     );
 }
 
+/// Tests MRTR flow for reading secure resources with client roots elicitation.
 #[tokio::test]
 async fn test_resources_read_mrtr() {
     let server_info = sample_server_info();

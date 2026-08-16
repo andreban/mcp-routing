@@ -210,4 +210,24 @@ impl InputRequiredResult {
     pub fn get_input_request(&self, id: &str) -> Option<&InputRequest> {
         self.input_requests.get(id)
     }
+
+    /// Decomposes the result into `(meta, result_type, extras)`, merging `request_state`
+    /// and `input_requests` into the returned `extras` map.
+    pub fn into_parts(mut self) -> (Option<ResultMetaObject>, String, HashMap<String, Value>) {
+        if let Some(state) = self.request_state {
+            self.extras
+                .insert("requestState".to_string(), Value::String(state));
+        }
+        if !self.input_requests.is_empty()
+            && let Ok(reqs) = serde_json::to_value(&self.input_requests)
+        {
+            self.extras.insert("inputRequests".to_string(), reqs);
+        }
+        (self.meta, self.result_type, self.extras)
+    }
+
+    /// Consumes the result and merges `request_state` and `input_requests` into the `extras` map.
+    pub fn into_extras(self) -> HashMap<String, Value> {
+        self.into_parts().2
+    }
 }

@@ -3,6 +3,8 @@
 
 //! Unit tests for Multi Round-Trip Request (MRTR) types.
 
+use std::collections::HashMap;
+
 use super::*;
 use serde_json::{Value, json};
 
@@ -130,3 +132,41 @@ fn test_input_response_request_params_serde() {
     let res_json: Option<Value> = resp.get_result().unwrap();
     assert_eq!(res_json.unwrap()["model"], "gemini-2.5-flash");
 }
+
+/// Tests InputRequiredResult into_extras conversion.
+#[test]
+fn test_input_required_into_extras() {
+    let mut custom_extras = HashMap::new();
+    custom_extras.insert("customField".to_string(), Value::Bool(true));
+
+    let result = InputRequiredResult {
+        meta: None,
+        result_type: "input_required".to_string(),
+        input_requests: HashMap::from([(
+            "roots_1".to_string(),
+            InputRequest::roots(),
+        )]),
+        request_state: Some("opaque_state_12345".to_string()),
+        extras: custom_extras,
+    };
+
+    let extras = result.into_extras();
+    assert_eq!(
+        extras.get("requestState").and_then(|v| v.as_str()),
+        Some("opaque_state_12345")
+    );
+    assert!(extras.contains_key("inputRequests"));
+    assert_eq!(
+        extras.get("customField").and_then(|v| v.as_bool()),
+        Some(true)
+    );
+}
+
+/// Tests InputRequiredResult into_extras with empty fields.
+#[test]
+fn test_input_required_into_extras_empty() {
+    let result = InputRequiredResult::new();
+    let extras = result.into_extras();
+    assert!(extras.is_empty());
+}
+

@@ -84,18 +84,10 @@ impl IntoCompletionResult for &[String] {
 
 impl IntoCompletionResult for crate::types::mcp::InputRequiredResult {
     fn into_completion_result(self) -> Result<CompleteResult, CompletionError> {
-        let mut extras = self.extras;
-        if let Some(state) = self.request_state {
-            extras.insert("requestState".to_string(), serde_json::Value::String(state));
-        }
-        if !self.input_requests.is_empty()
-            && let Ok(reqs) = serde_json::to_value(&self.input_requests)
-        {
-            extras.insert("inputRequests".to_string(), reqs);
-        }
+        let (meta, result_type, extras) = self.into_parts();
         Ok(CompleteResult {
-            meta: self.meta,
-            result_type: Some(self.result_type),
+            meta,
+            result_type: Some(result_type),
             completion: CompletionValues::empty(),
             extras,
         })

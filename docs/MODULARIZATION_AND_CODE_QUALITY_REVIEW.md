@@ -35,13 +35,13 @@ Per `.agents/rules/mcp_development_guidelines.md` (Section 2), complex subsystem
 
 ## 2. Code Duplication & Boilerplate
 
-### 2.1 MRTR `InputRequiredResult` Extras Unpacking Quintuplication
+### 2.1 MRTR `InputRequiredResult` Extras Unpacking Quintuplication [COMPLETED]
 - **Location**:
-  - [`src/tools/mod.rs:72-92`](file:///C:/Users/andre/Projects/mcp-routing/src/tools/mod.rs#L72-L92) (`IntoToolResult for InputRequiredResult`)
-  - [`src/prompts/mod.rs:92-111`](file:///C:/Users/andre/Projects/mcp-routing/src/prompts/mod.rs#L92-L111) (`IntoPromptResult for InputRequiredResult`)
-  - [`src/resources/mod.rs:174-199`](file:///C:/Users/andre/Projects/mcp-routing/src/resources/mod.rs#L174-L199) (`IntoResourceResult for InputRequiredResult`)
-  - [`src/completion/mod.rs:85-103`](file:///C:/Users/andre/Projects/mcp-routing/src/completion/mod.rs#L85-L103) (`IntoCompletionResult for InputRequiredResult`)
-  - [`src/server/provider.rs:74-99`](file:///C:/Users/andre/Projects/mcp-routing/src/server/provider.rs#L74-L99) (`IntoServerDiscoveryResult for InputRequiredResult`)
+  - [`src/tools/mod.rs:72-85`](file:///C:/Users/andre/Projects/mcp-routing/src/tools/mod.rs#L72-L85) (`IntoToolResult for InputRequiredResult`)
+  - [`src/prompts/mod.rs:88-99`](file:///C:/Users/andre/Projects/mcp-routing/src/prompts/mod.rs#L88-L99) (`IntoPromptResult for InputRequiredResult`)
+  - [`src/resources/mod.rs:173-189`](file:///C:/Users/andre/Projects/mcp-routing/src/resources/mod.rs#L173-L189) (`IntoResourceResult for InputRequiredResult`)
+  - [`src/completion/mod.rs:85-96`](file:///C:/Users/andre/Projects/mcp-routing/src/completion/mod.rs#L85-L96) (`IntoCompletionResult for InputRequiredResult`)
+  - [`src/server/provider.rs:74-90`](file:///C:/Users/andre/Projects/mcp-routing/src/server/provider.rs#L74-L90) (`IntoServerDiscoveryResult for InputRequiredResult`)
 - **Issue**: Each subsystem duplicates identical dictionary population logic for MRTR `requestState` and `inputRequests`:
   ```rust
   let mut extras = self.extras;
@@ -52,7 +52,8 @@ Per `.agents/rules/mcp_development_guidelines.md` (Section 2), complex subsystem
       extras.insert("inputRequests".to_string(), reqs);
   }
   ```
-- **Remedy**: Expose `pub fn into_extras(self) -> HashMap<String, serde_json::Value>` (or `apply_to_extras`) on `InputRequiredResult` in `src/types/mcp/core/mrtr/`.
+- **Remedy**: Expose `pub fn into_extras(self) -> HashMap<String, Value>` and `pub fn into_parts(self) -> (Option<ResultMetaObject>, String, HashMap<String, Value>)` on `InputRequiredResult` in [`src/types/mcp/core/mrtr/request.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/types/mcp/core/mrtr/request.rs).
+- **Status**: **Completed** — Added `into_parts` and `into_extras` methods to [`InputRequiredResult`](file:///C:/Users/andre/Projects/mcp-routing/src/types/mcp/core/mrtr/request.rs#L214-L232), refactored all 5 subsystem conversions and [`CallToolResult::input_required`](file:///C:/Users/andre/Projects/mcp-routing/src/types/mcp/tools/call/response.rs#L133-L157), and added unit test coverage in [`src/types/mcp/core/mrtr/tests.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/types/mcp/core/mrtr/tests.rs#L136-L172).
 
 ### 2.2 Repetitive Subsystem Error Mapping in Dispatchers
 - **Location**:
@@ -91,7 +92,7 @@ graph TD
     
     B --> B1["Extract src/completion/handler.rs (642 -> 478 lines) [DONE]"]
     
-    C --> C1["Add InputRequiredResult::into_extras helper (eliminates 5 duplicates)"]
+    C --> C1["Add InputRequiredResult::into_extras helper (eliminates 5 duplicates) [DONE]"]
     C --> C2["Add into_error_response to ResourceError, PromptError, CompletionError"]
     C --> C3["Macroize IntoToolResult tuple implementations in src/tools/result.rs"]
     

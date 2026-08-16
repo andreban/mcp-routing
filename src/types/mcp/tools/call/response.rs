@@ -135,18 +135,17 @@ impl CallToolResult<Value> {
         input_requests: HashMap<String, crate::types::mcp::InputRequest>,
         request_state: Option<String>,
     ) -> Self {
-        let mut extras = HashMap::new();
-        if let Some(state) = request_state {
-            extras.insert("requestState".to_string(), Value::String(state));
-        }
-        if !input_requests.is_empty()
-            && let Ok(v) = serde_json::to_value(input_requests)
-        {
-            extras.insert("inputRequests".to_string(), v);
-        }
-        Self {
+        let req_result = crate::types::mcp::InputRequiredResult {
             meta: None,
-            result_type: Some("input_required".to_string()),
+            result_type: "input_required".to_string(),
+            input_requests,
+            request_state,
+            extras: HashMap::new(),
+        };
+        let (meta, result_type, extras) = req_result.into_parts();
+        Self {
+            meta,
+            result_type: Some(result_type),
             content: Vec::new(),
             is_error: None,
             structured_content: None,

@@ -67,27 +67,7 @@ impl ToolRegistry {
         H: IntoToolHandler<T>,
         T: 'static,
     {
-        let tool = tool.into();
-        let name = tool.name.clone();
-        match jsonschema::validator_for(&tool.input_schema) {
-            Ok(validator) => {
-                self.tool_validators
-                    .insert(name.clone(), Arc::new(validator));
-            }
-            Err(err) => {
-                tracing::warn!(
-                    tool_name = %name,
-                    %err,
-                    "Failed to compile input schema validator for tool"
-                );
-            }
-        }
-        let header_params = crate::utils::extract_header_params_from_schema(&tool.input_schema);
-        if !header_params.is_empty() {
-            self.tool_header_params.insert(name.clone(), header_params);
-        }
-        self.tool_handlers.insert(name, handler.into_tool_handler());
-        Arc::make_mut(&mut self.tools).push(tool);
+        self.register_with_cache(tool, handler, None, None);
     }
 
     /// Registers a tool definition alongside a typed asynchronous handler and tool-specific caching directives.

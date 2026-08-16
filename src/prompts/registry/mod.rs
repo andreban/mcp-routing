@@ -62,11 +62,7 @@ impl PromptRegistry {
         H: IntoPromptHandler<T>,
         T: 'static,
     {
-        let prompt = prompt.into();
-        let name = prompt.name.clone();
-        self.prompt_handlers
-            .insert(name, handler.into_prompt_handler());
-        Arc::make_mut(&mut self.prompts).push(prompt);
+        self.register_with_cache(prompt, handler, None, None);
     }
 
     /// Registers a prompt template alongside a typed asynchronous handler and prompt-specific caching directives.

@@ -56,14 +56,14 @@ Per `.agents/rules/mcp_development_guidelines.md` (Section 2), complex subsystem
 - **Rule Reference**: `.agents/rules/minimal_scope.md` (Rules 6 & 7: *No Dead Code* and *Single Canonical API Names*).
 - **Implementation**: Removed all redundant `handle_*` methods from `ToolRegistry`, `PromptRegistry`, `ResourceRegistry`, and `ServerConfig`, removed redundant tests, and cleaned up unused imports, establishing a single canonical dispatch pathway.
 
-### 2.2 Registration vs. Registration with Cache
+### 2.2 Registration vs. Registration with Cache `[COMPLETED]`
 - **Location**:
-  - `ToolRegistry::register` vs. `register_with_cache` ([`src/tools/registry.rs:70-134`](file:///C:/Users/andre/Projects/mcp-routing/src/tools/registry.rs#L70-L134))
-  - `PromptRegistry::register` vs. `register_with_cache` ([`src/prompts/registry.rs:66-98`](file:///C:/Users/andre/Projects/mcp-routing/src/prompts/registry.rs#L66-L98))
-  - `ResourceRegistry::register` vs. `register_with_cache` ([`src/resources/registry.rs:92-132`](file:///C:/Users/andre/Projects/mcp-routing/src/resources/registry.rs#L92-L132))
-  - `ResourceRegistry::register_template` vs. `register_template_with_cache` ([`src/resources/registry.rs:135-175`](file:///C:/Users/andre/Projects/mcp-routing/src/resources/registry.rs#L135-L175))
-- **Issue**: Validator compilation, header parameter extraction, handler insertion, and vector storage logic are duplicated verbatim between `register` and `register_with_cache`.
-- **Recommendation**: Implement `register` as a one-line delegation to `register_with_cache(item, handler, None, None)` (or an internal helper function).
+  - `ToolRegistry::register` vs. `register_with_cache` ([`src/tools/registry/mod.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/tools/registry/mod.rs))
+  - `PromptRegistry::register` vs. `register_with_cache` ([`src/prompts/registry/mod.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/prompts/registry/mod.rs))
+  - `ResourceRegistry::register` vs. `register_with_cache` ([`src/resources/registry/mod.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/resources/registry/mod.rs))
+  - `ResourceRegistry::register_template` vs. `register_template_with_cache` ([`src/resources/registry/mod.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/resources/registry/mod.rs))
+- **Issue**: Validator compilation, header parameter extraction, handler insertion, and vector storage logic were duplicated between `register` and `register_with_cache`.
+- **Implementation**: Refactored `register` across `ToolRegistry`, `PromptRegistry`, and `ResourceRegistry`, as well as `register_template` in `ResourceRegistry`, to delegate directly to their corresponding `*_with_cache` methods with `None` cache parameters, eliminating code duplication and standardizing the registration pipeline.
 
 ### 2.3 Method, Name, and URI Resolution Triplication
 - **Location**: [`src/utils/resolve.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/utils/resolve.rs) (`resolve_method`, `resolve_required_name`, `resolve_required_uri`)
@@ -120,8 +120,8 @@ graph TD
     A --> C["Priority 2: Modularization & Test Migration [Done]"]
     A --> D["Priority 3: Documentation & Clippy Fixes"]
     
-    B --> B1["Remove legacy handle_* methods from registries"]
-    B --> B2["Delegate register to register_with_cache"]
+    B --> B1["Remove legacy handle_* methods from registries [Done]"]
+    B --> B2["Delegate register to register_with_cache [Done]"]
     B --> B3["Consolidate resolution helpers in utils/resolve.rs"]
     B --> B4["Macroize Registered* collections [Done]"]
     

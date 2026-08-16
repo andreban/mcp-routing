@@ -86,11 +86,7 @@ impl ResourceRegistry {
         H: IntoResourceHandler<T>,
         T: 'static,
     {
-        let resource = resource.into();
-        let uri = resource.uri.clone();
-        self.resource_handlers
-            .insert(uri, handler.into_resource_handler());
-        Arc::make_mut(&mut self.resources).push(resource);
+        self.register_with_cache(resource, handler, None, None);
     }
 
     /// Registers a direct resource definition alongside a typed asynchronous handler and caching directives.
@@ -121,10 +117,7 @@ impl ResourceRegistry {
         H: IntoResourceHandler<T>,
         T: 'static,
     {
-        let template = template.into();
-        self.template_handlers
-            .push((template.clone(), handler.into_resource_handler()));
-        Arc::make_mut(&mut self.resource_templates).push(template);
+        self.register_template_with_cache(template, handler, None, None);
     }
 
     /// Registers a resource template definition alongside a typed asynchronous handler and caching directives.

@@ -119,13 +119,13 @@ pub async fn get_recommendations(
     let watched_ids: HashSet<String> = user.ratings.keys().cloned().collect();
 
     for (movie_id, rating) in &user.ratings {
-        if rating.rating >= 7.0 {
-            if let Some(m) = guard.catalog.get(movie_id) {
-                for g in &m.genres {
-                    liked_genres.insert(g.clone());
-                }
-                liked_directors.insert(m.director.clone());
+        if rating.rating >= 7.0
+            && let Some(m) = guard.catalog.get(movie_id)
+        {
+            for g in &m.genres {
+                liked_genres.insert(g.clone());
             }
+            liked_directors.insert(m.director.clone());
         }
     }
 

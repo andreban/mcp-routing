@@ -185,11 +185,11 @@ async fn handle_listen(
                 }
             };
 
-            if let Some(bytes) = notification_bytes {
-                if tx.send(bytes).await.is_err() {
-                    // Client disconnected
-                    break;
-                }
+            if let Some(bytes) = notification_bytes
+                && tx.send(bytes).await.is_err()
+            {
+                // Client disconnected
+                break;
             }
         }
     });

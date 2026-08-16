@@ -113,25 +113,25 @@ pub async fn search_movies(
                     return false;
                 }
             }
-            if let Some(ref g) = genre_lower {
-                if !m.genres.iter().any(|genre| genre.to_lowercase() == *g) {
-                    return false;
-                }
+            if let Some(ref g) = genre_lower
+                && !m.genres.iter().any(|genre| genre.to_lowercase() == *g)
+            {
+                return false;
             }
-            if let Some(min_yr) = params.min_year {
-                if m.year < min_yr {
-                    return false;
-                }
+            if let Some(min_yr) = params.min_year
+                && m.year < min_yr
+            {
+                return false;
             }
-            if let Some(max_yr) = params.max_year {
-                if m.year > max_yr {
-                    return false;
-                }
+            if let Some(max_yr) = params.max_year
+                && m.year > max_yr
+            {
+                return false;
             }
-            if let Some(min_rat) = params.min_rating {
-                if m.rating < min_rat {
-                    return false;
-                }
+            if let Some(min_rat) = params.min_rating
+                && m.rating < min_rat
+            {
+                return false;
             }
             true
         })

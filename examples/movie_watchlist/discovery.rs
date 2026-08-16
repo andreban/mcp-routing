@@ -27,16 +27,16 @@ pub async fn dynamic_server_discover(
     auth: Option<BearerAuth>,
 ) -> String {
     let guard = db.read().await;
-    if let Some(user_id) = resolve_optional_user(auth.as_ref(), &guard) {
-        if let Some(user) = guard.users.get(&user_id) {
-            return format!(
-                "Welcome back, {}! You have {} active watchlist(s) and {} rated movie(s). Streaming subscriptions: {}.",
-                user.display_name,
-                user.watchlists.len(),
-                user.ratings.len(),
-                user.streaming_subscriptions.join(", ")
-            );
-        }
+    if let Some(user_id) = resolve_optional_user(auth.as_ref(), &guard)
+        && let Some(user) = guard.users.get(&user_id)
+    {
+        return format!(
+            "Welcome back, {}! You have {} active watchlist(s) and {} rated movie(s). Streaming subscriptions: {}.",
+            user.display_name,
+            user.watchlists.len(),
+            user.ratings.len(),
+            user.streaming_subscriptions.join(", ")
+        );
     }
 
     "Stateless CineList MCP server for exploring movies, managing watchlists, and generating recommendations. Pass a Bearer token (e.g. 'token_alice_secret') for personalized features.".to_string()

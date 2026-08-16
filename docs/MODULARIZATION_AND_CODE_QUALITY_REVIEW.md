@@ -83,7 +83,7 @@ Per `.agents/rules/mcp_development_guidelines.md` (Section 2), complex subsystem
 
 ## 3. Idiomatic Rust & Code Quality
 
-### 3.1 Clippy Warnings in Examples
+### 3.1 Clippy Warnings in Examples `[COMPLETED]`
 `cargo clippy --all-targets` identified collapsible `if let` statements and suboptimal sort operations:
 
 1. **Collapsible `if let` (Rust 2024 let-chains)**:
@@ -92,11 +92,11 @@ Per `.agents/rules/mcp_development_guidelines.md` (Section 2), complex subsystem
    - [`examples/movie_watchlist/resources.rs:37`](file:///C:/Users/andre/Projects/mcp-routing/examples/movie_watchlist/resources.rs#L37)
    - [`examples/movie_watchlist/tools/catalog.rs:116-135`](file:///C:/Users/andre/Projects/mcp-routing/examples/movie_watchlist/tools/catalog.rs#L116-L135)
    - [`examples/movie_watchlist/tools/ratings.rs:122`](file:///C:/Users/andre/Projects/mcp-routing/examples/movie_watchlist/tools/ratings.rs#L122)
-   - *Fix*: Collapse nested `if let` blocks into idiomatic Rust 2024 let-chain expressions (`if let Some(...) = ... && ...`).
+   - *Implementation*: Collapsed nested `if let` and `if` blocks into idiomatic Rust 2024 let-chain expressions (`if let Some(...) = ... && ...`).
 
 2. **Unnecessary `sort_by`**:
    - [`examples/movie_watchlist/resources.rs:141`](file:///C:/Users/andre/Projects/mcp-routing/examples/movie_watchlist/resources.rs#L141): `sorted_genres.sort_by(|a, b| b.1.cmp(&a.1));`
-   - *Fix*: Use `sorted_genres.sort_by_key(|b| std::cmp::Reverse(b.1));`.
+   - *Implementation*: Refactored to `sorted_genres.sort_by_key(|b| std::cmp::Reverse(b.1));`. All examples now pass `cargo clippy --all-targets` with zero warnings.
 
 ### 3.2 Test Suite Documentation Standards
 Per `.agents/rules/testing_standards.md`:
@@ -130,7 +130,7 @@ graph TD
     C --> C3["Split McpRouter builder into submodule files [Done]"]
     
     D --> D1["Add //! and /// doc comments across test suites"]
-    D --> D2["Apply Clippy let-chains and sort_by_key in examples"]
+    D --> D2["Apply Clippy let-chains and sort_by_key in examples [Done]"]
 ```
 
 ---

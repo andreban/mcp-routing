@@ -34,25 +34,25 @@ pub async fn dynamic_resources_list(
     let mut resources = static_resources;
     let guard = db.read().await;
 
-    if let Some(user_id) = resolve_optional_user(auth.as_ref(), &guard) {
-        if let Some(user) = guard.users.get(&user_id) {
-            for (list_name, list) in &user.watchlists {
-                let mut res = Resource::new(
-                    format!("movies://users/{user_id}/watchlists/{list_name}"),
-                    format!("Watchlist: {list_name}"),
-                )
-                .title(format!("{}'s {}", user.display_name, list_name))
-                .mime_type("application/json")
-                .annotations(
-                    ResourceAnnotations::new()
-                        .audience(vec![Role::User])
-                        .priority(0.95),
-                );
-                if let Some(ref desc) = list.description {
-                    res = res.description(desc);
-                }
-                resources.push(res);
+    if let Some(user_id) = resolve_optional_user(auth.as_ref(), &guard)
+        && let Some(user) = guard.users.get(&user_id)
+    {
+        for (list_name, list) in &user.watchlists {
+            let mut res = Resource::new(
+                format!("movies://users/{user_id}/watchlists/{list_name}"),
+                format!("Watchlist: {list_name}"),
+            )
+            .title(format!("{}'s {}", user.display_name, list_name))
+            .mime_type("application/json")
+            .annotations(
+                ResourceAnnotations::new()
+                    .audience(vec![Role::User])
+                    .priority(0.95),
+            );
+            if let Some(ref desc) = list.description {
+                res = res.description(desc);
             }
+            resources.push(res);
         }
     }
 
@@ -138,7 +138,7 @@ pub async fn genres_catalog_handler(
     }
 
     let mut sorted_genres: Vec<(String, usize)> = genre_counts.into_iter().collect();
-    sorted_genres.sort_by(|a, b| b.1.cmp(&a.1));
+    sorted_genres.sort_by_key(|b| std::cmp::Reverse(b.1));
 
     let mut text = String::from("# CineList Movie Catalog & Genres Guide\n\n");
     text.push_str(&format!(

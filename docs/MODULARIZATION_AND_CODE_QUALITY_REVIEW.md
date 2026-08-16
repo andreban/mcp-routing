@@ -2,116 +2,82 @@
 
 **Project**: `mcp-routing`  
 **Date**: August 2026  
-**Status**: Review Complete — Actionable Recommendations Provided  
+**Status**: Review Complete — Actionable Opportunities Identified  
 
 ---
 
 ## Executive Summary
 
-A comprehensive architectural and code quality review of the `mcp-routing` codebase was conducted, focusing on three core areas:
-1. **Modularization & File Size Limits**: Adherence to the project guideline of decomposing complex subsystems into submodules of ~250–300 lines.
-2. **Code Duplication**: Identification of redundant handlers, duplicate registration logic, repeated validation workflows, and duplicated integration tests.
-3. **Idiomatic Rust & Coding Standards**: Evaluation of Rust 2024 edition patterns, Clippy diagnostics, Serde usage, and compliance with testing and minimal scope standards.
+Following the completion and archival of the initial modularization roadmap, a comprehensive second-phase architectural and code quality audit was performed across the `mcp-routing` codebase (`src/`, `tests/`, and `examples/`).
 
-Overall, the codebase is well-architected around Tower services and strict MCP `2026-07-28` specification semantics. However, several high-value refactoring opportunities exist to improve maintainability, reduce boilerplate, eliminate dead code, and ensure strict compliance with project rules.
+The audit evaluated three primary criteria:
+1. **Modularization & File Size Limits**: Conformance to the updated project guideline of keeping files under ~500 lines by decomposing complex subsystems into submodules (`.agents/rules/mcp_development_guidelines.md`).
+2. **Code Duplication**: Identification of redundant conversion logic (e.g. `InputRequiredResult` extras unpacking across 5 subsystems), repetitive error response mapping across registries, and macroizable trait boilerplate.
+3. **Idiomatic Rust & Coding Standards**: Evaluation of Rust 2024 edition idioms, Serde conventions (`camelCase`, tagged enums), minimal trait derives, error conversion ergonomics, and test documentation compliance.
+
+### Overall Assessment
+The codebase demonstrates excellent health: zero Clippy warnings across all targets (`cargo clippy --all-targets --all-features`), 100% test pass rate, and full compliance with test documentation standards (`//!` and `///`) and copyright headers. With the guideline adjusted to ~500 lines to accommodate cohesive Rust types with inline unit tests, the modularization focus is narrowed to genuinely oversized files and high-value deduplication.
 
 ---
 
-## 1. Modularization & Architecture
+## 1. Modularization & File Size Limits (~500 Line Target)
 
-### 1.1 Single-File Size Limit Exceedances `[COMPLETED]`
-Per `.agents/rules/mcp_development_guidelines.md` (Section 2), complex subsystems should be broken into modular files kept under ~250–300 lines. All 8 large files have been modularized:
+Per `.agents/rules/mcp_development_guidelines.md` (Section 2), complex subsystems should be decomposed into submodules to maintain file sizes under ~500 lines. The following files exceed or border this threshold:
 
-| Module / File | Original Lines | Decomposition / Result | Status |
+| Subsystem / File | Current Lines | Proposed Decomposition | Priority |
 |---|---|---|---|
-| [`src/test.rs`](file:///C:/Users/andre/Projects/mcp-routing/tests/router_core.rs) | 1,367 lines | Relocated black-box tests to [`tests/router_core.rs`](file:///C:/Users/andre/Projects/mcp-routing/tests/router_core.rs) (37 tests) and unit tests to [`src/router/builder/tests.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/router/builder/tests.rs). Removed `src/test.rs`. | **Completed** |
-| [`src/resources/registry.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/resources/registry/mod.rs) | 770 lines | Decomposed into [`src/resources/registry/`](file:///C:/Users/andre/Projects/mcp-routing/src/resources/registry/) (`mod.rs`, `dispatch.rs`, `template.rs`, `tests.rs`). | **Completed** |
-| [`src/router/builder.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/router/builder/mod.rs) | 689 lines | Decomposed into [`src/router/builder/`](file:///C:/Users/andre/Projects/mcp-routing/src/router/builder/) (`mod.rs`, `tools.rs`, `prompts.rs`, `resources.rs`, `completion.rs`, `tests.rs`). | **Completed** |
-| [`src/tools/mod.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/tools/mod.rs) | 640 lines | Extracted `ToolHandler`, `IntoToolHandler`, and extractor adapter macros to [`src/tools/handler.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/tools/handler.rs). | **Completed** |
-| [`src/tools/registry.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/tools/registry/mod.rs) | 598 lines | Decomposed into [`src/tools/registry/`](file:///C:/Users/andre/Projects/mcp-routing/src/tools/registry/) (`mod.rs`, `dispatch.rs`, `validation.rs`, `tests.rs`). | **Completed** |
-| [`src/types/mcp/core/mrtr.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/types/mcp/core/mrtr/mod.rs) | 533 lines | Decomposed into [`src/types/mcp/core/mrtr/`](file:///C:/Users/andre/Projects/mcp-routing/src/types/mcp/core/mrtr/) (`mod.rs`, `types.rs`, `request.rs`, `response.rs`, `tests.rs`). | **Completed** |
-| [`src/prompts/registry.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/prompts/registry/mod.rs) | 498 lines | Decomposed into [`src/prompts/registry/`](file:///C:/Users/andre/Projects/mcp-routing/src/prompts/registry/) (`mod.rs`, `dispatch.rs`, `tests.rs`). | **Completed** |
-| [`src/extract/registered.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/extract/registered.rs) | 427 lines | Consolidated struct definitions via declarative macro `impl_registered_collection!` down to 150 lines. | **Completed** |
-
-### 1.2 Separation of Unit Tests vs. Integration Tests `[COMPLETED]`
-- **Finding**: [`src/test.rs`](file:///C:/Users/andre/Projects/mcp-routing/tests/router_core.rs) previously contained 1,367 lines of black-box oneshot HTTP request tests (`app.oneshot(request)`).
-- **Rule Reference**: `.agents/rules/testing_standards.md` explicitly reserves `tests/` for black-box HTTP / Tower integration tests, while `src/` should only house isolated unit tests in `#[cfg(test)] mod tests`.
-- **Implementation**:
-  - Migrated all 37 black-box HTTP/Tower oneshot integration test scenarios from `src/test.rs` to [`tests/router_core.rs`](file:///C:/Users/andre/Projects/mcp-routing/tests/router_core.rs).
-  - Placed isolated router builder unit tests in [`src/router/builder/tests.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/router/builder/tests.rs).
-  - Completely removed `src/test.rs` (1,367 lines eliminated from `src/`).
-  - Verified full separation: `src/` contains only isolated unit tests for individual structs, Serde, extractors, and registry internals; `tests/` contains only black-box integration test suites.
+| [`src/completion/mod.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/completion/mod.rs) | 642 lines | Extract `CompletionHandler`, `IntoCompletionHandler`, handler adapter structs, and `impl_into_completion_handler!` into [`src/completion/handler.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/completion/handler.rs) (matching [`src/tools/handler.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/tools/handler.rs)). This brings `src/completion/mod.rs` down to ~80 lines. | **High** |
+| [`src/types/mcp/tools/call.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/types/mcp/tools/call.rs) | 503 lines | Decompose into [`src/types/mcp/tools/call/`](file:///C:/Users/andre/Projects/mcp-routing/src/types/mcp/tools/call/) (`mod.rs`, `request.rs`, `response.rs`, `tests.rs`), matching the structure of [`src/types/mcp/core/mrtr/`](file:///C:/Users/andre/Projects/mcp-routing/src/types/mcp/core/mrtr/). | **Medium** |
+| [`src/resources/mod.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/resources/mod.rs) | 475 lines | Extract `ResourceHandler`, `IntoResourceHandler`, handler adapters, and `impl_into_resource_handler!` into [`src/resources/handler.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/resources/handler.rs) (optional / healthy under 500 lines). | **Low** |
+| [`src/prompts/mod.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/prompts/mod.rs) | 429 lines | Extract `PromptHandler`, `IntoPromptHandler`, handler adapters, and `impl_into_prompt_handler!` into [`src/prompts/handler.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/prompts/handler.rs) (optional / healthy under 500 lines). | **Low** |
 
 ---
 
-## 2. Code Duplication & Redundancies
+## 2. Code Duplication & Boilerplate
 
-### 2.1 Dead / Redundant `handle_*` Methods in Registries `[COMPLETED]`
+### 2.1 MRTR `InputRequiredResult` Extras Unpacking Quintuplication
 - **Location**:
-  - `ToolRegistry::handle_list` & `ToolRegistry::handle_call` in [`src/tools/registry/mod.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/tools/registry/mod.rs)
-  - `PromptRegistry::handle_list` & `PromptRegistry::handle_get` in [`src/prompts/registry/mod.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/prompts/registry/mod.rs)
-  - `ResourceRegistry::handle_list`, `handle_templates_list`, & `handle_read` in [`src/resources/registry/mod.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/resources/registry/mod.rs)
-  - `ServerConfig::handle_discover` in [`src/server/config.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/server/config.rs)
-- **Issue**: `McpRouter` dispatches all requests through `dispatch_*` methods (`dispatch_list`, `dispatch_call`, etc.), which properly integrate extractors, correlation IDs, and caching. The `handle_*` standalone methods re-parsed raw JSON slices, duplicated error mapping, and were not invoked by the router (only called in their own unit tests).
-- **Rule Reference**: `.agents/rules/minimal_scope.md` (Rules 6 & 7: *No Dead Code* and *Single Canonical API Names*).
-- **Implementation**: Removed all redundant `handle_*` methods from `ToolRegistry`, `PromptRegistry`, `ResourceRegistry`, and `ServerConfig`, removed redundant tests, and cleaned up unused imports, establishing a single canonical dispatch pathway.
+  - [`src/tools/mod.rs:72-92`](file:///C:/Users/andre/Projects/mcp-routing/src/tools/mod.rs#L72-L92) (`IntoToolResult for InputRequiredResult`)
+  - [`src/prompts/mod.rs:92-111`](file:///C:/Users/andre/Projects/mcp-routing/src/prompts/mod.rs#L92-L111) (`IntoPromptResult for InputRequiredResult`)
+  - [`src/resources/mod.rs:174-199`](file:///C:/Users/andre/Projects/mcp-routing/src/resources/mod.rs#L174-L199) (`IntoResourceResult for InputRequiredResult`)
+  - [`src/completion/mod.rs:85-103`](file:///C:/Users/andre/Projects/mcp-routing/src/completion/mod.rs#L85-L103) (`IntoCompletionResult for InputRequiredResult`)
+  - [`src/server/provider.rs:74-99`](file:///C:/Users/andre/Projects/mcp-routing/src/server/provider.rs#L74-L99) (`IntoServerDiscoveryResult for InputRequiredResult`)
+- **Issue**: Each subsystem duplicates identical dictionary population logic for MRTR `requestState` and `inputRequests`:
+  ```rust
+  let mut extras = self.extras;
+  if let Some(state) = self.request_state {
+      extras.insert("requestState".to_string(), serde_json::Value::String(state));
+  }
+  if !self.input_requests.is_empty() && let Ok(reqs) = serde_json::to_value(&self.input_requests) {
+      extras.insert("inputRequests".to_string(), reqs);
+  }
+  ```
+- **Remedy**: Expose `pub fn into_extras(self) -> HashMap<String, serde_json::Value>` (or `apply_to_extras`) on `InputRequiredResult` in `src/types/mcp/core/mrtr/`.
 
-### 2.2 Registration vs. Registration with Cache `[COMPLETED]`
+### 2.2 Repetitive Subsystem Error Mapping in Dispatchers
 - **Location**:
-  - `ToolRegistry::register` vs. `register_with_cache` ([`src/tools/registry/mod.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/tools/registry/mod.rs))
-  - `PromptRegistry::register` vs. `register_with_cache` ([`src/prompts/registry/mod.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/prompts/registry/mod.rs))
-  - `ResourceRegistry::register` vs. `register_with_cache` ([`src/resources/registry/mod.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/resources/registry/mod.rs))
-  - `ResourceRegistry::register_template` vs. `register_template_with_cache` ([`src/resources/registry/mod.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/resources/registry/mod.rs))
-- **Issue**: Validator compilation, header parameter extraction, handler insertion, and vector storage logic were duplicated between `register` and `register_with_cache`.
-- **Implementation**: Refactored `register` across `ToolRegistry`, `PromptRegistry`, and `ResourceRegistry`, as well as `register_template` in `ResourceRegistry`, to delegate directly to their corresponding `*_with_cache` methods with `None` cache parameters, eliminating code duplication and standardizing the registration pipeline.
+  - [`src/resources/registry/dispatch.rs:86-104, 192-210, 322-340`](file:///C:/Users/andre/Projects/mcp-routing/src/resources/registry/dispatch.rs)
+  - [`src/prompts/registry/dispatch.rs:43-55, 127-140`](file:///C:/Users/andre/Projects/mcp-routing/src/prompts/registry/dispatch.rs)
+  - [`src/completion/registry.rs:239-251`](file:///C:/Users/andre/Projects/mcp-routing/src/completion/registry.rs#L239-L251)
+- **Issue**: Handlers for `ResourceError`, `PromptError`, and `CompletionError` repeatedly match against `InvalidParams`, `NotFound`, and `Internal` to build `JsonRpcErrorResponse::invalid_params` or `JsonRpcErrorResponse::internal_error`.
+- **Remedy**: Implement a helper method `into_error_response(self, id: Option<JsonRpcRequestId>) -> JsonRpcErrorResponse` on `ResourceError`, `PromptError`, and `CompletionError`.
 
-### 2.3 Method, Name, and URI Resolution Triplication `[COMPLETED]`
-- **Location**: [`src/utils/resolve.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/utils/resolve.rs) (`resolve_method`, `resolve_required_name`, `resolve_required_uri`)
-- **Issue**: All three functions follow identical 4-stage resolution logic:
-  1. Single request: header required, return `HeaderMismatch` if missing.
-  2. Trim slashes / whitespace, validate non-empty.
-  3. Validate body match if body parameter present, return `HeaderMismatch` on discrepancy.
-  4. Batch fallback to body parameter.
-- **Implementation**: Extracted a common generic resolution helper `resolve_header_or_body_value(...)` configured by a lightweight `ResolveOptions` struct. Refactored `resolve_method`, `resolve_required_name`, and `resolve_required_uri` to delegate directly to this helper, eliminating duplicate 4-stage branching logic while maintaining strict error formatting and zero unneeded allocations.
-
-### 2.4 Repetitive Registered Collection Extractors `[COMPLETED]`
-- **Location**: [`src/extract/registered.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/extract/registered.rs)
-- **Issue**: `RegisteredTools`, `RegisteredPrompts`, `RegisteredResources`, and `RegisteredResourceTemplates` duplicate 8 methods and 4 trait implementations (`Deref`, `DerefMut`, `IntoIterator`, `From<Vec<T>>`, `FromRequestContext`) across 427 lines.
-- **Implementation**: Introduced the internal declarative macro `impl_registered_collection!` generating struct definitions, constructors (`new`), conversions (`into_inner`, `From<Vec<T>>`), slicing (`as_slice`), counting (`len`, `is_empty`), iterators (`iter`, `IntoIterator` by ref and value), deref coercions (`Deref`, `DerefMut`), and context extractors (`FromRequestContext` for `$struct_name` and `Option<$struct_name>`). Consolidated code from 427 lines down to 183 lines (including full unit tests) while retaining full API compatibility and zero runtime overhead.
+### 2.3 Combinatorial `IntoToolResult` Tuple Implementations
+- **Location**: [`src/tools/mod.rs:138-300`](file:///C:/Users/andre/Projects/mcp-routing/src/tools/mod.rs#L138-L300)
+- **Issue**: Over 160 lines of repetitive trait implementations for `(Value, String)`, `(String, Value)`, `(Json<T>, String)`, `(String, Json<T>)`, `(Value, ContentBlock)`, `(ContentBlock, Value)`, `(Json<T>, ContentBlock)`, `(Json<T>, Vec<ContentBlock>)`, etc.
+- **Remedy**: Introduce a declarative macro `impl_into_tool_result_tuple!` (similar to `impl_registered_collection!` in `src/extract/registered.rs`) inside [`src/tools/result.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/tools/result.rs).
 
 ---
 
 ## 3. Idiomatic Rust & Code Quality
 
-### 3.1 Clippy Warnings in Examples `[COMPLETED]`
-`cargo clippy --all-targets` identified collapsible `if let` statements and suboptimal sort operations:
+### 3.1 Extractor Trait & Handler Macro Consistency
+- Across `src/completion/`, `src/prompts/`, `src/resources/`, and `src/server/`, the handler conversion macros (`impl_into_completion_handler!`, `impl_into_prompt_handler!`, `impl_into_resource_handler!`, `impl_into_discovery_handler!`) follow consistent 1-to-5 extractor arity patterns.
+- Placing each handler conversion family in a dedicated `handler.rs` submodule (as done for `src/tools/handler.rs` and `src/subscriptions/handler.rs`) establishes uniform subsystem architecture across the entire crate.
 
-1. **Collapsible `if let` (Rust 2024 let-chains)**:
-   - [`examples/subscriptions/main.rs:188`](file:///C:/Users/andre/Projects/mcp-routing/examples/subscriptions/main.rs#L188)
-   - [`examples/movie_watchlist/discovery.rs:30`](file:///C:/Users/andre/Projects/mcp-routing/examples/movie_watchlist/discovery.rs#L30)
-   - [`examples/movie_watchlist/resources.rs:37`](file:///C:/Users/andre/Projects/mcp-routing/examples/movie_watchlist/resources.rs#L37)
-   - [`examples/movie_watchlist/tools/catalog.rs:116-135`](file:///C:/Users/andre/Projects/mcp-routing/examples/movie_watchlist/tools/catalog.rs#L116-L135)
-   - [`examples/movie_watchlist/tools/ratings.rs:122`](file:///C:/Users/andre/Projects/mcp-routing/examples/movie_watchlist/tools/ratings.rs#L122)
-   - *Implementation*: Collapsed nested `if let` and `if` blocks into idiomatic Rust 2024 let-chain expressions (`if let Some(...) = ... && ...`).
-
-2. **Unnecessary `sort_by`**:
-   - [`examples/movie_watchlist/resources.rs:141`](file:///C:/Users/andre/Projects/mcp-routing/examples/movie_watchlist/resources.rs#L141): `sorted_genres.sort_by(|a, b| b.1.cmp(&a.1));`
-   - *Implementation*: Refactored to `sorted_genres.sort_by_key(|b| std::cmp::Reverse(b.1));`. All examples now pass `cargo clippy --all-targets` with zero warnings.
-
-### 3.2 Test Suite Documentation Standards `[COMPLETED]`
-Per `.agents/rules/testing_standards.md`:
-- **Module-Level Documentation (`//!`)**:
-  - Added comprehensive top-level module documentation to:
-    - [`tests/completion_complete.rs`](file:///C:/Users/andre/Projects/mcp-routing/tests/completion_complete.rs)
-    - [`tests/mrtr.rs`](file:///C:/Users/andre/Projects/mcp-routing/tests/mrtr.rs)
-    - [`tests/resources_list.rs`](file:///C:/Users/andre/Projects/mcp-routing/tests/resources_list.rs)
-    - [`tests/resources_read.rs`](file:///C:/Users/andre/Projects/mcp-routing/tests/resources_read.rs)
-    - [`tests/resources_templates.rs`](file:///C:/Users/andre/Projects/mcp-routing/tests/resources_templates.rs)
-- **Function-Level Documentation (`///`)**:
-  - Added detailed function doc comments describing input preconditions, behaviors, and assertions across all test functions in:
-    - Integration tests: `tests/completion_complete.rs`, `tests/mrtr.rs`, `tests/param_headers.rs`, `tests/resources_list.rs`, `tests/resources_read.rs`, `tests/resources_templates.rs`.
-    - Unit tests: `src/completion/mod.rs`, `src/completion/registry.rs`, `src/extract/logging.rs`, `src/extract/mod.rs`, `src/extract/mrtr.rs`, `src/prompts/mod.rs`, `src/resources/mod.rs`, `src/server/discover.rs`, `src/server/provider.rs`, `src/types/mcp/completion/mod.rs`, `src/types/mcp/prompts/get.rs`, `src/types/mcp/prompts/list.rs`, `src/types/mcp/resources/list.rs`, `src/types/mcp/resources/read.rs`, `src/types/mcp/resources/templates.rs`, `src/types/mcp/server/discover.rs`, `src/types/mcp/tools/call.rs`, `src/types/mcp/tools/list.rs`, `src/utils/headers.rs`, and `src/utils/params.rs`.
-  - All test files across `tests/` and unit test modules across `src/` are now 100% documented in full compliance with `.agents/rules/testing_standards.md`.
+### 3.2 Error Construct Ergonomics
+- `JsonRpcError` and `JsonRpcErrorResponse` provide both typed and Value-based constructors (`unsupported_protocol_version`, `unsupported_protocol_version_typed`, etc.).
+- Moving the serialization logic to helper methods on the typed data structs (`UnsupportedProtocolVersionData::into_json_rpc_error`) reduces match complexity and makes error creation cleaner.
 
 ---
 
@@ -119,25 +85,23 @@ Per `.agents/rules/testing_standards.md`:
 
 ```mermaid
 graph TD
-    A["Review Findings"] --> B["Priority 1: Code Duplication & Dead Code [Done]"]
-    A --> C["Priority 2: Modularization & Test Migration [Done]"]
-    A --> D["Priority 3: Documentation & Clippy Fixes [Done]"]
+    A["Review Findings (~500 Line Standard)"] --> B["Priority 1: Completion Handler Extraction"]
+    A --> C["Priority 2: Code Deduplication & Helpers"]
+    A --> D["Priority 3: Subsystem Standardization"]
     
-    B --> B1["Remove legacy handle_* methods from registries [Done]"]
-    B --> B2["Delegate register to register_with_cache [Done]"]
-    B --> B3["Consolidate resolution helpers in utils/resolve.rs [Done]"]
-    B --> B4["Macroize Registered* collections [Done]"]
+    B --> B1["Extract src/completion/handler.rs (642 -> ~80 lines)"]
     
-    C --> C1["Migrate integration tests from src/test.rs to tests/ [Done]"]
-    C --> C2["Decompose ResourceRegistry & ToolRegistry [Done]"]
-    C --> C3["Split McpRouter builder into submodule files [Done]"]
+    C --> C1["Add InputRequiredResult::into_extras helper (eliminates 5 duplicates)"]
+    C --> C2["Add into_error_response to ResourceError, PromptError, CompletionError"]
+    C --> C3["Macroize IntoToolResult tuple implementations in src/tools/result.rs"]
     
-    D --> D1["Add //! and /// doc comments across test suites [Done]"]
-    D --> D2["Apply Clippy let-chains and sort_by_key in examples [Done]"]
+    D --> D1["Extract src/resources/handler.rs (475 -> ~80 lines)"]
+    D --> D2["Extract src/prompts/handler.rs (429 -> ~80 lines)"]
+    D --> D3["Decompose src/types/mcp/tools/call.rs (503 -> submodules)"]
 ```
 
 ---
 
 ## Conclusion
 
-The `mcp-routing` project demonstrates high technical quality and strict adherence to the MCP `2026-07-28` specification. Implementing the modularization, deduplication, and documentation improvements outlined above brings the codebase into full compliance with all workspace rules and enhances long-term maintainability.
+With the guideline updated to ~500 lines, the codebase is in strong compliance with minimal remaining structural debt. Executing the high-priority extraction of `src/completion/handler.rs` and the deduplication helpers will bring 100% of files cleanly under the 500-line threshold while eliminating repetitive boilerplate.

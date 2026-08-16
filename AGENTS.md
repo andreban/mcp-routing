@@ -22,7 +22,7 @@ All contributions to this codebase must adhere strictly to the workspace rules d
 - **Exact Method Matching**: Match JSON-RPC method strings exactly (`server/discover`, `tools/list`, etc.).
 - **No Deprecated Features**: Features deprecated as of the MCP `2026-07-28` specification (such as `logging/setLevel` via SEP-2577) MUST NOT be implemented or supported.
 - **Clean Protocol Layering**: Keep generic JSON-RPC types in `src/types/jsonrpc/` pure; define MCP-specific schemas in `src/types/mcp/`.
-- **Modular Subsystems**: Keep files under ~250–300 lines by decomposing into submodules.
+- **Modular Subsystems**: Keep files under ~500 lines by decomposing complex subsystems into submodules.
 - **Separation of Utilities**: Keep utility and helper functions in dedicated utility modules (`src/utils/`).
 
 ## 3. Rust Serde Conventions (`.agents/rules/rust_serde.md`)

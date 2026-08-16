@@ -48,6 +48,59 @@ pub struct UnsupportedProtocolVersionData {
     pub requested: String,
 }
 
+impl UnsupportedProtocolVersionData {
+    /// Creates a new [`UnsupportedProtocolVersionData`] payload.
+    pub fn new(supported: Vec<String>, requested: impl Into<String>) -> Self {
+        Self {
+            supported,
+            requested: requested.into(),
+        }
+    }
+
+    /// Converts this data payload into a standard untyped [`JsonRpcError`].
+    pub fn into_json_rpc_error(
+        self,
+        message: impl Into<Cow<'static, str>>,
+    ) -> JsonRpcError<serde_json::Value> {
+        let data = serde_json::to_value(self).ok();
+        JsonRpcError::new(
+            JsonRpcErrorCode::ServerError(UNSUPPORTED_PROTOCOL_VERSION),
+            message,
+            data,
+        )
+    }
+
+    /// Converts this data payload into a typed [`JsonRpcError`].
+    pub fn into_typed_json_rpc_error(
+        self,
+        message: impl Into<Cow<'static, str>>,
+    ) -> JsonRpcError<Self> {
+        JsonRpcError::new(
+            JsonRpcErrorCode::ServerError(UNSUPPORTED_PROTOCOL_VERSION),
+            message,
+            Some(self),
+        )
+    }
+
+    /// Converts this data payload into a standard untyped [`JsonRpcErrorResponse`].
+    pub fn into_error_response(
+        self,
+        id: Option<JsonRpcRequestId>,
+        message: impl Into<Cow<'static, str>>,
+    ) -> JsonRpcErrorResponse {
+        JsonRpcErrorResponse::new(id, self.into_json_rpc_error(message))
+    }
+
+    /// Converts this data payload into a typed [`JsonRpcErrorResponse`].
+    pub fn into_typed_error_response(
+        self,
+        id: Option<JsonRpcRequestId>,
+        message: impl Into<Cow<'static, str>>,
+    ) -> JsonRpcErrorResponse<JsonRpcError<Self>> {
+        JsonRpcErrorResponse::new(id, self.into_typed_json_rpc_error(message))
+    }
+}
+
 /// Data payload carried in a [`MissingRequiredClientCapabilityError`].
 ///
 /// See <https://modelcontextprotocol.io/specification/2026-07-28/schema#missingrequiredclientcapabilityerror>
@@ -56,6 +109,58 @@ pub struct UnsupportedProtocolVersionData {
 pub struct MissingRequiredClientCapabilityData {
     /// The capabilities the server requires from the client to process this request.
     pub required_capabilities: ClientCapabilities,
+}
+
+impl MissingRequiredClientCapabilityData {
+    /// Creates a new [`MissingRequiredClientCapabilityData`] payload.
+    pub fn new(required_capabilities: ClientCapabilities) -> Self {
+        Self {
+            required_capabilities,
+        }
+    }
+
+    /// Converts this data payload into a standard untyped [`JsonRpcError`].
+    pub fn into_json_rpc_error(
+        self,
+        message: impl Into<Cow<'static, str>>,
+    ) -> JsonRpcError<serde_json::Value> {
+        let data = serde_json::to_value(self).ok();
+        JsonRpcError::new(
+            JsonRpcErrorCode::ServerError(MISSING_REQUIRED_CLIENT_CAPABILITY),
+            message,
+            data,
+        )
+    }
+
+    /// Converts this data payload into a typed [`JsonRpcError`].
+    pub fn into_typed_json_rpc_error(
+        self,
+        message: impl Into<Cow<'static, str>>,
+    ) -> JsonRpcError<Self> {
+        JsonRpcError::new(
+            JsonRpcErrorCode::ServerError(MISSING_REQUIRED_CLIENT_CAPABILITY),
+            message,
+            Some(self),
+        )
+    }
+
+    /// Converts this data payload into a standard untyped [`JsonRpcErrorResponse`].
+    pub fn into_error_response(
+        self,
+        id: Option<JsonRpcRequestId>,
+        message: impl Into<Cow<'static, str>>,
+    ) -> JsonRpcErrorResponse {
+        JsonRpcErrorResponse::new(id, self.into_json_rpc_error(message))
+    }
+
+    /// Converts this data payload into a typed [`JsonRpcErrorResponse`].
+    pub fn into_typed_error_response(
+        self,
+        id: Option<JsonRpcRequestId>,
+        message: impl Into<Cow<'static, str>>,
+    ) -> JsonRpcErrorResponse<JsonRpcError<Self>> {
+        JsonRpcErrorResponse::new(id, self.into_typed_json_rpc_error(message))
+    }
 }
 
 impl JsonRpcError<serde_json::Value> {
@@ -74,16 +179,7 @@ impl JsonRpcError<serde_json::Value> {
         supported: Vec<String>,
         requested: impl Into<String>,
     ) -> Self {
-        let data = serde_json::to_value(UnsupportedProtocolVersionData {
-            supported,
-            requested: requested.into(),
-        })
-        .ok();
-        Self::new(
-            JsonRpcErrorCode::ServerError(UNSUPPORTED_PROTOCOL_VERSION),
-            message,
-            data,
-        )
+        UnsupportedProtocolVersionData::new(supported, requested).into_json_rpc_error(message)
     }
 
     /// Constructs a standard MCP Missing Required Client Capability error (-32021) with JSON-serialized data.
@@ -91,15 +187,7 @@ impl JsonRpcError<serde_json::Value> {
         message: impl Into<Cow<'static, str>>,
         required_capabilities: ClientCapabilities,
     ) -> Self {
-        let data = serde_json::to_value(MissingRequiredClientCapabilityData {
-            required_capabilities,
-        })
-        .ok();
-        Self::new(
-            JsonRpcErrorCode::ServerError(MISSING_REQUIRED_CLIENT_CAPABILITY),
-            message,
-            data,
-        )
+        MissingRequiredClientCapabilityData::new(required_capabilities).into_json_rpc_error(message)
     }
 }
 
@@ -110,14 +198,7 @@ impl JsonRpcError<UnsupportedProtocolVersionData> {
         supported: Vec<String>,
         requested: impl Into<String>,
     ) -> Self {
-        Self::new(
-            JsonRpcErrorCode::ServerError(UNSUPPORTED_PROTOCOL_VERSION),
-            message,
-            Some(UnsupportedProtocolVersionData {
-                supported,
-                requested: requested.into(),
-            }),
-        )
+        UnsupportedProtocolVersionData::new(supported, requested).into_typed_json_rpc_error(message)
     }
 }
 
@@ -127,13 +208,7 @@ impl JsonRpcError<MissingRequiredClientCapabilityData> {
         message: impl Into<Cow<'static, str>>,
         required_capabilities: ClientCapabilities,
     ) -> Self {
-        Self::new(
-            JsonRpcErrorCode::ServerError(MISSING_REQUIRED_CLIENT_CAPABILITY),
-            message,
-            Some(MissingRequiredClientCapabilityData {
-                required_capabilities,
-            }),
-        )
+        MissingRequiredClientCapabilityData::new(required_capabilities).into_typed_json_rpc_error(message)
     }
 }
 
@@ -153,10 +228,7 @@ impl JsonRpcErrorResponse<JsonRpcError<serde_json::Value>> {
         supported: Vec<String>,
         requested: impl Into<String>,
     ) -> Self {
-        Self::new(
-            id,
-            JsonRpcError::unsupported_protocol_version(message, supported, requested),
-        )
+        UnsupportedProtocolVersionData::new(supported, requested).into_error_response(id, message)
     }
 
     /// Constructs a standard MCP Missing Required Client Capability error (-32021) response.
@@ -165,10 +237,7 @@ impl JsonRpcErrorResponse<JsonRpcError<serde_json::Value>> {
         message: impl Into<Cow<'static, str>>,
         required_capabilities: ClientCapabilities,
     ) -> Self {
-        Self::new(
-            id,
-            JsonRpcError::missing_required_client_capability(message, required_capabilities),
-        )
+        MissingRequiredClientCapabilityData::new(required_capabilities).into_error_response(id, message)
     }
 }
 
@@ -180,10 +249,7 @@ impl JsonRpcErrorResponse<JsonRpcError<UnsupportedProtocolVersionData>> {
         supported: Vec<String>,
         requested: impl Into<String>,
     ) -> Self {
-        Self::new(
-            id,
-            JsonRpcError::unsupported_protocol_version_typed(message, supported, requested),
-        )
+        UnsupportedProtocolVersionData::new(supported, requested).into_typed_error_response(id, message)
     }
 }
 
@@ -194,10 +260,7 @@ impl JsonRpcErrorResponse<JsonRpcError<MissingRequiredClientCapabilityData>> {
         message: impl Into<Cow<'static, str>>,
         required_capabilities: ClientCapabilities,
     ) -> Self {
-        Self::new(
-            id,
-            JsonRpcError::missing_required_client_capability_typed(message, required_capabilities),
-        )
+        MissingRequiredClientCapabilityData::new(required_capabilities).into_typed_error_response(id, message)
     }
 }
 
@@ -373,5 +436,64 @@ mod tests {
         );
         let cap_payload = typed_cap_resp.error.data.unwrap();
         assert!(cap_payload.required_capabilities.elicitation.is_some());
+    }
+
+    /// Tests [`UnsupportedProtocolVersionData`] conversion methods to typed and untyped errors and responses.
+    #[test]
+    fn test_unsupported_protocol_version_data_helpers() {
+        let data = UnsupportedProtocolVersionData::new(
+            vec!["2026-07-28".to_string()],
+            "2024-11-05",
+        );
+
+        let err = data.clone().into_json_rpc_error("Unsupported version");
+        assert_eq!(err.code.code(), UNSUPPORTED_PROTOCOL_VERSION);
+        assert_eq!(err.message, "Unsupported version");
+        let val = err.data.unwrap();
+        assert_eq!(val["supported"][0], "2026-07-28");
+        assert_eq!(val["requested"], "2024-11-05");
+
+        let typed_err = data.clone().into_typed_json_rpc_error("Unsupported version");
+        assert_eq!(typed_err.code.code(), UNSUPPORTED_PROTOCOL_VERSION);
+        let typed_data = typed_err.data.unwrap();
+        assert_eq!(typed_data.supported, vec!["2026-07-28".to_string()]);
+        assert_eq!(typed_data.requested, "2024-11-05");
+
+        let resp = data.clone().into_error_response(Some(10.into()), "Unsupported version");
+        assert_eq!(resp.id, Some(10.into()));
+        assert_eq!(resp.error.code.code(), UNSUPPORTED_PROTOCOL_VERSION);
+
+        let typed_resp = data.into_typed_error_response(Some(11.into()), "Unsupported version");
+        assert_eq!(typed_resp.id, Some(11.into()));
+        assert_eq!(typed_resp.error.code.code(), UNSUPPORTED_PROTOCOL_VERSION);
+    }
+
+    /// Tests [`MissingRequiredClientCapabilityData`] conversion methods to typed and untyped errors and responses.
+    #[test]
+    fn test_missing_required_client_capability_data_helpers() {
+        let data = MissingRequiredClientCapabilityData::new(ClientCapabilities {
+            experimental: None,
+            sampling: Some(crate::types::mcp::SamplingCapability {}),
+            elicitation: None,
+            roots: None,
+            extensions: None,
+        });
+
+        let err = data.clone().into_json_rpc_error("Missing capability");
+        assert_eq!(err.code.code(), MISSING_REQUIRED_CLIENT_CAPABILITY);
+        let val = err.data.unwrap();
+        assert!(val["requiredCapabilities"]["sampling"].is_object());
+
+        let typed_err = data.clone().into_typed_json_rpc_error("Missing capability");
+        assert_eq!(typed_err.code.code(), MISSING_REQUIRED_CLIENT_CAPABILITY);
+        assert!(typed_err.data.unwrap().required_capabilities.sampling.is_some());
+
+        let resp = data.clone().into_error_response(Some("cap-id".into()), "Missing capability");
+        assert_eq!(resp.id, Some("cap-id".into()));
+        assert_eq!(resp.error.code.code(), MISSING_REQUIRED_CLIENT_CAPABILITY);
+
+        let typed_resp = data.into_typed_error_response(Some("cap-id-2".into()), "Missing capability");
+        assert_eq!(typed_resp.id, Some("cap-id-2".into()));
+        assert_eq!(typed_resp.error.code.code(), MISSING_REQUIRED_CLIENT_CAPABILITY);
     }
 }

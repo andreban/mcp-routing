@@ -78,9 +78,10 @@ Per `.agents/rules/mcp_development_guidelines.md` (Section 2), complex subsystem
 - Across `src/completion/`, `src/prompts/`, `src/resources/`, and `src/server/`, the handler conversion macros (`impl_into_completion_handler!`, `impl_into_prompt_handler!`, `impl_into_resource_handler!`, `impl_into_discovery_handler!`) follow consistent 1-to-5 extractor arity patterns.
 - Placing each handler conversion family in a dedicated `handler.rs` submodule (as done for `src/tools/handler.rs` and `src/subscriptions/handler.rs`) establishes uniform subsystem architecture across the entire crate.
 
-### 3.2 Error Construct Ergonomics
+### 3.2 Error Construct Ergonomics [COMPLETED]
 - `JsonRpcError` and `JsonRpcErrorResponse` provide both typed and Value-based constructors (`unsupported_protocol_version`, `unsupported_protocol_version_typed`, etc.).
 - Moving the serialization logic to helper methods on the typed data structs (`UnsupportedProtocolVersionData::into_json_rpc_error`) reduces match complexity and makes error creation cleaner.
+- **Status**: **Completed** — Added `new`, `into_json_rpc_error`, `into_typed_json_rpc_error`, `into_error_response`, and `into_typed_error_response` methods to [`UnsupportedProtocolVersionData`](file:///C:/Users/andre/Projects/mcp-routing/src/types/mcp/core/error.rs#L51-L101) and [`MissingRequiredClientCapabilityData`](file:///C:/Users/andre/Projects/mcp-routing/src/types/mcp/core/error.rs#L110-L159), simplified error response constructors in [`src/types/mcp/core/error.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/types/mcp/core/error.rs), and added full unit test coverage.
 
 ---
 

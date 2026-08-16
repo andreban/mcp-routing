@@ -1,4 +1,8 @@
-# MCP Specification Compliance Review (2026-07-28)
+# MCP Specification Compliance Review (2026-07-28) (Archived)
+
+> [!NOTE]
+> **Status: All Action Items Resolved & Completed**  
+> All compliance items, header validations, error codes, MRTR implementations, and protocol changes identified in this review against the Model Context Protocol ([`2026-07-28` specification](https://modelcontextprotocol.io/docs/2026-07-28/)) have been fully implemented, verified with comprehensive unit and integration test suites, and documented.
 
 **Specification Version**: `2026-07-28`  
 **Specification References**: [Model Context Protocol Specification (2026-07-28)](https://modelcontextprotocol.io/specification/2026-07-28/) & [Schema (`schema.ts`)](https://raw.githubusercontent.com/modelcontextprotocol/specification/main/schema/2026-07-28/schema.ts)  
@@ -9,9 +13,9 @@
 
 ## Executive Summary
 
-A comprehensive compliance audit of `mcp-routing` against the Model Context Protocol (MCP) `2026-07-28` specification was performed. While `mcp-routing` provides a solid routing framework with caching and typed handlers, there are several key areas where the current implementation diverges from normative specification requirements (`MUST` / `SHOULD`), particularly around **Streamable HTTP transport headers**, **HTTP status code semantics**, **JSON-RPC error code mappings**, **serialization tags**, and **2026-07-28 protocol changes** (such as SEP-2567, SEP-2575, and SEP-2577).
+A comprehensive compliance audit of `mcp-routing` against the Model Context Protocol (MCP) `2026-07-28` specification was performed. While `mcp-routing` provides a solid routing framework with caching and typed handlers, there were several key areas where the implementation required adjustments to adhere to normative specification requirements (`MUST` / `SHOULD`), particularly around **Streamable HTTP transport headers**, **HTTP status code semantics**, **JSON-RPC error code mappings**, **serialization tags**, and **2026-07-28 protocol changes** (such as SEP-2567, SEP-2575, and SEP-2577).
 
-This document itemizes all required changes and recommendations, categorized by subsystem and prioritized by conformance impact.
+All identified items have been fully resolved, implemented, and verified with unit and integration tests.
 
 ---
 
@@ -24,11 +28,8 @@ This document itemizes all required changes and recommendations, categorized by 
   - **Unknown Method**: "If the JSON-RPC request specifies a method that the server does not recognize, the server MUST return HTTP `404 Not Found` with a JSON-RPC error response with code `-32601` (Method not found)." ([`streamable-http.md`](https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http.html#json-rpc-error-handling-and-http-status-codes))
   - **Protocol & Header Errors**: Errors `-32020` (`HeaderMismatch`), `-32021` (`MissingRequiredClientCapability`), `-32022` (`UnsupportedProtocolVersion`), and malformed `_meta` parameters MUST return HTTP `400 Bad Request`. ([`streamable-http.md`](https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http.html#json-rpc-error-handling-and-http-status-codes))
 - **Current Implementation**:
-  - `src/router/service.rs:113, 130` returns `204 No Content` (`StatusCode::NO_CONTENT`) for notifications.
-  - `src/router/service.rs` wraps all JSON-RPC error responses (including `-32601`, `-32020`, `-32022`) in HTTP `200 OK`.
-- **Action Items**:
-  - [x] Update notification responses to return HTTP `202 Accepted` (`StatusCode::ACCEPTED`) with an empty body.
-  - [x] In `src/router/service.rs` and `src/body.rs`, inspect JSON-RPC error codes and map them to HTTP status codes:
+  - Notification responses return HTTP `202 Accepted` (`StatusCode::ACCEPTED`) with an empty body.
+  - JSON-RPC error codes map to exact HTTP status codes via `mcp_error_code_to_http_status`:
     - `-32700` (Parse error) -> `400 Bad Request`
     - `-32600` (Invalid Request) -> `400 Bad Request`
     - `-32601` (Method not found) -> `404 Not Found`
@@ -36,7 +37,11 @@ This document itemizes all required changes and recommendations, categorized by 
     - `-32021` (Missing required client capability) -> `400 Bad Request`
     - `-32022` (Unsupported protocol version) -> `400 Bad Request`
     - Application & standard JSON-RPC results and errors -> `200 OK`
-  - [x] Replace `-32601` (`MethodNotFound`) with `-32602` (`InvalidParams`) for missing target items (tools in `tools/call`, prompts in `prompts/get`, resources in `resources/read`, and completion targets in `completion/complete`).
+  - Missing target items (tools in `tools/call`, prompts in `prompts/get`, resources in `resources/read`, and completion targets in `completion/complete`) return `-32602` (`InvalidParams`) with HTTP `200 OK`.
+- **Action Items**:
+  - [x] Update notification responses to return HTTP `202 Accepted` (`StatusCode::ACCEPTED`) with an empty body.
+  - [x] In `src/router/service.rs` and `src/body.rs`, inspect JSON-RPC error codes and map them to HTTP status codes.
+  - [x] Replace `-32601` (`MethodNotFound`) with `-32602` (`InvalidParams`) for missing target items.
 
 ---
 
@@ -47,8 +52,9 @@ This document itemizes all required changes and recommendations, categorized by 
   - "If the header is omitted, or if its value does not match `_meta[\"io.modelcontextprotocol/protocolVersion\"]` when both are present, the server MUST return HTTP `400 Bad Request` with error code `-32020` (`HeaderMismatch`)."
   - "If the protocol version is not supported, the server MUST return HTTP `400 Bad Request` with error code `-32022` (`UnsupportedProtocolVersion`) and payload `data: { supported: string[], requested: string }`."
 - **Current Implementation**:
-  - Protocol version validation is only evaluated conditionally inside `server/discover` via `src/server/discover.rs:validate_protocol_version`, and it returns `-32602` (`Invalid params`) inside HTTP `200 OK`.
-  - The HTTP header `MCP-Protocol-Version` is neither required nor validated in `src/router/service.rs`.
+  - `MCP-Protocol-Version` HTTP header is validated on all incoming POST requests in `src/router/service.rs`.
+  - Header consistency with `params._meta["io.modelcontextprotocol/protocolVersion"]` is verified, returning `-32020` on mismatch.
+  - `-32022` (`UnsupportedProtocolVersionError`) is returned when an unsupported version is requested, containing `data: { supported: string[], requested: string }`.
 - **Action Items**:
   - [x] Validate `MCP-Protocol-Version` HTTP header on all incoming POST requests in `src/router/service.rs`.
   - [x] Verify consistency between HTTP `MCP-Protocol-Version` header and `params._meta["io.modelcontextprotocol/protocolVersion"]` (returning `-32020` on mismatch).
@@ -63,7 +69,8 @@ This document itemizes all required changes and recommendations, categorized by 
   - `Mcp-Name` header is **REQUIRED** for `tools/call`, `resources/read`, and `prompts/get`, and MUST match `request.params.name` or `request.params.uri`.
   - If headers are missing or mismatched with body values, server MUST reject the request with HTTP `400 Bad Request` and JSON-RPC error `-32020` (`HeaderMismatch`).
 - **Current Implementation**:
-  - `src/utils.rs:resolve_tool_name`, `resolve_prompt_name`, `resolve_resource_uri` implement fallback resolution (`header.or(body)`), meaning requests without headers or with conflicting headers silently pass.
+  - `src/utils/resolve.rs` implements strict header resolution and verification (`resolve_method`, `resolve_tool_name`, `resolve_prompt_name`, `resolve_resource_uri`).
+  - Missing or mismatched headers immediately return HTTP `400 Bad Request` with `-32020` (`HeaderMismatch`).
 - **Action Items**:
   - [x] Add strict validation: if `Mcp-Method` or `Mcp-Name` / `Mcp-Uri` is missing or conflicts with body values, return HTTP `400 Bad Request` with `-32020` `HeaderMismatch`.
   - [x] Strictly enforce header routing requirements directly per 2026-07-28 Streamable HTTP specification.
@@ -76,9 +83,10 @@ This document itemizes all required changes and recommendations, categorized by 
   - "Values of `Mcp-Name` and `Mcp-Param-*` headers containing non-ASCII characters, spaces, or control characters MUST use RFC 2047-style sentinel encoding: `=?base64?<base64-encoded-utf8-bytes>?=`." ([`streamable-http.md`](https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http.html#header-encoding))
   - "Servers MUST decode sentinel values before matching against tool names, resource URIs, or parameter values."
 - **Current Implementation**:
-  - `src/utils.rs:extract_header_name`, `extract_header_uri` read the header value directly as plain UTF-8 strings without decoding `=?base64?...?=`.
+  - `src/utils/sentinel.rs` implements `decode_sentinel_header(raw_value: &str) -> Cow<'_, str>`.
+  - Sentinel decoding is applied when extracting `Mcp-Name`, `Mcp-Uri`, and `Mcp-Param-*` headers.
 - **Action Items**:
-  - [x] Implement RFC 2047-style sentinel decoding helper in `src/utils.rs`: `decode_sentinel_header(raw_value: &str) -> Cow<'_, str>`.
+  - [x] Implement RFC 2047-style sentinel decoding helper in `src/utils/sentinel.rs`: `decode_sentinel_header(raw_value: &str) -> Cow<'_, str>`.
   - [x] Apply sentinel decoding when extracting `Mcp-Name` and `Mcp-Uri` headers.
 
 ---
@@ -90,9 +98,8 @@ This document itemizes all required changes and recommendations, categorized by 
   - Unknown tools in `tools/call`, unknown prompts in `prompts/get`, and unknown resources in `resources/read` MUST return JSON-RPC `-32602` (`Invalid params`).
   - `-32601` (`Method not found`) is strictly reserved for unrecognized RPC methods (e.g. unknown JSON-RPC `method: "custom/unknown"`).
 - **Current Implementation**:
-  - `src/tools/registry.rs:296` returns `-32601` (`Method not found`) when a tool name is not found in the registry.
-  - `src/prompts/registry.rs:271` returns `-32601` when a prompt is not found.
-  - `src/resources/registry.rs:361, 488` returns `-32601` when a resource or resource template is not found.
+  - `ToolRegistry`, `PromptRegistry`, `ResourceRegistry`, and `CompletionRegistry` return `JsonRpcErrorResponse::invalid_params` (`-32602`) when an item is not found.
+  - `method_not_found` (`-32601`) is reserved exclusively for unknown top-level RPC method strings.
 - **Action Items**:
   - [x] Change not-found handler outcomes in `ToolRegistry`, `PromptRegistry`, and `ResourceRegistry` to return `JsonRpcErrorResponse::invalid_params` (`-32602`) instead of `method_not_found` (`-32601`).
   - [x] Reserve `method_not_found` (`-32601`) exclusively for `Router::dispatch` when the top-level JSON-RPC `method` string is unknown.
@@ -105,7 +112,7 @@ This document itemizes all required changes and recommendations, categorized by 
   - In `schema.ts:1720`: `export interface ResourceLink extends Resource { type: "resource_link"; }`.
   - Content block discriminator for resource links is `"resource_link"`.
 - **Current Implementation**:
-  - In `src/types/mcp/content.rs:79-86`, `ContentBlock` derives `#[serde(rename_all = "camelCase")]`, serializing `ContentBlock::ResourceLink` as `"type": "resourceLink"` instead of `"type": "resource_link"`.
+  - `ContentBlock::ResourceLink` in `src/types/mcp/content.rs` is annotated with `#[serde(rename = "resource_link")]`.
 - **Action Items**:
   - [x] Add `#[serde(rename = "resource_link")]` to `ContentBlock::ResourceLink` in `src/types/mcp/content.rs`.
   - [x] Update unit tests in `src/types/mcp/content.rs` to verify `"type": "resource_link"`.
@@ -121,8 +128,9 @@ This document itemizes all required changes and recommendations, categorized by 
   - When additional input is needed (e.g. sampling, elicitation, user confirmation), server returns `InputRequiredResult` with `resultType: "input_required"`, `inputRequests`, and/or `requestState`.
   - Client sends subsequent request with `inputResponses` and `requestState`.
 - **Current Implementation**:
-  - `CallToolResult`, `ListToolsResult`, etc. have `result_type: Option<String>` defaulting to `"complete"`, but `CompleteResult` in `src/types/mcp/completion/mod.rs` is missing `result_type` completely.
-  - `InputRequiredResult`, `InputRequests`, `InputResponses`, and `InputResponseRequestParams` types are not yet defined in `src/types/mcp/`.
+  - `CompleteResult`, `CallToolResult`, `ListToolsResult`, etc. contain `result_type: Option<String>` defaulting to `"complete"`.
+  - `InputRequiredResult`, `InputRequests`, `InputResponses`, `InputRequest`, and `InputResponse` types are defined in `src/types/mcp/core/mrtr.rs`.
+  - `RequestState` and `InputResponses` extractors are available in `src/extract/mrtr.rs`.
 - **Action Items**:
   - [x] Add `result_type: Option<String>` (or a typed `ResultType` enum) to `CompleteResult` in `src/types/mcp/completion/mod.rs`.
   - [x] Define MRTR types: `InputRequiredResult`, `InputRequests`, `InputResponses`, `InputRequest`, and `InputResponse` in `src/types/mcp/core/mrtr.rs`.
@@ -138,7 +146,8 @@ This document itemizes all required changes and recommendations, categorized by 
     - `-32021`: `MISSING_REQUIRED_CLIENT_CAPABILITY` (with `requiredCapabilities: ClientCapabilities` in `data`)
     - `-32022`: `UNSUPPORTED_PROTOCOL_VERSION` (with `supported: string[]`, `requested: string` in `data`)
 - **Current Implementation**:
-  - `src/types/jsonrpc/error.rs` only defines standard JSON-RPC 2.0 codes (`-32700`, `-32600`, `-32601`, `-32602`, `-32603`) and generic `ServerError(i32)`.
+  - Standard MCP error constants and typed payloads are defined in `src/types/mcp/core/error.rs`.
+  - Helper constructors are provided on `JsonRpcError` and `JsonRpcErrorResponse`.
 - **Action Items**:
   - [x] Add standard MCP error constants to `src/types/mcp/core/error.rs`:
     - `HEADER_MISMATCH` (`-32020`)
@@ -183,7 +192,7 @@ This document itemizes all required changes and recommendations, categorized by 
   - `ClientCapabilities` in `schema.ts:1018` includes `extensions?: Extensions` and `roots?: { listChanged?: boolean }`.
   - `ServerCapabilities` in `schema.ts:1056` includes `extensions?: Extensions`.
 - **Current Implementation**:
-  - `ClientCapabilities` and `ServerCapabilities` in `src/types/mcp/core/capabilities.rs` lack the `extensions` map and `roots` capability.
+  - `ClientCapabilities` and `ServerCapabilities` in `src/types/mcp/core/capabilities.rs` include `extensions` and `roots` capability structs.
 - **Action Items**:
   - [x] Add `pub roots: Option<RootsCapability>` and `pub extensions: Option<HashMap<String, Value>>` to `ClientCapabilities`.
   - [x] Add `pub extensions: Option<HashMap<String, Value>>` to `ServerCapabilities`.
@@ -233,16 +242,16 @@ This document itemizes all required changes and recommendations, categorized by 
 | **Method Not Found HTTP Status** | ✅ Compliant | `streamable-http.md` | Returns `404 Not Found` for unknown RPC method (`-32601`) |
 | **Protocol / Header Error Status** | ✅ Compliant | `streamable-http.md` | Returns `400 Bad Request` for `-32020`, `-32021`, `-32022`, `-32600`, `-32700` |
 | **Not Found Error Codes** | ✅ Compliant | `schema.ts:430-432` | Returns `-32602` (`Invalid params`) for missing tools/prompts/resources |
-| **Header Enforcement (`MCP-Protocol-Version`)** | ⚠️ Fix Required | `streamable-http.md` | Require & validate header on all POST requests |
-| **Header Verification (`Mcp-Method`, `Mcp-Name`)** | ⚠️ Fix Required | `streamable-http.md` | Reject missing / mismatched headers with `-32020` |
-| **Sentinel Encoding (`=?base64?...?=`)** | ✅ Compliant | `streamable-http.md` | Decode RFC 2047 sentinel values in headers |
-| **`ResourceLink` Discriminator Tag** | ✅ Compliant | `schema.ts:1720` | Rename tag `"resourceLink"` -> `"resource_link"` |
-| **`CompleteResult.resultType`** | ⚠️ Fix Required | `schema.ts:2644` | Add `result_type` field |
+| **Header Enforcement (`MCP-Protocol-Version`)** | ✅ Compliant | `streamable-http.md` | Required & validated on all POST requests; `-32020` / `-32022` on error |
+| **Header Verification (`Mcp-Method`, `Mcp-Name`)** | ✅ Compliant | `streamable-http.md` | Rejects missing / mismatched headers with `-32020` `HeaderMismatch` |
+| **Sentinel Encoding (`=?base64?...?=`)** | ✅ Compliant | `streamable-http.md` | Decodes RFC 2047 sentinel values in headers |
+| **`ResourceLink` Discriminator Tag** | ✅ Compliant | `schema.ts:1720` | Tag `"resource_link"` serialized and validated |
+| **`CompleteResult.resultType`** | ✅ Compliant | `schema.ts:2644` | Includes `result_type: Option<String>` defaulting to `"complete"` |
 | **Standard MCP Error Codes (`-32020..-32022`)** | ✅ Compliant | `schema.ts:435-535` | Defined in `mcp::core::error` with typed constructors |
-| **`Origin` Header Security** | ✅ Compliant | `streamable-http.md` | Validate `Origin` header to prevent DNS rebinding (`403 Forbidden`) |
-| **Custom Header Params (`x-mcp-header`)** | ✅ Compliant | `streamable-http.md` | Support `Mcp-Param-{Name}` matching |
-| **Multi Round-Trip Requests (MRTR)** | 💡 Missing Feature | `schema.ts:580-618` | Implement `InputRequiredResult` & retry params |
-| **Capabilities Extensions & Roots** | ✅ Compliant | `schema.ts:1018,1056` | Add `extensions` & `roots` to capability structs |
+| **`Origin` Header Security** | ✅ Compliant | `streamable-http.md` | Validates `Origin` header to prevent DNS rebinding (`403 Forbidden`) |
+| **Custom Header Params (`x-mcp-header`)** | ✅ Compliant | `streamable-http.md` | Supports `Mcp-Param-{Name}` matching |
+| **Multi Round-Trip Requests (MRTR)** | ✅ Compliant | `schema.ts:580-618` | Implemented `InputRequiredResult`, `InputResponses`, `RequestState` per SEP-2322 |
+| **Capabilities Extensions & Roots** | ✅ Compliant | `schema.ts:1018,1056` | Added `extensions` & `roots` to capability structs |
 | **`logging/setLevel` Sunset** | ✅ Compliant | SEP-2577 | Removed deprecated endpoint in favor of per-request `_meta` |
 | **Sessionless Transport (`Mcp-Session-Id`)** | ✅ Compliant | SEP-2567 | Removed `SessionId` extractor, session header echo, and UUID generation |
 | **`subscriptions/listen` Stream** | ✅ Compliant | SEP-2575 | Implemented `subscriptions/listen` SSE channel with acknowledgment |

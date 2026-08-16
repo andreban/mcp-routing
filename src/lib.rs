@@ -77,9 +77,6 @@ pub mod tools;
 pub mod types;
 pub mod utils;
 
-#[cfg(test)]
-mod test;
-
 pub use body::{BoxError, ResponseBody, compute_etag, format_cache_control};
 pub use utils::{format_sse_frame, format_sse_message};
 pub use completion::{

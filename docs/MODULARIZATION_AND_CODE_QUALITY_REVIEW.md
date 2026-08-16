@@ -33,10 +33,14 @@ Per `.agents/rules/mcp_development_guidelines.md` (Section 2), complex subsystem
 | [`src/prompts/registry.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/prompts/registry/mod.rs) | 498 lines | Decomposed into [`src/prompts/registry/`](file:///C:/Users/andre/Projects/mcp-routing/src/prompts/registry/) (`mod.rs`, `dispatch.rs`, `tests.rs`). | **Completed** |
 | [`src/extract/registered.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/extract/registered.rs) | 427 lines | Consolidated struct definitions via declarative macro `impl_registered_collection!` down to 150 lines. | **Completed** |
 
-### 1.2 Separation of Unit Tests vs. Integration Tests
-- **Finding**: [`src/test.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/test.rs) currently contains 1,367 lines of black-box oneshot HTTP request tests (`app.oneshot(request)`).
+### 1.2 Separation of Unit Tests vs. Integration Tests `[COMPLETED]`
+- **Finding**: [`src/test.rs`](file:///C:/Users/andre/Projects/mcp-routing/tests/router_core.rs) previously contained 1,367 lines of black-box oneshot HTTP request tests (`app.oneshot(request)`).
 - **Rule Reference**: `.agents/rules/testing_standards.md` explicitly reserves `tests/` for black-box HTTP / Tower integration tests, while `src/` should only house isolated unit tests in `#[cfg(test)] mod tests`.
-- **Recommendation**: Deduplicate and migrate the integration scenarios in `src/test.rs` to dedicated integration test suites under `tests/` (e.g., `tests/router_core.rs`), retaining only true unit tests in `src/`.
+- **Implementation**:
+  - Migrated all 37 black-box HTTP/Tower oneshot integration test scenarios from `src/test.rs` to [`tests/router_core.rs`](file:///C:/Users/andre/Projects/mcp-routing/tests/router_core.rs).
+  - Placed isolated router builder unit tests in [`src/router/builder/tests.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/router/builder/tests.rs).
+  - Completely removed `src/test.rs` (1,367 lines eliminated from `src/`).
+  - Verified full separation: `src/` contains only isolated unit tests for individual structs, Serde, extractors, and registry internals; `tests/` contains only black-box integration test suites.
 
 ---
 

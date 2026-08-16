@@ -20,16 +20,16 @@ The codebase demonstrates excellent health: zero Clippy warnings across all targ
 
 ---
 
-## 1. Modularization & File Size Limits (~500 Line Target)
+## 1. Modularization & File Size Limits (~500 Line Target) [COMPLETED]
 
-Per `.agents/rules/mcp_development_guidelines.md` (Section 2), complex subsystems should be decomposed into submodules to maintain file sizes under ~500 lines. The following files exceed or border this threshold:
+Per `.agents/rules/mcp_development_guidelines.md` (Section 2), complex subsystems should be decomposed into submodules to maintain file sizes under ~500 lines. The following files were refactored:
 
-| Subsystem / File | Current Lines | Proposed Decomposition | Priority |
-|---|---|---|---|
-| [`src/completion/mod.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/completion/mod.rs) | 642 lines | Extract `CompletionHandler`, `IntoCompletionHandler`, handler adapter structs, and `impl_into_completion_handler!` into [`src/completion/handler.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/completion/handler.rs) (matching [`src/tools/handler.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/tools/handler.rs)). This brings `src/completion/mod.rs` down to ~80 lines. | **High** |
-| [`src/types/mcp/tools/call.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/types/mcp/tools/call.rs) | 503 lines | Decompose into [`src/types/mcp/tools/call/`](file:///C:/Users/andre/Projects/mcp-routing/src/types/mcp/tools/call/) (`mod.rs`, `request.rs`, `response.rs`, `tests.rs`), matching the structure of [`src/types/mcp/core/mrtr/`](file:///C:/Users/andre/Projects/mcp-routing/src/types/mcp/core/mrtr/). | **Medium** |
-| [`src/resources/mod.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/resources/mod.rs) | 475 lines | Extract `ResourceHandler`, `IntoResourceHandler`, handler adapters, and `impl_into_resource_handler!` into [`src/resources/handler.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/resources/handler.rs) (optional / healthy under 500 lines). | **Low** |
-| [`src/prompts/mod.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/prompts/mod.rs) | 429 lines | Extract `PromptHandler`, `IntoPromptHandler`, handler adapters, and `impl_into_prompt_handler!` into [`src/prompts/handler.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/prompts/handler.rs) (optional / healthy under 500 lines). | **Low** |
+| Subsystem / File | Original Lines | Action Taken | Resulting Structure | Status |
+|---|---|---|---|---|
+| [`src/completion/mod.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/completion/mod.rs) | 642 lines | Extracted handler traits, adapters, and conversion macros to [`src/completion/handler.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/completion/handler.rs). | `mod.rs` (120 lines), `handler.rs` (478 lines) | **Completed** |
+| [`src/types/mcp/tools/call.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/types/mcp/tools/call/mod.rs) | 503 lines | Decomposed into submodule directory [`src/types/mcp/tools/call/`](file:///C:/Users/andre/Projects/mcp-routing/src/types/mcp/tools/call/). | `mod.rs` (15 lines), `request.rs` (68 lines), `response.rs` (286 lines), `tests.rs` (128 lines) | **Completed** |
+| [`src/resources/mod.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/resources/mod.rs) | 475 lines | Extracted handler traits, adapters, and conversion macros to [`src/resources/handler.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/resources/handler.rs). | `mod.rs` (235 lines), `handler.rs` (213 lines) | **Completed** |
+| [`src/prompts/mod.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/prompts/mod.rs) | 429 lines | Extracted handler traits, adapters, and conversion macros to [`src/prompts/handler.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/prompts/handler.rs). | `mod.rs` (144 lines), `handler.rs` (253 lines) | **Completed** |
 
 ---
 
@@ -85,19 +85,19 @@ Per `.agents/rules/mcp_development_guidelines.md` (Section 2), complex subsystem
 
 ```mermaid
 graph TD
-    A["Review Findings (~500 Line Standard)"] --> B["Priority 1: Completion Handler Extraction"]
+    A["Review Findings (~500 Line Standard)"] --> B["Priority 1: Completion Handler Extraction [DONE]"]
     A --> C["Priority 2: Code Deduplication & Helpers"]
-    A --> D["Priority 3: Subsystem Standardization"]
+    A --> D["Priority 3: Subsystem Standardization [DONE]"]
     
-    B --> B1["Extract src/completion/handler.rs (642 -> ~80 lines)"]
+    B --> B1["Extract src/completion/handler.rs (642 -> 478 lines) [DONE]"]
     
     C --> C1["Add InputRequiredResult::into_extras helper (eliminates 5 duplicates)"]
     C --> C2["Add into_error_response to ResourceError, PromptError, CompletionError"]
     C --> C3["Macroize IntoToolResult tuple implementations in src/tools/result.rs"]
     
-    D --> D1["Extract src/resources/handler.rs (475 -> ~80 lines)"]
-    D --> D2["Extract src/prompts/handler.rs (429 -> ~80 lines)"]
-    D --> D3["Decompose src/types/mcp/tools/call.rs (503 -> submodules)"]
+    D --> D1["Extract src/resources/handler.rs (475 -> 213 lines) [DONE]"]
+    D --> D2["Extract src/prompts/handler.rs (429 -> 253 lines) [DONE]"]
+    D --> D3["Decompose src/types/mcp/tools/call.rs (503 -> submodules) [DONE]"]
 ```
 
 ---

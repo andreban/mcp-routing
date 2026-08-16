@@ -46,15 +46,15 @@ Per `.agents/rules/mcp_development_guidelines.md` (Section 2), complex subsystem
 
 ## 2. Code Duplication & Redundancies
 
-### 2.1 Dead / Redundant `handle_*` Methods in Registries
+### 2.1 Dead / Redundant `handle_*` Methods in Registries `[COMPLETED]`
 - **Location**:
-  - `ToolRegistry::handle_list` & `ToolRegistry::handle_call` in [`src/tools/registry.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/tools/registry.rs#L377-L493)
-  - `PromptRegistry::handle_list` & `PromptRegistry::handle_get` in [`src/prompts/registry.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/prompts/registry.rs#L314-L410)
-  - `ResourceRegistry::handle_list`, `handle_templates_list`, & `handle_read` in [`src/resources/registry.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/resources/registry.rs#L533-L660)
-  - `ServerConfig::handle_discover` in [`src/server/config.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/server/config.rs#L182-L256)
-- **Issue**: `McpRouter` dispatches all requests through `dispatch_*` methods (`dispatch_list`, `dispatch_call`, etc.), which properly integrate extractors, correlation IDs, and caching. The `handle_*` standalone methods re-parse raw JSON slices, duplicate error mapping, and are not invoked by the router (only called in their own unit tests).
+  - `ToolRegistry::handle_list` & `ToolRegistry::handle_call` in [`src/tools/registry/mod.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/tools/registry/mod.rs)
+  - `PromptRegistry::handle_list` & `PromptRegistry::handle_get` in [`src/prompts/registry/mod.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/prompts/registry/mod.rs)
+  - `ResourceRegistry::handle_list`, `handle_templates_list`, & `handle_read` in [`src/resources/registry/mod.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/resources/registry/mod.rs)
+  - `ServerConfig::handle_discover` in [`src/server/config.rs`](file:///C:/Users/andre/Projects/mcp-routing/src/server/config.rs)
+- **Issue**: `McpRouter` dispatches all requests through `dispatch_*` methods (`dispatch_list`, `dispatch_call`, etc.), which properly integrate extractors, correlation IDs, and caching. The `handle_*` standalone methods re-parsed raw JSON slices, duplicated error mapping, and were not invoked by the router (only called in their own unit tests).
 - **Rule Reference**: `.agents/rules/minimal_scope.md` (Rules 6 & 7: *No Dead Code* and *Single Canonical API Names*).
-- **Recommendation**: Remove the redundant `handle_*` methods from domain registries to maintain a single canonical dispatch path and reduce ~400 lines of duplicate code.
+- **Implementation**: Removed all redundant `handle_*` methods from `ToolRegistry`, `PromptRegistry`, `ResourceRegistry`, and `ServerConfig`, removed redundant tests, and cleaned up unused imports, establishing a single canonical dispatch pathway.
 
 ### 2.2 Registration vs. Registration with Cache
 - **Location**:

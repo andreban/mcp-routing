@@ -4,19 +4,14 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use http::Response;
-
-use crate::body::{ResponseBody, json_response, json_response_with_caching};
 use crate::extract::RequestContext;
 use crate::router::{DispatchOutcome, MethodContext};
-use crate::server::discover::validate_protocol_version;
 use crate::server::provider::{DiscoveryError, ServerDiscoveryHandler};
-use crate::types::jsonrpc::{JsonRpcErrorResponse, JsonRpcRequestId};
+use crate::types::jsonrpc::JsonRpcErrorResponse;
 use crate::types::mcp::{
     CacheScope, Implementation, ResultMetaObject, ServerCapabilities, ToolsCapability,
     server::discover::{
-        ServerDiscoverParams, ServerDiscoverRequest, ServerDiscoverResult,
-        ServerDiscoverResultResponse,
+        ServerDiscoverParams, ServerDiscoverResult, ServerDiscoverResultResponse,
     },
     unsupported_protocol_version_error,
 };
@@ -176,81 +171,5 @@ impl ServerConfig {
                 format!("Failed to serialize response: {err}"),
             )),
         }
-    }
-
-    /// Handles an incoming `server/discover` JSON-RPC request.
-    pub async fn handle_discover(
-        &self,
-        req_id: Option<JsonRpcRequestId>,
-        headers: &http::HeaderMap,
-        extensions: Arc<http::Extensions>,
-        body: &[u8],
-    ) -> Response<ResponseBody> {
-        let request: ServerDiscoverRequest = match serde_json::from_slice(body) {
-            Ok(r) => r,
-            Err(err) => {
-                tracing::error!(?err, "Failed to parse ServerDiscoverRequest");
-                let error_response =
-                    JsonRpcErrorResponse::invalid_params(req_id, format!("Invalid params: {err}"));
-                return json_response(&error_response);
-            }
-        };
-
-        if self.validate_protocol_version {
-            let client_version = request
-                .params
-                .as_ref()
-                .and_then(|p| p.meta.as_ref())
-                .and_then(|m| m.protocol_version.as_deref());
-            if let Err(err_msg) =
-                validate_protocol_version(client_version, &self.supported_versions)
-            {
-                let error_response =
-                    JsonRpcErrorResponse::invalid_params(Some(request.id), err_msg);
-                return json_response(&error_response);
-            }
-        }
-
-        let base_result = ServerDiscoverResult {
-            meta: Some(ResultMetaObject::new(Some(self.server_info.clone()))),
-            result_type: Some("complete".to_string()),
-            supported_versions: self.supported_versions.clone(),
-            capabilities: self.capabilities.clone(),
-            instructions: self.instructions.clone(),
-            ttl_ms: self.discover_ttl_ms,
-            cache_scope: self.discover_cache_scope.clone(),
-            extras: HashMap::new(),
-        };
-
-        let result = if let Some(ref provider) = self.discovery_provider {
-            let meta = request.params.as_ref().and_then(|p| p.meta.clone());
-            let request_ctx = RequestContext::new(meta, headers.clone(), extensions);
-            match provider.call(request_ctx, base_result).await {
-                Ok(res) => res,
-                Err(DiscoveryError::InvalidParams(err)) => {
-                    let error_response = JsonRpcErrorResponse::invalid_params(
-                        Some(request.id),
-                        format!("Invalid params: {err}"),
-                    );
-                    return json_response(&error_response);
-                }
-                Err(DiscoveryError::Internal(err)) => {
-                    let error_response = JsonRpcErrorResponse::internal_error(
-                        Some(request.id),
-                        format!("Discovery failed: {err}"),
-                    );
-                    return json_response(&error_response);
-                }
-            }
-        } else {
-            base_result
-        };
-
-        let response = ServerDiscoverResultResponse::new(request.id, result);
-        json_response_with_caching(
-            &response,
-            response.result.ttl_ms,
-            response.result.cache_scope.as_ref(),
-        )
     }
 }

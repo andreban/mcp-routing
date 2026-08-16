@@ -6,31 +6,16 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use http::Response;
-
-use crate::body::{ResponseBody, json_response, json_response_with_caching};
-use crate::extract::RequestContext;
 use crate::tools::{
     IntoToolHandler, IntoToolsListHandler, ToolHandler, ToolsListHandler,
 };
-use crate::types::jsonrpc::{JsonRpcErrorResponse, JsonRpcRequestId};
-use crate::types::mcp::{
-    CacheScope,
-    tools::{
-        Tool,
-        call::{CallToolRequest, CallToolResult, CallToolResultResponse},
-        list::ListToolsRequest,
-    },
-};
-use crate::utils::resolve_tool_name;
+use crate::types::mcp::{CacheScope, tools::Tool};
 
 pub mod dispatch;
 pub mod validation;
 
 #[cfg(test)]
 mod tests;
-
-use validation::validate_tool_arguments;
 
 /// Registry managing tool definitions, typed handlers, and tool cache configurations.
 #[derive(Clone)]
@@ -157,124 +142,5 @@ impl ToolRegistry {
     pub fn set_list_cache(&mut self, ttl_ms: Option<u64>, cache_scope: Option<CacheScope>) {
         self.list_ttl_ms = ttl_ms;
         self.list_cache_scope = cache_scope;
-    }
-
-    /// Handles an incoming `tools/list` JSON-RPC request.
-    pub fn handle_list(
-        &self,
-        req_id: Option<JsonRpcRequestId>,
-        body: &[u8],
-    ) -> Response<ResponseBody> {
-        let request: ListToolsRequest = match serde_json::from_slice(body) {
-            Ok(r) => r,
-            Err(err) => {
-                tracing::error!(?err, "Failed to parse ListToolsRequest");
-                let error_response =
-                    JsonRpcErrorResponse::invalid_params(req_id, format!("Invalid params: {err}"));
-                return json_response(&error_response);
-            }
-        };
-
-        let response = crate::tools::list::handle_list_tools(
-            request,
-            (*self.tools).clone(),
-            self.list_ttl_ms,
-            self.list_cache_scope.clone(),
-        );
-        json_response_with_caching(
-            &response,
-            response.result.ttl_ms,
-            response.result.cache_scope.as_ref(),
-        )
-    }
-
-    /// Handles an incoming `tools/call` JSON-RPC request.
-    pub async fn handle_call(
-        &self,
-        req_id: Option<JsonRpcRequestId>,
-        header_name: Option<&str>,
-        headers: &http::HeaderMap,
-        extensions: Arc<http::Extensions>,
-        body: &[u8],
-    ) -> Response<ResponseBody> {
-        let request: CallToolRequest<serde_json::Value> = match serde_json::from_slice(body) {
-            Ok(r) => r,
-            Err(err) => {
-                tracing::error!(?err, "Failed to parse CallToolRequest");
-                let error_response =
-                    JsonRpcErrorResponse::invalid_params(req_id, format!("Invalid params: {err}"));
-                return json_response(&error_response);
-            }
-        };
-
-        let decoded_header_name = header_name.map(crate::utils::decode_sentinel_header);
-        let tool_name = match resolve_tool_name(
-            decoded_header_name.as_deref(),
-            request.params.as_ref().map(|p| p.name.as_str()),
-            false,
-            "tool name",
-        ) {
-            Ok(name) => name.to_string(),
-            Err(mut err) => {
-                err.id = req_id.or(Some(request.id));
-                let status =
-                    crate::types::mcp::mcp_error_code_to_http_status(err.error.code.code());
-                return crate::body::json_response_with_status(status, &err);
-            }
-        };
-
-        if let Some(handler) = self.tool_handlers.get(tool_name.as_str()) {
-            let (tool_ttl, tool_scope) = self
-                .tool_cache_settings
-                .get(tool_name.as_str())
-                .cloned()
-                .unwrap_or((None, None));
-            let req_id = request.id.clone();
-            let (meta, raw_args) = match request.params {
-                Some(p) => (p.meta, p.arguments),
-                None => (None, None),
-            };
-
-            let empty_header_params = Vec::new();
-            let header_params = self
-                .tool_header_params
-                .get(tool_name.as_str())
-                .unwrap_or(&empty_header_params);
-
-            if let Err(mut err) = crate::utils::validate_tool_header_params(
-                Some(req_id.clone()),
-                header_params,
-                raw_args.as_ref(),
-                headers,
-                false,
-            ) {
-                err.id = Some(req_id);
-                let status =
-                    crate::types::mcp::mcp_error_code_to_http_status(err.error.code.code());
-                return crate::body::json_response_with_status(status, &err);
-            }
-
-            if let Some(validator) = self.tool_validators.get(tool_name.as_str())
-                && let Err(err_msg) = validate_tool_arguments(validator, raw_args.as_ref())
-            {
-                let response = CallToolResultResponse::new(
-                    req_id,
-                    CallToolResult::<serde_json::Value>::error(err_msg),
-                );
-                return json_response_with_caching(&response, tool_ttl, tool_scope.as_ref());
-            }
-
-            let ctx = RequestContext::new(meta, headers.clone(), extensions);
-            let result = handler.call(ctx, raw_args).await;
-            let response = CallToolResultResponse::new(req_id, result);
-            return json_response_with_caching(&response, tool_ttl, tool_scope.as_ref());
-        }
-
-        tracing::debug!(tool_name, "Tool not found");
-        let error_response = JsonRpcErrorResponse::invalid_params(
-            Some(request.id),
-            format!("Invalid params: tool '{tool_name}' not found"),
-        );
-        json_response(&error_response)
     }
 }

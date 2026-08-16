@@ -21,6 +21,5 @@ pub(crate) use params::{extract_header_params_from_schema, validate_tool_header_
 pub(crate) use resolve::{
     resolve_method, resolve_prompt_name, resolve_resource_uri, resolve_tool_name,
 };
-pub(crate) use sentinel::decode_sentinel_header;
 pub use sse::{format_sse_frame, format_sse_message};
 pub(crate) use uri_template::match_uri_template;

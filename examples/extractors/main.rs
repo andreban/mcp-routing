@@ -13,7 +13,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use axum::Router;
 use axum::extract::State as AxumState;
 use axum::routing::get;
-use mcp_routing::{
+use stateless_mcp::{
     McpRouter, Meta, State,
     types::mcp::{Implementation, tools::Tool},
 };
@@ -30,7 +30,7 @@ struct GreetingParams {
     name: String,
 }
 
-// MCP tool handler using mcp_routing::State<AppState>
+// MCP tool handler using stateless_mcp::State<AppState>
 async fn greet(
     State(state): State<AppState>,
     meta: Option<Meta>,

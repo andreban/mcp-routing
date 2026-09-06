@@ -3,7 +3,7 @@
 
 //! # Axum Framework & End-to-End TCP Integration Tests
 //!
-//! Verifies the integration between [`McpRouter`](mcp_routing::McpRouter) and web frameworks (such as [Axum](https://crates.io/crates/axum)):
+//! Verifies the integration between [`McpRouter`](stateless_mcp::McpRouter) and web frameworks (such as [Axum](https://crates.io/crates/axum)):
 //! - Mounting [`McpRouter`] as a nested service via `axum::Router::nest_service`
 //! - Mounting multiple independent [`McpRouter`] instances on distinct sub-routes (e.g. `/mcp/v1` and `/mcp/v2`)
 //! - Running a live HTTP server bound to a real local TCP socket (`127.0.0.1:0`) and executing HTTP/1.1 requests end-to-end
@@ -16,7 +16,7 @@ use axum::{
     http::{Request, StatusCode},
 };
 use http_body_util::BodyExt;
-use mcp_routing::{
+use stateless_mcp::{
     McpRouter,
     types::mcp::{
         Implementation,
@@ -130,7 +130,7 @@ async fn test_axum_nested_service_oneshot() {
     let bytes = resp.into_body().collect().await.unwrap().to_bytes();
     let call_res: CallToolResultResponse = serde_json::from_slice(&bytes).unwrap();
     assert_eq!(call_res.result.is_error, Some(false));
-    if let mcp_routing::types::mcp::ContentBlock::Text(ref t) = call_res.result.content[0] {
+    if let stateless_mcp::types::mcp::ContentBlock::Text(ref t) = call_res.result.content[0] {
         assert_eq!(t.text, "Hello, Rustacean!");
     } else {
         panic!("Expected ContentBlock::Text");
@@ -176,7 +176,7 @@ async fn test_axum_multiple_nested_mcp_routers() {
     assert_eq!(resp_v1.status(), StatusCode::OK);
     let bytes_v1 = resp_v1.into_body().collect().await.unwrap().to_bytes();
     let res_v1: CallToolResultResponse = serde_json::from_slice(&bytes_v1).unwrap();
-    if let mcp_routing::types::mcp::ContentBlock::Text(ref t) = res_v1.result.content[0] {
+    if let stateless_mcp::types::mcp::ContentBlock::Text(ref t) = res_v1.result.content[0] {
         assert_eq!(t.text, "from_v1");
     } else {
         panic!("Expected ContentBlock::Text");
@@ -205,7 +205,7 @@ async fn test_axum_multiple_nested_mcp_routers() {
     assert_eq!(resp_v2.status(), StatusCode::OK);
     let bytes_v2 = resp_v2.into_body().collect().await.unwrap().to_bytes();
     let res_v2: CallToolResultResponse = serde_json::from_slice(&bytes_v2).unwrap();
-    if let mcp_routing::types::mcp::ContentBlock::Text(ref t) = res_v2.result.content[0] {
+    if let stateless_mcp::types::mcp::ContentBlock::Text(ref t) = res_v2.result.content[0] {
         assert_eq!(t.text, "from_v2");
     } else {
         panic!("Expected ContentBlock::Text");
@@ -302,7 +302,7 @@ async fn test_axum_real_tcp_server_e2e() {
     let call_res: CallToolResultResponse = serde_json::from_str(&body).unwrap();
     assert_eq!(call_res.id, 42.into());
     assert_eq!(call_res.result.is_error, Some(false));
-    if let mcp_routing::types::mcp::ContentBlock::Text(ref t) = call_res.result.content[0] {
+    if let stateless_mcp::types::mcp::ContentBlock::Text(ref t) = call_res.result.content[0] {
         assert_eq!(t.text, "Hello, TCP Client!");
     } else {
         panic!("Expected text block");
@@ -330,13 +330,13 @@ async fn test_axum_real_tcp_server_e2e() {
     .await;
 
     assert_eq!(status, StatusCode::OK);
-    let err_res: mcp_routing::types::jsonrpc::JsonRpcErrorResponse =
+    let err_res: stateless_mcp::types::jsonrpc::JsonRpcErrorResponse =
         serde_json::from_str(&body).unwrap();
     assert_eq!(err_res.jsonrpc, "2.0");
     assert_eq!(err_res.id, Some(99.into()));
     assert_eq!(
         err_res.error.code.code(),
-        mcp_routing::types::jsonrpc::INVALID_PARAMS_CODE
+        stateless_mcp::types::jsonrpc::INVALID_PARAMS_CODE
     );
 
     // 4. Test HTTP 405 Method Not Allowed on non-POST methods over real TCP

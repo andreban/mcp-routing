@@ -13,7 +13,7 @@ use http_body_util::BodyExt;
 use serde_json::json;
 use tower::ServiceExt;
 
-use mcp_routing::{
+use stateless_mcp::{
     McpRouter,
     extract::{BearerAuth, State},
     types::mcp::{NotificationSubscriptions, resources::Resource},

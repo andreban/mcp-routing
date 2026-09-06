@@ -4,18 +4,18 @@
 //! # Multi-Modal Content Integration Tests
 //!
 //! Verifies the Model Context Protocol (MCP) multi-modal content block types, including:
-//! - [`TextContent`](mcp_routing::types::mcp::TextContent) with audience and priority annotations
-//! - [`ImageContent`](mcp_routing::types::mcp::ImageContent) with base64 payload and MIME types
-//! - [`AudioContent`](mcp_routing::types::mcp::AudioContent) with base64 audio and MIME types
-//! - [`EmbeddedResource`](mcp_routing::types::mcp::EmbeddedResource) supporting text and binary blob contents
-//! - [`ResourceLink`](mcp_routing::types::mcp::ResourceLink) referencing external or hosted resources
-//! - Direct return of single [`ContentBlock`](mcp_routing::types::mcp::ContentBlock) vs. multi-block collections
+//! - [`TextContent`](stateless_mcp::types::mcp::TextContent) with audience and priority annotations
+//! - [`ImageContent`](stateless_mcp::types::mcp::ImageContent) with base64 payload and MIME types
+//! - [`AudioContent`](stateless_mcp::types::mcp::AudioContent) with base64 audio and MIME types
+//! - [`EmbeddedResource`](stateless_mcp::types::mcp::EmbeddedResource) supporting text and binary blob contents
+//! - [`ResourceLink`](stateless_mcp::types::mcp::ResourceLink) referencing external or hosted resources
+//! - Direct return of single [`ContentBlock`](stateless_mcp::types::mcp::ContentBlock) vs. multi-block collections
 //! - Structured JSON output (`structured_content`) alongside content blocks
 
 mod common;
 
 use http::StatusCode;
-use mcp_routing::{
+use stateless_mcp::{
     McpRouter,
     types::mcp::{
         AudioContent, BlobResourceContents, ContentAnnotations, ContentBlock, EmbeddedResource,
@@ -131,7 +131,7 @@ async fn handle_multi_modal_all() -> CallToolResult {
 /// Tests returning a single [`ContentBlock::Text`] from a tool handler.
 ///
 /// Verifies:
-/// - [`IntoToolResult`](mcp_routing::tools::IntoToolResult) conversion for [`ContentBlock`]
+/// - [`IntoToolResult`](stateless_mcp::tools::IntoToolResult) conversion for [`ContentBlock`]
 /// - Correct serialization of text content, multi-role audience annotations, priority score, and custom metadata
 #[tokio::test]
 async fn test_multi_modal_single_text_block() {

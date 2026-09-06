@@ -3,7 +3,7 @@
 
 //! # Routing Edge Cases & Error Handling Integration Tests
 //!
-//! Verifies the error boundaries, JSON-RPC 2.0 error codes, and header normalization of [`McpRouter`](mcp_routing::McpRouter):
+//! Verifies the error boundaries, JSON-RPC 2.0 error codes, and header normalization of [`McpRouter`](stateless_mcp::McpRouter):
 //! - HTTP verb validation (rejecting non-POST methods with `405 Method Not Allowed` and `Allow: POST`)
 //! - Media type validation (rejecting missing/non-JSON `Content-Type` with `415 Unsupported Media Type`)
 //! - Header and body normalization (leading/trailing slash tolerance in `Mcp-Method` and `Mcp-Name`)
@@ -18,7 +18,7 @@ mod common;
 
 use axum::body::Body;
 use http::{Request, StatusCode};
-use mcp_routing::{
+use stateless_mcp::{
     McpRouter,
     types::jsonrpc::{
         INVALID_PARAMS_CODE, INVALID_REQUEST_CODE, JsonRpcErrorResponse, METHOD_NOT_FOUND_CODE,
@@ -112,7 +112,7 @@ async fn test_missing_method_returns_invalid_request() {
     assert_eq!(err_resp.id, Some(1.into()));
     assert_eq!(
         err_resp.error.code.code(),
-        mcp_routing::types::mcp::HEADER_MISMATCH
+        stateless_mcp::types::mcp::HEADER_MISMATCH
     );
 }
 

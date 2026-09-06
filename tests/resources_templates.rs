@@ -12,7 +12,7 @@
 
 use http::Request;
 use http_body_util::BodyExt;
-use mcp_routing::{
+use stateless_mcp::{
     McpRouter, RegisteredResourceTemplates,
     types::mcp::{
         CacheScope, Implementation,

@@ -14,7 +14,7 @@
 mod common;
 
 use http::StatusCode;
-use mcp_routing::{
+use stateless_mcp::{
     McpRouter,
     types::mcp::{
         CacheScope, IconTheme,
@@ -169,7 +169,7 @@ async fn test_prompts_list_missing_method_header_returns_header_mismatch() {
     assert_eq!(status, StatusCode::BAD_REQUEST);
     assert_eq!(
         body["error"]["code"],
-        mcp_routing::types::mcp::HEADER_MISMATCH
+        stateless_mcp::types::mcp::HEADER_MISMATCH
     );
 }
 
@@ -261,8 +261,8 @@ async fn test_prompts_capability_advertisement_in_discover() {
 /// Tests registering a custom `prompts_list` handler using `BearerAuth` and `Meta` extractors.
 #[tokio::test]
 async fn test_prompts_list_custom_handler_with_bearer_auth_and_extractors() {
-    use mcp_routing::extract::{BearerAuth, Meta};
-    use mcp_routing::types::mcp::prompts::list::ListPromptsResult;
+    use stateless_mcp::extract::{BearerAuth, Meta};
+    use stateless_mcp::types::mcp::prompts::list::ListPromptsResult;
 
     async fn custom_prompts_handler(
         BearerAuth(token): BearerAuth,
@@ -366,7 +366,7 @@ async fn test_prompts_list_custom_handler_with_bearer_auth_and_extractors() {
 /// Tests custom `prompts_list` handler with pagination cursor parameter.
 #[tokio::test]
 async fn test_prompts_list_custom_handler_with_pagination_cursor() {
-    use mcp_routing::types::mcp::prompts::list::ListPromptsResult;
+    use stateless_mcp::types::mcp::prompts::list::ListPromptsResult;
 
     async fn paged_prompts_handler(cursor: Option<String>) -> ListPromptsResult {
         match cursor.as_deref() {
@@ -423,7 +423,7 @@ async fn test_prompts_list_custom_handler_with_pagination_cursor() {
 /// Tests custom `prompts_list` handler error propagation.
 #[tokio::test]
 async fn test_prompts_list_custom_handler_error_propagation() {
-    use mcp_routing::types::mcp::prompts::Prompt;
+    use stateless_mcp::types::mcp::prompts::Prompt;
 
     async fn failing_handler() -> Result<Vec<Prompt>, String> {
         Err("Template engine failed to load prompts".to_string())
@@ -455,8 +455,8 @@ async fn test_prompts_list_custom_handler_error_propagation() {
 /// Tests that a `prompts_list` handler can extract `RegisteredPrompts` to inspect and filter pre-registered prompts.
 #[tokio::test]
 async fn test_prompts_list_registered_prompts_extractor_filtering() {
-    use mcp_routing::extract::{BearerAuth, RegisteredPrompts};
-    use mcp_routing::types::mcp::prompts::Prompt;
+    use stateless_mcp::extract::{BearerAuth, RegisteredPrompts};
+    use stateless_mcp::types::mcp::prompts::Prompt;
 
     async fn filter_prompts(
         auth: Option<BearerAuth>,

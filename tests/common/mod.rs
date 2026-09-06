@@ -21,7 +21,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tower::ServiceExt;
 
-use mcp_routing::{
+use stateless_mcp::{
     McpRouter,
     types::mcp::{
         Icon, IconTheme, Implementation,
@@ -88,8 +88,8 @@ pub fn sample_tool(name: &str) -> Tool {
 }
 
 /// Returns a fully specified [`Prompt`] definition including arguments, icons, and metadata.
-pub fn sample_prompt(name: &str) -> mcp_routing::types::mcp::prompts::Prompt {
-    use mcp_routing::types::mcp::prompts::{Prompt, PromptArgument};
+pub fn sample_prompt(name: &str) -> stateless_mcp::types::mcp::prompts::Prompt {
+    use stateless_mcp::types::mcp::prompts::{Prompt, PromptArgument};
     let mut meta = HashMap::new();
     meta.insert("customPromptMeta".to_string(), json!("promptMetaVal"));
 

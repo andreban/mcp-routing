@@ -6,9 +6,9 @@
 //! Verifies:
 //! - Construction of tools with `output_schema` and `ToolAnnotations` via fluent builder APIs
 //! - Advertisement of `output_schema` and annotations in `tools/list`
-//! - Handlers returning [`Json<T>`](mcp_routing::extract::Json) structured output wrappers
+//! - Handlers returning [`Json<T>`](stateless_mcp::extract::Json) structured output wrappers
 //! - Handlers returning raw [`serde_json::Value`] structured outputs
-//! - Handlers returning typed [`CallToolResult<T>`](mcp_routing::types::mcp::tools::call::CallToolResult)
+//! - Handlers returning typed [`CallToolResult<T>`](stateless_mcp::types::mcp::tools::call::CallToolResult)
 //! - Handlers returning tuple conversions `(Json<T>, &str)`, `(Json<T>, String)`, `(Json<T>, Vec<ContentBlock>)`
 //! - Handlers returning `Result<Json<T>, E>` for both success and error paths
 //! - Convenience constructors `structured`, `structured_with_text`, `structured_with_content`, `structured_json`
@@ -16,7 +16,7 @@
 mod common;
 
 use http::StatusCode;
-use mcp_routing::{
+use stateless_mcp::{
     Json, McpRouter,
     types::mcp::{
         ContentBlock,

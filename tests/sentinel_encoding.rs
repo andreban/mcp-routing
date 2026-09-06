@@ -9,7 +9,7 @@
 mod common;
 
 use http::StatusCode;
-use mcp_routing::{
+use stateless_mcp::{
     McpRouter,
     types::mcp::{
         ContentBlock,

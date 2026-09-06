@@ -9,7 +9,7 @@
 use std::error::Error;
 
 use axum::Router;
-use mcp_routing::{
+use stateless_mcp::{
     CurrentLoggingLevel, McpRouter,
     types::mcp::{Implementation, LoggingLevel, tools::Tool},
 };

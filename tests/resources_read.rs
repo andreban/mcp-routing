@@ -15,7 +15,7 @@
 
 use http::Request;
 use http_body_util::BodyExt;
-use mcp_routing::{
+use stateless_mcp::{
     BearerAuth, McpRouter, State,
     types::mcp::{
         CacheScope, Implementation,
@@ -191,7 +191,7 @@ async fn test_resources_read_header_body_mismatch_returns_header_mismatch() {
 
     assert_eq!(
         resp_json["error"]["code"],
-        mcp_routing::types::mcp::HEADER_MISMATCH
+        stateless_mcp::types::mcp::HEADER_MISMATCH
     );
 }
 

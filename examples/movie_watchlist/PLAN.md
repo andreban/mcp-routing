@@ -1,6 +1,6 @@
 # CineList: Movie Watchlist & Recommendation MCP Server Plan
 
-A comprehensive, real-world Model Context Protocol (MCP) server example for **CineList**, demonstrating all features of `mcp-routing` in a single cohesive, production-grade application.
+A comprehensive, real-world Model Context Protocol (MCP) server example for **CineList**, demonstrating all features of `stateless-mcp` in a single cohesive, production-grade application.
 
 ---
 

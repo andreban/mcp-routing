@@ -19,7 +19,7 @@ mod common;
 use axum::body::Body;
 use http::{Request, StatusCode};
 use http_body_util::BodyExt;
-use mcp_routing::{
+use stateless_mcp::{
     McpRouter,
     extract::{BearerAuth, State},
     types::mcp::{

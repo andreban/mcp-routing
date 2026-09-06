@@ -15,7 +15,7 @@
 mod common;
 
 use http::StatusCode;
-use mcp_routing::{
+use stateless_mcp::{
     McpRouter,
     types::mcp::{
         ContentBlock,
@@ -185,7 +185,7 @@ async fn test_tools_call_header_method_missing_name_returns_header_mismatch() {
     assert_eq!(status, StatusCode::BAD_REQUEST);
     assert_eq!(
         body["error"]["code"],
-        mcp_routing::types::mcp::HEADER_MISMATCH
+        stateless_mcp::types::mcp::HEADER_MISMATCH
     );
 }
 
@@ -219,14 +219,14 @@ async fn test_tools_call_missing_method_header_returns_header_mismatch() {
     assert_eq!(status, StatusCode::BAD_REQUEST);
     assert_eq!(
         body["error"]["code"],
-        mcp_routing::types::mcp::HEADER_MISMATCH
+        stateless_mcp::types::mcp::HEADER_MISMATCH
     );
 }
 
 /// Tests registering and invoking handlers with no arguments across return types (`&str`, `String`, `Result<T, E>`).
 ///
 /// Verifies:
-/// - Static string handlers wrap output into [`TextContent`](mcp_routing::types::mcp::TextContent) with `is_error: false`
+/// - Static string handlers wrap output into [`TextContent`](stateless_mcp::types::mcp::TextContent) with `is_error: false`
 /// - Dynamic string handlers wrap output with `is_error: false`
 /// - `Result::Err` produces `is_error: true` containing the error description
 #[tokio::test]
@@ -337,7 +337,7 @@ async fn test_tools_call_handler_business_logic_error() {
 /// Tests that passing argument JSON with invalid field types returns a descriptive tool error.
 ///
 /// Verifies:
-/// - JSON deserialization error is caught in [`IntoToolHandler`](mcp_routing::tools::IntoToolHandler)
+/// - JSON deserialization error is caught in [`IntoToolHandler`](stateless_mcp::tools::IntoToolHandler)
 /// - Response status is `200 OK` with `is_error: true` and text starting with `"Invalid arguments:"`
 #[tokio::test]
 async fn test_tools_call_invalid_argument_types_returns_tool_error() {
@@ -481,7 +481,7 @@ async fn test_tools_call_empty_arguments_object() {
 /// - Responses have status 200 OK, valid ETag, and matching JSON-RPC payload
 #[tokio::test]
 async fn test_tools_call_with_tool_caching_directives() {
-    use mcp_routing::types::mcp::CacheScope;
+    use stateless_mcp::types::mcp::CacheScope;
 
     let app = McpRouter::new(common::sample_server_info())
         .register_tool_with_cache(

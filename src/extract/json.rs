@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 /// # Example
 ///
 /// ```rust,no_run
-/// use mcp_routing::extract::Json;
+/// use stateless_mcp::extract::Json;
 /// use serde::Serialize;
 ///
 /// #[derive(Serialize)]

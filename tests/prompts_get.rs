@@ -17,7 +17,7 @@
 mod common;
 
 use http::StatusCode;
-use mcp_routing::{
+use stateless_mcp::{
     McpRouter,
     types::mcp::{
         CacheScope, ContentBlock, ImageContent, Role, TextContent,
@@ -184,7 +184,7 @@ async fn test_prompts_get_header_method_missing_name_returns_header_mismatch() {
     assert_eq!(status, StatusCode::BAD_REQUEST);
     assert_eq!(
         body["error"]["code"],
-        mcp_routing::types::mcp::HEADER_MISMATCH
+        stateless_mcp::types::mcp::HEADER_MISMATCH
     );
 }
 
@@ -216,7 +216,7 @@ async fn test_prompts_get_missing_method_header_returns_header_mismatch() {
     assert_eq!(status, StatusCode::BAD_REQUEST);
     assert_eq!(
         body["error"]["code"],
-        mcp_routing::types::mcp::HEADER_MISMATCH
+        stateless_mcp::types::mcp::HEADER_MISMATCH
     );
 }
 

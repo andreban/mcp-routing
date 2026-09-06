@@ -3,7 +3,7 @@
 
 //! # DNS Rebinding Protection & Origin Header Validation Integration Tests
 //!
-//! Verifies HTTP `Origin` header enforcement and DNS rebinding protections of [`McpRouter`](mcp_routing::McpRouter):
+//! Verifies HTTP `Origin` header enforcement and DNS rebinding protections of [`McpRouter`](stateless_mcp::McpRouter):
 //! - Accepting incoming requests with trusted `Origin` headers matching `allowed_origins`
 //! - Case insensitivity and trailing slash tolerance during origin matching
 //! - Rejecting incoming requests with untrusted `Origin` headers (`403 Forbidden`)
@@ -16,7 +16,7 @@ mod common;
 
 use axum::body::Body;
 use http::{Request, StatusCode};
-use mcp_routing::McpRouter;
+use stateless_mcp::McpRouter;
 use serde_json::json;
 
 async fn echo_tool() -> &'static str {

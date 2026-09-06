@@ -3,7 +3,7 @@
 
 //! # Handler-Based Server Discovery & Capabilities Example
 //!
-//! Demonstrates how to use first-class handler functions in `mcp-routing` to generate
+//! Demonstrates how to use first-class handler functions in `stateless-mcp` to generate
 //! context-aware server instructions, capabilities, tool lists, and prompt lists on a per-request basis
 //! using extractors like `BearerAuth`, `Meta`, and `State`.
 
@@ -12,7 +12,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use axum::Router;
-use mcp_routing::{
+use stateless_mcp::{
     BearerAuth, McpRouter, Meta, RegisteredPrompts, RegisteredTools, State,
     types::mcp::{
         CacheScope, Implementation, PromptsCapability, ResourcesCapability, ServerCapabilities,

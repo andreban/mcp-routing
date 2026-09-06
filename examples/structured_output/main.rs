@@ -5,13 +5,13 @@
 //!
 //! Demonstrates how to build MCP tools that produce structured JSON content (`structured_content`)
 //! alongside multi-modal content blocks, configure `output_schema` and behavioral annotations,
-//! and use ergonomic return types such as [`Json<T>`](mcp_routing::extract::Json), [`CallToolResult<T>`](mcp_routing::types::mcp::tools::call::CallToolResult),
+//! and use ergonomic return types such as [`Json<T>`](stateless_mcp::extract::Json), [`CallToolResult<T>`](stateless_mcp::types::mcp::tools::call::CallToolResult),
 //! and tuple conversions like `(Json<T>, &str)`.
 
 use std::error::Error;
 
 use axum::Router;
-use mcp_routing::{
+use stateless_mcp::{
     Json, McpRouter,
     types::mcp::{
         Implementation,

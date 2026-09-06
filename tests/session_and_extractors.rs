@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tower::Service;
 
-use mcp_routing::{
+use stateless_mcp::{
     Extension, McpRouter, Meta, RequestContext,
     types::mcp::{
         Implementation,
@@ -337,7 +337,7 @@ async fn test_with_state_and_state_extractor() {
     }
 
     async fn handle_config(
-        mcp_routing::State(config): mcp_routing::State<AppConfig>,
+        stateless_mcp::State(config): stateless_mcp::State<AppConfig>,
         params: ConfigParams,
     ) -> Result<String, String> {
         Ok(format!(
@@ -424,7 +424,7 @@ async fn test_axum_shared_state_between_web_and_mcp() {
     }
 
     async fn handle_inc(
-        mcp_routing::State(counter): mcp_routing::State<SharedCounter>,
+        stateless_mcp::State(counter): stateless_mcp::State<SharedCounter>,
         params: IncParams,
     ) -> Result<String, String> {
         let prev = counter.count.fetch_add(params.amount, Ordering::SeqCst);

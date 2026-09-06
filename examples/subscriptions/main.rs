@@ -23,7 +23,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tokio::sync::{RwLock, broadcast, mpsc};
 
-use mcp_routing::{
+use stateless_mcp::{
     BoxError, McpRouter, ResponseBody,
     extract::{Json, RequestContext, State},
     format_sse_message,

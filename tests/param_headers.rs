@@ -15,7 +15,7 @@ mod common;
 
 use axum::body::Body;
 use http::{Request, StatusCode};
-use mcp_routing::{
+use stateless_mcp::{
     McpRouter,
     types::mcp::{
         HEADER_MISMATCH,

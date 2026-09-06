@@ -6,7 +6,7 @@
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use mcp_routing::{
+use stateless_mcp::{
     BearerAuth, McpRouter, State,
     extract::RegisteredPrompts,
     types::mcp::{

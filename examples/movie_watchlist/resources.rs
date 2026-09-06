@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use mcp_routing::{
+use stateless_mcp::{
     BearerAuth, McpRouter, State,
     extract::RegisteredResources,
     types::mcp::{

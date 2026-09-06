@@ -8,7 +8,7 @@ mod common;
 use axum::body::Body;
 use http::{HeaderMap, Request, StatusCode};
 use http_body_util::BodyExt;
-use mcp_routing::{
+use stateless_mcp::{
     CurrentLoggingLevel, McpRouter,
     types::mcp::{
         Implementation, LoggingLevel, server::discover::ServerDiscoverResultResponse, tools::Tool,

@@ -12,7 +12,7 @@ use axum::{
     http::{Request, StatusCode},
 };
 use http_body_util::BodyExt;
-use mcp_routing::{
+use stateless_mcp::{
     McpRouter,
     types::{
         jsonrpc::{JsonRpcErrorCode, JsonRpcErrorResponse},
@@ -174,7 +174,7 @@ async fn test_mcp_router_body_method_fallback_tools_list() {
     let res: JsonRpcErrorResponse = serde_json::from_slice(&bytes).unwrap();
     assert_eq!(
         res.error.code.code(),
-        mcp_routing::types::mcp::HEADER_MISMATCH
+        stateless_mcp::types::mcp::HEADER_MISMATCH
     );
 }
 
@@ -200,7 +200,7 @@ async fn test_mcp_router_mcp_method_mismatch_returns_header_mismatch() {
     let res: JsonRpcErrorResponse = serde_json::from_slice(&bytes).unwrap();
     assert_eq!(
         res.error.code.code(),
-        mcp_routing::types::mcp::HEADER_MISMATCH
+        stateless_mcp::types::mcp::HEADER_MISMATCH
     );
 }
 
@@ -234,7 +234,7 @@ async fn test_mcp_router_missing_mcp_name_header_returns_header_mismatch() {
     let res: JsonRpcErrorResponse = serde_json::from_slice(&bytes).unwrap();
     assert_eq!(
         res.error.code.code(),
-        mcp_routing::types::mcp::HEADER_MISMATCH
+        stateless_mcp::types::mcp::HEADER_MISMATCH
     );
 }
 
@@ -269,7 +269,7 @@ async fn test_mcp_router_mcp_name_mismatch_returns_header_mismatch() {
     let res: JsonRpcErrorResponse = serde_json::from_slice(&bytes).unwrap();
     assert_eq!(
         res.error.code.code(),
-        mcp_routing::types::mcp::HEADER_MISMATCH
+        stateless_mcp::types::mcp::HEADER_MISMATCH
     );
 }
 
@@ -327,7 +327,7 @@ async fn test_mcp_router_missing_method_in_header_and_body_returns_bad_request()
     assert_eq!(res.id, Some(1.into()));
     assert_eq!(
         res.error.code.code(),
-        mcp_routing::types::mcp::HEADER_MISMATCH
+        stateless_mcp::types::mcp::HEADER_MISMATCH
     );
 }
 
@@ -457,7 +457,7 @@ async fn test_mcp_router_nested_in_axum() {
 /// Tests typed tool handler argument deserialization and success return wrapping.
 #[tokio::test]
 async fn test_mcp_router_typed_tool_handler_success() {
-    use mcp_routing::types::mcp::ContentBlock;
+    use stateless_mcp::types::mcp::ContentBlock;
     use serde::{Deserialize, Serialize};
 
     #[derive(Serialize, Deserialize)]
@@ -508,7 +508,7 @@ async fn test_mcp_router_typed_tool_handler_success() {
 /// Tests typed tool handler error result wrapping with `is_error: true`.
 #[tokio::test]
 async fn test_mcp_router_typed_tool_handler_error_result() {
-    use mcp_routing::types::mcp::ContentBlock;
+    use stateless_mcp::types::mcp::ContentBlock;
     use serde::{Deserialize, Serialize};
 
     #[derive(Serialize, Deserialize)]
@@ -714,8 +714,8 @@ async fn test_mcp_router_server_discover_caching_headers_default() {
     assert!(response.headers().contains_key("etag"));
 
     let bytes = response.into_body().collect().await.unwrap().to_bytes();
-    let expected_etag = mcp_routing::body::compute_etag(&bytes);
-    assert_eq!(expected_etag, mcp_routing::body::compute_etag(&bytes));
+    let expected_etag = stateless_mcp::body::compute_etag(&bytes);
+    assert_eq!(expected_etag, stateless_mcp::body::compute_etag(&bytes));
 }
 
 /// Tests default `Cache-Control: public, max-age=0` and `ETag` headers on `tools/list`.
@@ -1087,7 +1087,7 @@ async fn test_mcp_router_missing_protocol_version_header_returns_header_mismatch
     let err_resp: JsonRpcErrorResponse = serde_json::from_slice(&bytes).unwrap();
     assert_eq!(
         err_resp.error.code.code(),
-        mcp_routing::types::mcp::HEADER_MISMATCH
+        stateless_mcp::types::mcp::HEADER_MISMATCH
     );
     assert!(
         err_resp
@@ -1120,7 +1120,7 @@ async fn test_mcp_router_unsupported_protocol_version_header_returns_unsupported
     let err_resp: JsonRpcErrorResponse = serde_json::from_slice(&bytes).unwrap();
     assert_eq!(
         err_resp.error.code.code(),
-        mcp_routing::types::mcp::UNSUPPORTED_PROTOCOL_VERSION
+        stateless_mcp::types::mcp::UNSUPPORTED_PROTOCOL_VERSION
     );
     assert!(
         err_resp
@@ -1165,7 +1165,7 @@ async fn test_mcp_router_protocol_version_header_body_mismatch_returns_header_mi
     let err_resp: JsonRpcErrorResponse = serde_json::from_slice(&bytes).unwrap();
     assert_eq!(
         err_resp.error.code.code(),
-        mcp_routing::types::mcp::HEADER_MISMATCH
+        stateless_mcp::types::mcp::HEADER_MISMATCH
     );
     assert!(err_resp.error.message.contains(
         "MCP-Protocol-Version header value '2026-07-28' does not match body value '2025-06-18'"
@@ -1225,7 +1225,7 @@ async fn test_mcp_router_missing_mcp_name_header_for_prompts_get() {
     let err_resp: JsonRpcErrorResponse = serde_json::from_slice(&bytes).unwrap();
     assert_eq!(
         err_resp.error.code.code(),
-        mcp_routing::types::mcp::HEADER_MISMATCH
+        stateless_mcp::types::mcp::HEADER_MISMATCH
     );
 }
 
@@ -1262,7 +1262,7 @@ async fn test_mcp_router_mcp_name_mismatch_for_prompts_get() {
     let err_resp: JsonRpcErrorResponse = serde_json::from_slice(&bytes).unwrap();
     assert_eq!(
         err_resp.error.code.code(),
-        mcp_routing::types::mcp::HEADER_MISMATCH
+        stateless_mcp::types::mcp::HEADER_MISMATCH
     );
 }
 
@@ -1299,7 +1299,7 @@ async fn test_mcp_router_missing_mcp_uri_header_for_resources_read() {
     let err_resp: JsonRpcErrorResponse = serde_json::from_slice(&bytes).unwrap();
     assert_eq!(
         err_resp.error.code.code(),
-        mcp_routing::types::mcp::HEADER_MISMATCH
+        stateless_mcp::types::mcp::HEADER_MISMATCH
     );
 }
 
@@ -1337,7 +1337,7 @@ async fn test_mcp_router_mcp_uri_mismatch_for_resources_read() {
     let err_resp: JsonRpcErrorResponse = serde_json::from_slice(&bytes).unwrap();
     assert_eq!(
         err_resp.error.code.code(),
-        mcp_routing::types::mcp::HEADER_MISMATCH
+        stateless_mcp::types::mcp::HEADER_MISMATCH
     );
 }
 

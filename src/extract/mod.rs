@@ -3,7 +3,7 @@
 
 //! # Request Extractors and Context
 //!
-//! Provides extractors for handler functions in `mcp-routing`, including [`RequestContext`],
+//! Provides extractors for handler functions in `stateless-mcp`, including [`RequestContext`],
 //! [`Meta`], [`Authorization`], [`BearerAuth`], [`State`], [`Extension`],
 //! [`RegisteredTools`], and [`RegisteredPrompts`].
 

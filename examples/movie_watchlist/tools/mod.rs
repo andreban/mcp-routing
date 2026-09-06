@@ -7,7 +7,7 @@ pub mod catalog;
 pub mod ratings;
 pub mod watchlists;
 
-use mcp_routing::{
+use stateless_mcp::{
     BearerAuth, McpRouter,
     extract::RegisteredTools,
     types::mcp::{CacheScope, tools::Tool},

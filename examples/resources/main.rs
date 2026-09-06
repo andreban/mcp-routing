@@ -14,7 +14,7 @@
 use std::error::Error;
 
 use axum::Router;
-use mcp_routing::{
+use stateless_mcp::{
     BearerAuth, McpRouter,
     types::mcp::{
         CacheScope, Implementation, Role,

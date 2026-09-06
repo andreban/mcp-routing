@@ -15,7 +15,7 @@
 
 use http::Request;
 use http_body_util::BodyExt;
-use mcp_routing::{
+use stateless_mcp::{
     Extension, McpRouter, RegisteredResources,
     types::mcp::{
         CacheScope, Implementation, Role,
@@ -171,7 +171,7 @@ async fn test_resources_list_via_header_and_body_fallback() {
     let val2: serde_json::Value = serde_json::from_slice(&bytes2).unwrap();
     assert_eq!(
         val2["error"]["code"],
-        mcp_routing::types::mcp::HEADER_MISMATCH
+        stateless_mcp::types::mcp::HEADER_MISMATCH
     );
 }
 

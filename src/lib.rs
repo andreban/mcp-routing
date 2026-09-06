@@ -1,9 +1,9 @@
 // Copyright 2026 André Cipriani Bandarra
 // SPDX-License-Identifier: Apache-2.0
 
-//! # MCP Routing
+//! # Stateless MCP
 //!
-//! `mcp-routing` is a [Tower](https://crates.io/crates/tower)-native routing library for building
+//! `stateless-mcp` is a [Tower](https://crates.io/crates/tower)-native routing library for building
 //! [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) servers in Rust.
 //!
 //! This library specifically implements the **stateless** version of the MCP specification
@@ -26,7 +26,7 @@
 //! ## Example
 //!
 //! ```rust,no_run
-//! use mcp_routing::{
+//! use stateless_mcp::{
 //!     McpRouter,
 //!     types::mcp::{Implementation, tools::Tool},
 //! };

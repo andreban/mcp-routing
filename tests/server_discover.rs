@@ -7,7 +7,7 @@
 //! including:
 //! - Header-based routing via `Mcp-Method: server/discover`
 //! - Body-based fallback routing when the `Mcp-Method` header is omitted
-//! - Advertisement of server metadata ([`Implementation`](mcp_routing::types::mcp::Implementation)), instructions, and icons
+//! - Advertisement of server metadata ([`Implementation`](stateless_mcp::types::mcp::Implementation)), instructions, and icons
 //! - Custom capability negotiation and multi-version advertisement
 //! - Protocol-level request metadata (`_meta`) parsing and response formatting
 
@@ -17,7 +17,7 @@ use std::collections::HashMap;
 
 use axum::{body::Body, http::Request};
 use http::StatusCode;
-use mcp_routing::{
+use stateless_mcp::{
     McpRouter,
     types::mcp::{
         CacheScope, CompletionsCapability, IconTheme, Implementation, PromptsCapability,
@@ -128,7 +128,7 @@ async fn test_server_discover_missing_method_header_returns_header_mismatch() {
     assert_eq!(status, StatusCode::BAD_REQUEST);
     assert_eq!(
         body["error"]["code"],
-        mcp_routing::types::mcp::HEADER_MISMATCH
+        stateless_mcp::types::mcp::HEADER_MISMATCH
     );
 }
 
@@ -344,7 +344,7 @@ async fn test_server_discover_protocol_version_negotiation_failure() {
     assert_eq!(body["jsonrpc"], "2.0");
     assert_eq!(
         body["error"]["code"],
-        mcp_routing::types::mcp::UNSUPPORTED_PROTOCOL_VERSION
+        stateless_mcp::types::mcp::UNSUPPORTED_PROTOCOL_VERSION
     );
     assert!(
         body["error"]["message"]
@@ -384,7 +384,7 @@ async fn test_server_discover_protocol_version_header_body_mismatch() {
     assert_eq!(body["id"], "ver-mismatch");
     assert_eq!(
         body["error"]["code"],
-        mcp_routing::types::mcp::HEADER_MISMATCH
+        stateless_mcp::types::mcp::HEADER_MISMATCH
     );
     assert!(body["error"]["message"].as_str().unwrap().contains(
         "MCP-Protocol-Version header value '2026-07-28' does not match body value '2024-11-05'"
@@ -432,8 +432,8 @@ async fn test_server_discover_dynamic_provider_with_extractors() {
     }
 
     async fn custom_discover_provider(
-        mcp_routing::extract::Extension(tenant): mcp_routing::extract::Extension<Tenant>,
-        mcp_routing::extract::Meta(meta): mcp_routing::extract::Meta,
+        stateless_mcp::extract::Extension(tenant): stateless_mcp::extract::Extension<Tenant>,
+        stateless_mcp::extract::Meta(meta): stateless_mcp::extract::Meta,
     ) -> Result<(ServerCapabilities, String), String> {
         let client_name = meta
             .client_info
@@ -510,7 +510,7 @@ async fn test_server_discover_dynamic_provider_with_extractors() {
 /// Tests dynamic server discovery provider returning a full [`ServerDiscoverResult`] with custom caching.
 #[tokio::test]
 async fn test_server_discover_dynamic_provider_returning_result_with_cache() {
-    use mcp_routing::types::mcp::server::discover::ServerDiscoverResult;
+    use stateless_mcp::types::mcp::server::discover::ServerDiscoverResult;
 
     async fn custom_discover_result_provider() -> ServerDiscoverResult {
         ServerDiscoverResult::new(

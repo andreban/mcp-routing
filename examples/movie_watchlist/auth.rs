@@ -3,7 +3,7 @@
 
 //! Authentication and access control helpers for multi-tenant isolation.
 
-use mcp_routing::BearerAuth;
+use stateless_mcp::BearerAuth;
 
 use super::models::MovieDb;
 

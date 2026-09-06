@@ -1,10 +1,10 @@
-# mcp-routing
+# stateless-mcp
 
 A [Tower](https://crates.io/crates/tower)-native routing library for building [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) servers in Rust.
 
-> **Note:** `mcp-routing` exclusively supports the **stateless** version of the Model Context Protocol ([`2026-07-28` specification](https://modelcontextprotocol.io/docs/2026-07-28/)). It uses request-based discovery (`server/discover`) and direct tool execution, and does **not** support previous stateful protocol versions (e.g. 2024-11-05 `initialize` lifecycle).
+> **Note:** `stateless-mcp` exclusively supports the **stateless** version of the Model Context Protocol ([`2026-07-28` specification](https://modelcontextprotocol.io/docs/2026-07-28/)). It uses request-based discovery (`server/discover`) and direct tool execution, and does **not** support previous stateful protocol versions (e.g. 2024-11-05 `initialize` lifecycle).
 
-`mcp-routing` provides a composable, framework-agnostic [`McpRouter`] that implements [`tower::Service`]. It can be plugged directly into [Axum](https://crates.io/crates/axum), [Hyper](https://crates.io/crates/hyper), or any custom Tower middleware pipeline.
+`stateless-mcp` provides a composable, framework-agnostic [`McpRouter`] that implements [`tower::Service`]. It can be plugged directly into [Axum](https://crates.io/crates/axum), [Hyper](https://crates.io/crates/hyper), or any custom Tower middleware pipeline.
 
 ## Features
 
@@ -21,11 +21,11 @@ A [Tower](https://crates.io/crates/tower)-native routing library for building [M
 
 ## Installation
 
-Add `mcp-routing` to your `Cargo.toml`:
+Add `stateless-mcp` to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-mcp-routing = "0.1.0"
+stateless-mcp = "0.1.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tokio = { version = "1.0", features = ["full"] }
@@ -37,7 +37,7 @@ tower = { version = "0.5", features = ["util"] }
 ```rust
 use std::error::Error;
 use axum::Router;
-use mcp_routing::{
+use stateless_mcp::{
     McpRouter,
     types::mcp::{Implementation, tools::Tool},
 };
@@ -85,10 +85,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .instructions("Example MCP server providing an echo tool")
         // Cache server/discover response for 1 hour publicly:
         // generates HTTP `Cache-Control: public, max-age=3600` and `ETag`
-        .server_discover_cache(Some(3_600_000), Some(mcp_routing::types::mcp::CacheScope::Public))
+        .server_discover_cache(Some(3_600_000), Some(stateless_mcp::types::mcp::CacheScope::Public))
         // Cache tools/list response for 5 minutes publicly:
         // generates HTTP `Cache-Control: public, max-age=300` and `ETag`
-        .tools_list_cache(Some(300_000), Some(mcp_routing::types::mcp::CacheScope::Public))
+        .tools_list_cache(Some(300_000), Some(stateless_mcp::types::mcp::CacheScope::Public))
         .register_tool(echo_tool, echo);
 
     // Nest the MCP router as a service in Axum
@@ -103,7 +103,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
 ## Protocol & Routing
 
-`mcp-routing` targets the stateless [`2026-07-28` specification](https://modelcontextprotocol.io/docs/2026-07-28/) of the Model Context Protocol. Each HTTP request is self-contained.
+`stateless-mcp` targets the stateless [`2026-07-28` specification](https://modelcontextprotocol.io/docs/2026-07-28/) of the Model Context Protocol. Each HTTP request is self-contained.
 
 Incoming HTTP JSON-RPC requests are dispatched using headers with body fallback:
 

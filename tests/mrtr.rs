@@ -14,7 +14,7 @@ mod common;
 
 use common::{build_request, execute_request, sample_server_info};
 use http::{Request, StatusCode};
-use mcp_routing::{
+use stateless_mcp::{
     InputResponses, IntoPromptResult, IntoResourceResult, IntoToolResult, McpRouter, PromptError,
     RequestContext, RequestState, ResourceError, ToolError,
     types::mcp::{

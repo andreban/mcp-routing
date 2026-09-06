@@ -12,7 +12,7 @@
 mod common;
 
 use http::StatusCode;
-use mcp_routing::{
+use stateless_mcp::{
     McpRouter,
     types::mcp::{
         CacheScope, IconTheme,
@@ -190,7 +190,7 @@ async fn test_tools_list_missing_method_header_returns_header_mismatch() {
     assert_eq!(status, StatusCode::BAD_REQUEST);
     assert_eq!(
         body["error"]["code"],
-        mcp_routing::types::mcp::HEADER_MISMATCH
+        stateless_mcp::types::mcp::HEADER_MISMATCH
     );
 }
 
@@ -267,8 +267,8 @@ async fn test_tools_list_custom_caching_parameters() {
 /// Tests registering a custom `tools_list` handler using `BearerAuth` and `Meta` extractors.
 #[tokio::test]
 async fn test_tools_list_custom_handler_with_bearer_auth_and_extractors() {
-    use mcp_routing::extract::{BearerAuth, Meta};
-    use mcp_routing::types::mcp::tools::list::ListToolsResult;
+    use stateless_mcp::extract::{BearerAuth, Meta};
+    use stateless_mcp::types::mcp::tools::list::ListToolsResult;
 
     async fn custom_list_handler(
         BearerAuth(token): BearerAuth,
@@ -372,7 +372,7 @@ async fn test_tools_list_custom_handler_with_bearer_auth_and_extractors() {
 /// Tests custom `tools_list` handler with pagination cursor parameter.
 #[tokio::test]
 async fn test_tools_list_custom_handler_with_pagination_cursor() {
-    use mcp_routing::types::mcp::tools::list::ListToolsResult;
+    use stateless_mcp::types::mcp::tools::list::ListToolsResult;
 
     async fn paged_list_handler(cursor: Option<String>) -> ListToolsResult {
         match cursor.as_deref() {
@@ -455,7 +455,7 @@ async fn test_tools_list_custom_handler_error_propagation() {
 /// Tests that a `tools_list` handler can extract `RegisteredTools` to inspect and filter pre-registered tools.
 #[tokio::test]
 async fn test_tools_list_registered_tools_extractor_filtering() {
-    use mcp_routing::extract::{BearerAuth, RegisteredTools};
+    use stateless_mcp::extract::{BearerAuth, RegisteredTools};
 
     async fn filter_tools(
         auth: Option<BearerAuth>,

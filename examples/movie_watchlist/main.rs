@@ -25,7 +25,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use axum::Router;
-use mcp_routing::{McpRouter, types::mcp::CacheScope};
+use stateless_mcp::{McpRouter, types::mcp::CacheScope};
 
 use models::StreamingSubscriptions;
 use seed::seed_database;

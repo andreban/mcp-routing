@@ -19,7 +19,7 @@ mod common;
 
 use axum::body::Body;
 use http::{Request, StatusCode};
-use mcp_routing::{
+use stateless_mcp::{
     McpRouter,
     extract::Extension,
     types::jsonrpc::{

@@ -5,6 +5,7 @@
 //!
 //! Verifies RFC 2047-style Base64 sentinel header decoding (`=?base64?<encoded>?=`)
 //! across Streamable HTTP endpoints (`tools/call`, `prompts/get`, `resources/read`).
+//! Malformed sentinel values in `Mcp-Name` are rejected with `-32020` (`HeaderMismatch`).
 
 mod common;
 
@@ -254,4 +255,35 @@ async fn test_sentinel_encoded_mismatch_returns_header_mismatch() {
             .unwrap()
             .contains("Header mismatch")
     );
+}
+
+/// Tests that a malformed Base64 sentinel `Mcp-Name` value is rejected with `-32020` and HTTP 400.
+#[tokio::test]
+async fn test_malformed_sentinel_name_is_rejected() {
+    let app = McpRouter::new(common::sample_server_info()).register_tool("my_tool", handle_echo);
+
+    for header in ["=?base64?not base64?=", "=?base64?bXlfdG9vbA?="] {
+        let req = common::build_request(
+            Some("tools/call"),
+            Some(header),
+            json!({
+                "jsonrpc": "2.0",
+                "id": "req-bad-sentinel",
+                "method": "tools/call",
+                "params": {
+                    "_meta": common::meta(),
+                    "name": "my_tool",
+                    "arguments": { "message": "hi" }
+                }
+            }),
+        );
+        let (status, _headers, body) = common::execute_request(app.clone(), req).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "header: {header}");
+        assert_eq!(
+            body["error"]["code"],
+            stateless_mcp::types::mcp::HEADER_MISMATCH,
+            "header: {header}"
+        );
+        assert_eq!(body["id"], "req-bad-sentinel");
+    }
 }

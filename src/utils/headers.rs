@@ -32,12 +32,13 @@ fn trim_ows(value: &str) -> &str {
 /// any Base64 sentinel value (`=?base64?...?=`).
 ///
 /// The value is otherwise used verbatim: header values are case-sensitive and must exactly match
-/// the corresponding body value.
-pub(crate) fn extract_header_name(headers: &HeaderMap) -> Option<Cow<'_, str>> {
+/// the corresponding body value. Returns an error if a sentinel value is malformed.
+pub(crate) fn extract_header_name(headers: &HeaderMap) -> Result<Option<Cow<'_, str>>, String> {
     headers
         .get("Mcp-Name")
         .and_then(|v| v.to_str().ok())
         .map(|s| decode_sentinel_header(trim_ows(s)))
+        .transpose()
 }
 
 /// Extracts the MCP method from the `Mcp-Method` HTTP header.
@@ -166,29 +167,45 @@ mod tests {
     #[test]
     fn test_extract_header_name() {
         let mut headers = HeaderMap::new();
-        assert_eq!(extract_header_name(&headers), None);
+        assert_eq!(extract_header_name(&headers).unwrap(), None);
 
         headers.insert("Mcp-Name", "my_tool".parse().unwrap());
-        assert_eq!(extract_header_name(&headers).as_deref(), Some("my_tool"));
+        assert_eq!(
+            extract_header_name(&headers).unwrap().as_deref(),
+            Some("my_tool")
+        );
 
         // Slashes are significant and preserved
         headers.insert("Mcp-Name", "/my_tool/".parse().unwrap());
-        assert_eq!(extract_header_name(&headers).as_deref(), Some("/my_tool/"));
+        assert_eq!(
+            extract_header_name(&headers).unwrap().as_deref(),
+            Some("/my_tool/")
+        );
 
         // Resource URIs are carried in Mcp-Name
         headers.insert("Mcp-Name", "file:///app/config.json".parse().unwrap());
         assert_eq!(
-            extract_header_name(&headers).as_deref(),
+            extract_header_name(&headers).unwrap().as_deref(),
             Some("file:///app/config.json")
         );
 
         // Sentinel encoded value ("echo_世界" -> "ZWNob1/kuJbnlYw=")
         headers.insert("Mcp-Name", "=?base64?ZWNob1/kuJbnlYw=?=".parse().unwrap());
-        assert_eq!(extract_header_name(&headers).as_deref(), Some("echo_世界"));
+        assert_eq!(
+            extract_header_name(&headers).unwrap().as_deref(),
+            Some("echo_世界")
+        );
 
         // Sentinel encoded value keeps its own surrounding spaces (" padded " -> "IHBhZGRlZCA=")
         headers.insert("Mcp-Name", "=?base64?IHBhZGRlZCA=?=".parse().unwrap());
-        assert_eq!(extract_header_name(&headers).as_deref(), Some(" padded "));
+        assert_eq!(
+            extract_header_name(&headers).unwrap().as_deref(),
+            Some(" padded ")
+        );
+
+        // Malformed sentinel value is rejected
+        headers.insert("Mcp-Name", "=?base64?not base64?=".parse().unwrap());
+        assert!(extract_header_name(&headers).is_err());
     }
 
     /// Tests that the `Mcp-Method` header is used verbatim apart from HTTP whitespace.

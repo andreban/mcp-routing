@@ -9,10 +9,12 @@ use http::StatusCode;
 use crate::body::ResponseBody;
 use crate::types::jsonrpc::{JsonRpcErrorResponse, JsonRpcRequestId};
 use crate::types::mcp::{
-    CacheScope, ClientCapabilities, mcp_error_code_to_http_status,
+    CacheScope, ClientCapabilities, Implementation, mcp_error_code_to_http_status,
     missing_required_client_capability_error,
 };
 use crate::utils::missing_input_capabilities;
+
+const SERVER_INFO_KEY: &str = "io.modelcontextprotocol/serverInfo";
 
 /// Represents the internal outcome of dispatching a JSON-RPC method.
 #[derive(Debug)]
@@ -100,6 +102,31 @@ impl DispatchOutcome {
                 "Missing required client capability for the requested input",
                 required,
             ));
+        }
+    }
+
+    /// Adds `io.modelcontextprotocol/serverInfo` to the result's `_meta`, unless the result
+    /// already carries it, so the server identifies itself on every result.
+    pub(crate) fn add_server_info(&mut self, server_info: &Implementation) {
+        let Some(result) = self
+            .response
+            .as_mut()
+            .and_then(|r| r.get_mut("result"))
+            .and_then(|r| r.as_object_mut())
+        else {
+            return;
+        };
+        let Some(meta) = result
+            .entry("_meta")
+            .or_insert_with(|| serde_json::Value::Object(serde_json::Map::new()))
+            .as_object_mut()
+        else {
+            return;
+        };
+        if !meta.contains_key(SERVER_INFO_KEY)
+            && let Ok(info) = serde_json::to_value(server_info)
+        {
+            meta.insert(SERVER_INFO_KEY.to_string(), info);
         }
     }
 

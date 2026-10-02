@@ -18,7 +18,6 @@ async fn test_resource_registry_dispatch_read_unknown_resource_returns_invalid_p
     let ctx = MethodContext {
         req_id: Some(JsonRpcRequestId::Number(42)),
         is_notification: false,
-        is_batch: false,
         header_name: None,
         headers: &headers,
         extensions,

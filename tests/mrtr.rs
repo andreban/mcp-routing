@@ -8,6 +8,7 @@
 //! - Extractor-based access to `RequestState` and `InputResponses` in handlers
 //! - Load-shedding patterns via `InputRequiredResult::load_shed`
 //! - Result tagging (`resultType: complete` vs `resultType: input_required`)
+//! - Caching rules: `input_required` and retry results carry `Cache-Control: no-store`
 //! - Multi-round-trip flows across `tools/call`, `prompts/get`, `resources/read`, and `completion/complete`
 
 mod common;
@@ -18,7 +19,7 @@ use stateless_mcp::{
     InputResponses, IntoPromptResult, IntoResourceResult, IntoToolResult, McpRouter, PromptError,
     RequestContext, RequestState, ResourceError, ToolError,
     types::mcp::{
-        CompleteArgument, InputRequest, InputRequiredResult,
+        CacheScope, CompleteArgument, InputRequest, InputRequiredResult,
         prompts::{Prompt, PromptArgument, get::GetPromptResult},
         resources::read::ReadResourceResult,
         tools::{Tool, call::CallToolResult},
@@ -556,5 +557,104 @@ async fn test_resources_read_mrtr() {
     assert_eq!(
         json2["result"]["contents"][0]["text"],
         "Confidential content unlocked"
+    );
+}
+
+/// Builds a router with a resource cached for 60 seconds that requires a roots round trip.
+fn cached_mrtr_router() -> McpRouter {
+    McpRouter::new(sample_server_info())
+        .register_resource_with_cache(
+            ("custom://cached", "Cached"),
+            |state: Option<RequestState>| async move {
+                if state.is_some() {
+                    Ok::<_, ResourceError>(
+                        ReadResourceResult::text("custom://cached", "unlocked", None::<String>)
+                            .with_cache(Some(60_000), Some(CacheScope::Public)),
+                    )
+                } else {
+                    InputRequiredResult::new()
+                        .with_request_state("cached_state")
+                        .with_input_request("roots", InputRequest::roots())
+                        .into_resource_result("custom://cached", None, None)
+                }
+            },
+            Some(60_000),
+            Some(CacheScope::Public),
+        )
+        .register_resource_with_cache(
+            ("custom://plain", "Plain"),
+            || async {
+                ReadResourceResult::text("custom://plain", "plain", None::<String>)
+                    .with_cache(Some(30_000), Some(CacheScope::Private))
+            },
+            Some(60_000),
+            Some(CacheScope::Public),
+        )
+}
+
+/// Builds a `resources/read` request for `uri` with optional extra params.
+fn read_request(uri: &str, extra: serde_json::Value) -> Request<axum::body::Body> {
+    let mut params = json!({ "_meta": common::meta(), "uri": uri });
+    if let Some(extra) = extra.as_object() {
+        for (key, value) in extra {
+            params[key] = value.clone();
+        }
+    }
+    build_request(
+        Some("resources/read"),
+        Some(uri),
+        json!({ "jsonrpc": "2.0", "id": 1, "method": "resources/read", "params": params }),
+    )
+}
+
+/// Tests that an `input_required` result carries no caching hints and is sent with `no-store`.
+///
+/// Verifies:
+/// - `ttlMs` and `cacheScope` are omitted from the interim result
+/// - The HTTP response has `Cache-Control: no-store` and no `ETag`
+#[tokio::test]
+async fn test_input_required_result_is_not_cacheable() {
+    let req = read_request("custom://cached", json!({}));
+    let (status, headers, body) = execute_request(cached_mrtr_router(), req).await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["result"]["resultType"], "input_required");
+    assert!(body["result"].get("ttlMs").is_none());
+    assert!(body["result"].get("cacheScope").is_none());
+    assert_eq!(headers.get("cache-control").unwrap(), "no-store");
+    assert!(headers.get("etag").is_none());
+}
+
+/// Tests that the result of a multi round-trip retry is sent with `no-store` and `ttlMs: 0`.
+#[tokio::test]
+async fn test_retry_result_is_not_cacheable() {
+    let req = read_request(
+        "custom://cached",
+        json!({
+            "requestState": "cached_state",
+            "inputResponses": { "roots": { "roots": [] } }
+        }),
+    );
+    let (status, headers, body) = execute_request(cached_mrtr_router(), req).await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["result"]["resultType"], "complete");
+    assert_eq!(body["result"]["ttlMs"], 0);
+    assert_eq!(headers.get("cache-control").unwrap(), "no-store");
+    assert!(headers.get("etag").is_none());
+}
+
+/// Tests that HTTP caching directives follow the result's own `ttlMs` and `cacheScope` hints.
+#[tokio::test]
+async fn test_cache_headers_match_result_hints() {
+    let req = read_request("custom://plain", json!({}));
+    let (status, headers, body) = execute_request(cached_mrtr_router(), req).await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["result"]["ttlMs"], 30_000);
+    assert_eq!(body["result"]["cacheScope"], "private");
+    assert_eq!(
+        headers.get("cache-control").unwrap(),
+        "private, max-age=30"
     );
 }

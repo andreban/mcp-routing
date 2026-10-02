@@ -8,6 +8,7 @@ use serde_json::Value;
 
 use super::capabilities::ClientCapabilities;
 use super::info::Implementation;
+use crate::types::jsonrpc::JsonRpcRequestId;
 
 /// A progress token, used to associate progress notifications with the original request.
 ///
@@ -142,12 +143,12 @@ pub struct ResultMetaObject {
         skip_serializing_if = "Option::is_none"
     )]
     pub server_info: Option<Implementation>,
-    /// A subscription ID used to correlate notifications with a subscription stream.
+    /// The JSON-RPC ID of the `subscriptions/listen` request a notification belongs to.
     #[serde(
         rename = "io.modelcontextprotocol/subscriptionId",
         skip_serializing_if = "Option::is_none"
     )]
-    pub subscription_id: Option<String>,
+    pub subscription_id: Option<JsonRpcRequestId>,
     /// Additional metadata properties.
     #[serde(flatten, skip_serializing_if = "HashMap::is_empty")]
     pub extra: HashMap<String, Value>,
@@ -197,12 +198,12 @@ pub struct RequestMetaObject {
         skip_serializing_if = "Option::is_none"
     )]
     pub log_level: Option<LoggingLevel>,
-    /// A subscription ID used to correlate notifications with a subscription stream.
+    /// The JSON-RPC ID of the `subscriptions/listen` request a notification belongs to.
     #[serde(
         rename = "io.modelcontextprotocol/subscriptionId",
         skip_serializing_if = "Option::is_none"
     )]
-    pub subscription_id: Option<String>,
+    pub subscription_id: Option<JsonRpcRequestId>,
     /// Additional metadata properties.
     #[serde(flatten, skip_serializing_if = "HashMap::is_empty")]
     pub extra: HashMap<String, Value>,

@@ -9,6 +9,10 @@
 //! Notifications are triggered **only** when state changes actually occur (e.g. tools
 //! list modified or a specific resource edited), and are filtered so each client only
 //! receives notifications for the specific events and resource URIs they subscribed to.
+//!
+//! The server declares `tools.listChanged` and `resources.subscribe`, so a client's
+//! `toolsListChanged` and `resourceSubscriptions` requests are acknowledged. Every streamed
+//! notification carries the subscription ID in `_meta`.
 
 use std::collections::HashMap;
 use std::error::Error;
@@ -25,13 +29,14 @@ use tokio::sync::{RwLock, broadcast, mpsc};
 
 use stateless_mcp::{
     BoxError, McpRouter, ResponseBody,
-    extract::{Json, RequestContext, State},
+    extract::{Json, State, Subscription},
     format_sse_message,
     types::mcp::{
-        Implementation, NotificationSubscriptions,
+        Implementation, ServerCapabilities,
         resources::Resource,
         subscriptions::{
-            ResourceUpdatedParams, resource_updated_notification, tools_list_changed_notification,
+            ListChangedParams, ResourceUpdatedParams, resource_updated_notification,
+            tools_list_changed_notification,
         },
         tools::Tool,
     },
@@ -142,51 +147,38 @@ async fn toggle_advanced_mode(state: State<AppState>) -> Result<String, String> 
     ))
 }
 
-/// Handles `subscriptions/listen` requests, acknowledges supported filters, and spawns a
-/// filtered stream adapter so the client receives **only** notifications matching their subscription.
-async fn handle_listen(
-    _ctx: RequestContext,
-    state: State<AppState>,
-) -> Result<(NotificationSubscriptions, ResponseBody), String> {
-    // 1. Establish the filter rules for this client
-    let subscribed_filters = NotificationSubscriptions::new()
-        .with_tools_list_changed(true)
-        .with_resources_list_changed(true)
-        .with_resource_subscriptions(vec![
-            "file:///logs/app.log".to_string(),
-            "file:///config/settings.json".to_string(),
-        ]);
-
-    // 2. Set up the per-connection channel
+/// Handles `subscriptions/listen` requests by spawning a filtered stream adapter, so the client
+/// receives **only** the notification types and resource URIs the server acknowledged.
+///
+/// The [`Subscription`] extractor carries the acknowledged filter (the client's request narrowed
+/// to the server's declared capabilities) and the subscription ID used to tag each notification.
+async fn handle_listen(subscription: Subscription, state: State<AppState>) -> ResponseBody {
     let (tx, rx) = mpsc::channel::<Bytes>(100);
     let mut event_rx = state.event_tx.subscribe();
-    let client_filters = subscribed_filters.clone();
 
-    // 3. Filtered forwarding task: Only deliver events matching what this client subscribed to
+    // Filtered forwarding task: only deliver events matching the acknowledged subscription
     tokio::spawn(async move {
+        let filters = &subscription.notifications;
         while let Ok(event) = event_rx.recv().await {
             let notification_bytes = match event {
-                DomainEvent::ToolsListChanged => {
-                    if client_filters.tools_list_changed == Some(true) {
-                        let notif = tools_list_changed_notification(None);
-                        format_sse_message(&notif).ok()
-                    } else {
-                        None
-                    }
+                DomainEvent::ToolsListChanged if filters.tools_list_changed == Some(true) => {
+                    let notif = tools_list_changed_notification(Some(
+                        ListChangedParams::new().with_meta(subscription.meta()),
+                    ));
+                    format_sse_message(&notif).ok()
                 }
-                DomainEvent::ResourceUpdated(ref uri) => {
-                    let is_subscribed_uri = client_filters
+                DomainEvent::ResourceUpdated(ref uri)
+                    if filters
                         .resource_subscriptions
                         .as_ref()
-                        .is_some_and(|uris| uris.contains(uri));
-
-                    if is_subscribed_uri {
-                        let notif = resource_updated_notification(ResourceUpdatedParams::new(uri));
-                        format_sse_message(&notif).ok()
-                    } else {
-                        None
-                    }
+                        .is_some_and(|uris| uris.contains(uri)) =>
+                {
+                    let notif = resource_updated_notification(
+                        ResourceUpdatedParams::new(uri).with_meta(subscription.meta()),
+                    );
+                    format_sse_message(&notif).ok()
                 }
+                _ => None,
             };
 
             if let Some(bytes) = notification_bytes
@@ -198,8 +190,7 @@ async fn handle_listen(
         }
     });
 
-    let body = ResponseBody::new(SubscriberBody { rx });
-    Ok((subscribed_filters, body))
+    ResponseBody::new(SubscriberBody { rx })
 }
 
 #[tokio::main]
@@ -290,6 +281,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
             "MCP server demonstrating event-driven subscriptions/listen notification streams",
         )
         .with_state(app_state)
+        .capabilities(
+            ServerCapabilities::empty()
+                .with_tools(Some(true))
+                .with_resources(Some(true), None),
+        )
         .register_tool(append_tool, append_log)
         .register_tool(update_config_tool, update_config)
         .register_tool(toggle_advanced_tool, toggle_advanced_mode)

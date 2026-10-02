@@ -15,7 +15,7 @@
 //! - Built-in `resources/templates/list` resource template discovery endpoint
 //! - `resources/read` resource content retrieval endpoints (delegating to typed handlers)
 //! - `completion/complete` autocompletion endpoints (delegating to typed handlers)
-//! - JSON-RPC 2.0 batch requests and notifications
+//! - JSON-RPC 2.0 notifications
 
 mod builder;
 mod dispatch;

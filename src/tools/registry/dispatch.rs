@@ -134,7 +134,6 @@ impl ToolRegistry {
         let tool_name = match resolve_tool_name(
             ctx.header_name.as_deref(),
             params_name.as_deref(),
-            ctx.is_batch,
             "tool name",
         ) {
             Ok(name) => name,
@@ -177,7 +176,6 @@ impl ToolRegistry {
             header_params,
             arguments.as_ref(),
             ctx.headers,
-            ctx.is_batch,
         ) {
             err.id = ctx.req_id;
             return if ctx.is_notification {

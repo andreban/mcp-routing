@@ -89,8 +89,11 @@ impl McpRouter {
 
     /// Configures allowed origins for DNS rebinding protection.
     ///
-    /// When configured, incoming HTTP requests containing an `Origin` header that does not
-    /// match any of the allowed origins will be rejected with `HTTP 403 Forbidden`.
+    /// Incoming HTTP requests containing an `Origin` header that does not match any of the
+    /// allowed origins are rejected with `HTTP 403 Forbidden`. Use `"*"` to allow any origin.
+    ///
+    /// When not configured, only loopback origins (`localhost`, `127.0.0.1`, `[::1]`) are
+    /// allowed. Requests without an `Origin` header (non-browser clients) are always allowed.
     pub fn allowed_origins(mut self, origins: impl IntoIterator<Item = impl Into<String>>) -> Self {
         Arc::make_mut(&mut self.inner)
             .server

@@ -85,7 +85,7 @@ pub use completion::{
 pub use extract::{
     Authorization, BearerAuth, CurrentLoggingLevel, Extension, ExtractionError, FromRequestContext,
     InputResponses, Json, Meta, RegisteredPrompts, RegisteredResourceTemplates,
-    RegisteredResources, RegisteredTools, RequestContext, RequestState, State,
+    RegisteredResources, RegisteredTools, RequestContext, RequestState, State, Subscription,
 };
 pub use prompts::{
     IntoPromptHandler, IntoPromptResult, IntoPromptsListHandler, IntoPromptsListResult,

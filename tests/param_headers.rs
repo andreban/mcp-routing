@@ -10,7 +10,7 @@
 //! - Rejection with HTTP 400 Bad Request and error code -32020 (`HEADER_MISMATCH`) on missing or mismatched headers
 //! - RFC 2047-style Base64 sentinel decoding (`=?base64?...?=`) for parameter headers
 //! - Support for string, numeric, and boolean parameter types
-//! - Proper handling of optional parameters and batch requests
+//! - Proper handling of optional parameters
 
 mod common;
 
@@ -471,64 +471,6 @@ async fn test_param_header_provided_without_body_param_returns_mismatch() {
     assert_eq!(body["error"]["code"], HEADER_MISMATCH);
 }
 
-/// Tests that batch tool execution succeeds when top-level parameter headers are omitted.
-#[tokio::test]
-async fn test_param_header_batch_request_without_header_success() {
-    let app =
-        McpRouter::new(sample_server_info()).register_tool(file_query_tool(), handle_file_query);
-
-    // Batch requests do not enforce top-level Mcp-Param-* headers if omitted
-    let req = Request::builder()
-        .method("POST")
-        .uri("/")
-        .header("Content-Type", "application/json")
-        .header("MCP-Protocol-Version", "2026-07-28")
-        .body(Body::from(
-            json!([
-                {
-                    "jsonrpc": "2.0",
-                    "id": 10,
-                    "method": "tools/call",
-                    "params": {
-                        "_meta": common::meta(),
-                        "name": "file_query",
-                        "arguments": {
-                            "repo": "mcp-routing-1",
-                            "path": "src/lib.rs"
-                        }
-                    }
-                },
-                {
-                    "jsonrpc": "2.0",
-                    "id": 11,
-                    "method": "tools/call",
-                    "params": {
-                        "_meta": common::meta(),
-                        "name": "file_query",
-                        "arguments": {
-                            "repo": "mcp-routing-2",
-                            "path": "src/main.rs"
-                        }
-                    }
-                }
-            ])
-            .to_string(),
-        ))
-        .unwrap();
-
-    let (status, _, body) = execute_request(app, req).await;
-    assert_eq!(status, StatusCode::OK);
-    assert!(body.is_array());
-    assert_eq!(body.as_array().unwrap().len(), 2);
-    assert_eq!(
-        body[0]["result"]["content"][0]["text"],
-        "repo=mcp-routing-1, path=src/lib.rs, branch=main"
-    );
-    assert_eq!(
-        body[1]["result"]["content"][0]["text"],
-        "repo=mcp-routing-2, path=src/main.rs, branch=main"
-    );
-}
 
 #[derive(Serialize, Deserialize)]
 struct SqlParams {

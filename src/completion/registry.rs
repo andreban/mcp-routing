@@ -261,7 +261,6 @@ mod tests {
         let ctx = MethodContext {
             req_id: Some(JsonRpcRequestId::Number(1)),
             is_notification: false,
-            is_batch: false,
             header_name: None,
             headers: &headers,
             extensions,
@@ -301,7 +300,6 @@ mod tests {
         let ctx = MethodContext {
             req_id: Some(JsonRpcRequestId::Number(2)),
             is_notification: false,
-            is_batch: false,
             header_name: None,
             headers: &headers,
             extensions,
@@ -335,7 +333,6 @@ mod tests {
         let ctx = MethodContext {
             req_id: Some(JsonRpcRequestId::Number(3)),
             is_notification: false,
-            is_batch: false,
             header_name: None,
             headers: &headers,
             extensions,

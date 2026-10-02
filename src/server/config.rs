@@ -59,8 +59,8 @@ impl ServerConfig {
 
     /// Sets the list of allowed origins for DNS rebinding protection.
     ///
-    /// When configured, incoming requests with an `Origin` header that does not match
-    /// any allowed origin will be rejected with HTTP 403 Forbidden.
+    /// Incoming requests with an `Origin` header that does not match any allowed origin are
+    /// rejected with HTTP 403 Forbidden. When not configured, only loopback origins are allowed.
     pub fn set_allowed_origins(&mut self, origins: impl IntoIterator<Item = impl Into<String>>) {
         self.allowed_origins = Some(origins.into_iter().map(Into::into).collect());
     }

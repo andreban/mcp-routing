@@ -183,7 +183,7 @@ pub(crate) fn match_param_value(arg_val: &serde_json::Value, decoded_header: &st
 ///
 /// According to the MCP Streamable HTTP specification, for each `x-mcp-header` annotated parameter:
 /// - If the argument is present (and not `null`), the `Mcp-Param-{Name}` header is REQUIRED
-///   (unless `is_batch` is true) and its decoded value MUST match the argument.
+///   and its decoded value MUST match the argument.
 /// - If the argument is absent or `null`, the header MUST NOT be sent.
 ///
 /// `Mcp-Param-*` headers that do not correspond to an annotated parameter are ignored.
@@ -193,7 +193,6 @@ pub(crate) fn validate_tool_header_params(
     header_params: &[HeaderParam],
     arguments: Option<&serde_json::Value>,
     headers: &HeaderMap,
-    is_batch: bool,
 ) -> Result<(), JsonRpcErrorResponse> {
     for param in header_params {
         let name = &param.header;
@@ -214,14 +213,12 @@ pub(crate) fn validate_tool_header_params(
                 }
             }
             (Some(_), None) => {
-                if !is_batch {
-                    return Err(header_mismatch_error(
-                        req_id,
-                        format!(
-                            "Header mismatch: missing required Mcp-Param-{name} header for argument '{property}'"
-                        ),
-                    ));
-                }
+                return Err(header_mismatch_error(
+                    req_id,
+                    format!(
+                        "Header mismatch: missing required Mcp-Param-{name} header for argument '{property}'"
+                    ),
+                ));
             }
             (None, Some(h_val)) => {
                 return Err(header_mismatch_error(
@@ -391,76 +388,47 @@ mod tests {
         headers.insert("Mcp-Param-Priority", "3".parse().unwrap());
 
         // Exact match, including a nested property -> Ok
-        assert!(
-            validate_tool_header_params(None, &header_params, Some(&args), &headers, false).is_ok()
-        );
+        assert!(validate_tool_header_params(None, &header_params, Some(&args), &headers).is_ok());
 
         // Sentinel encoded match -> Ok ("acme" in base64 is "YWNtZQ==")
         let mut sentinel_headers = headers.clone();
         sentinel_headers.insert("Mcp-Param-Tenant", "=?base64?YWNtZQ==?=".parse().unwrap());
         assert!(
-            validate_tool_header_params(
-                None,
-                &header_params,
-                Some(&args),
-                &sentinel_headers,
-                false
-            )
-            .is_ok()
+            validate_tool_header_params(None, &header_params, Some(&args), &sentinel_headers)
+                .is_ok()
         );
 
         // Unrecognized Mcp-Param-* headers are ignored -> Ok
         let mut extra_headers = headers.clone();
         extra_headers.insert("Mcp-Param-Unrelated", "whatever".parse().unwrap());
         assert!(
-            validate_tool_header_params(None, &header_params, Some(&args), &extra_headers, false)
-                .is_ok()
+            validate_tool_header_params(None, &header_params, Some(&args), &extra_headers).is_ok()
         );
 
         // Value mismatch -> Err
         let mut mismatch_headers = headers.clone();
         mismatch_headers.insert("Mcp-Param-Tenant", "other".parse().unwrap());
-        let err = validate_tool_header_params(
-            None,
-            &header_params,
-            Some(&args),
-            &mismatch_headers,
-            false,
-        )
-        .unwrap_err();
+        let err = validate_tool_header_params(None, &header_params, Some(&args), &mismatch_headers)
+            .unwrap_err();
         assert_eq!(err.error.code.code(), crate::types::mcp::HEADER_MISMATCH);
 
         // Missing required header for a nested argument -> Err
         let mut missing_headers = HeaderMap::new();
         missing_headers.insert("Mcp-Param-Tenant", "acme".parse().unwrap());
-        let err =
-            validate_tool_header_params(None, &header_params, Some(&args), &missing_headers, false)
-                .unwrap_err();
+        let err = validate_tool_header_params(None, &header_params, Some(&args), &missing_headers)
+            .unwrap_err();
         assert_eq!(err.error.code.code(), crate::types::mcp::HEADER_MISMATCH);
 
         // Header provided but argument absent from body -> Err
         let partial_args = json!({ "tenant_id": "acme" });
-        let err =
-            validate_tool_header_params(None, &header_params, Some(&partial_args), &headers, false)
-                .unwrap_err();
+        let err = validate_tool_header_params(None, &header_params, Some(&partial_args), &headers)
+            .unwrap_err();
         assert_eq!(err.error.code.code(), crate::types::mcp::HEADER_MISMATCH);
 
         // Null argument and no header -> Ok
         let null_args = json!({ "tenant_id": null });
         assert!(
-            validate_tool_header_params(
-                None,
-                &header_params,
-                Some(&null_args),
-                &HeaderMap::new(),
-                false
-            )
-            .is_ok()
-        );
-
-        // In batch mode, missing header is allowed if not sent on HTTP request
-        assert!(
-            validate_tool_header_params(None, &header_params, Some(&args), &HeaderMap::new(), true)
+            validate_tool_header_params(None, &header_params, Some(&null_args), &HeaderMap::new())
                 .is_ok()
         );
     }

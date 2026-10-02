@@ -7,20 +7,19 @@
 
 use std::pin::Pin;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::task::{Context, Poll};
 
 use bytes::Bytes;
 
 use crate::body::{BoxError, ResponseBody};
-use crate::extract::RequestContext;
+use crate::extract::{RequestContext, Subscription};
 use crate::router::{DispatchOutcome, MethodContext};
 use crate::subscriptions::handler::{
     IntoSubscriptionsListenHandler, SubscriptionsListenHandler, SubscriptionsListenOutcome,
 };
-use crate::types::jsonrpc::JsonRpcErrorResponse;
+use crate::types::jsonrpc::{JsonRpcErrorResponse, JsonRpcResultResponse};
 use crate::types::mcp::{
-    RequestMetaObject,
+    RequestMetaObject, ResultMetaObject,
     subscriptions::{
         NotificationSubscriptions, SubscriptionsAcknowledgedParams, SubscriptionsListenParams,
         subscriptions_acknowledged_notification,
@@ -28,20 +27,15 @@ use crate::types::mcp::{
 };
 use crate::utils::format_sse_message;
 
-static SUBSCRIPTION_COUNTER: AtomicU64 = AtomicU64::new(1);
-
-/// Generates a unique subscription ID string.
-fn next_subscription_id() -> String {
-    let id = SUBSCRIPTION_COUNTER.fetch_add(1, Ordering::Relaxed);
-    format!("sub-{id}")
+/// SSE body emitting the acknowledgment, then the optional notification stream, then the
+/// graceful-closure response once the notification stream ends.
+struct SubscriptionBody {
+    acknowledgment: Option<Bytes>,
+    notifications: Option<ResponseBody>,
+    closure: Option<Bytes>,
 }
 
-struct ChainedBody {
-    first: Option<Bytes>,
-    second: ResponseBody,
-}
-
-impl http_body::Body for ChainedBody {
+impl http_body::Body for SubscriptionBody {
     type Data = Bytes;
     type Error = BoxError;
 
@@ -49,18 +43,24 @@ impl http_body::Body for ChainedBody {
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
     ) -> Poll<Option<Result<http_body::Frame<Self::Data>, Self::Error>>> {
-        if let Some(first_bytes) = self.first.take() {
-            return Poll::Ready(Some(Ok(http_body::Frame::data(first_bytes))));
+        if let Some(bytes) = self.acknowledgment.take() {
+            return Poll::Ready(Some(Ok(http_body::Frame::data(bytes))));
         }
-        Pin::new(&mut self.second).poll_frame(cx)
+        if let Some(notifications) = self.notifications.as_mut() {
+            match Pin::new(notifications).poll_frame(cx) {
+                Poll::Ready(None) => self.notifications = None,
+                other => return other,
+            }
+        }
+        Poll::Ready(
+            self.closure
+                .take()
+                .map(|bytes| Ok(http_body::Frame::data(bytes))),
+        )
     }
 
     fn is_end_stream(&self) -> bool {
-        self.first.is_none() && self.second.is_end_stream()
-    }
-
-    fn size_hint(&self) -> http_body::SizeHint {
-        self.second.size_hint()
+        self.acknowledgment.is_none() && self.notifications.is_none() && self.closure.is_none()
     }
 }
 
@@ -112,11 +112,12 @@ impl SubscriptionsRegistry {
             None => SubscriptionsListenParams::default(),
         };
 
-        let sub_id = params
-            .meta
-            .as_ref()
-            .and_then(|m| m.subscription_id.clone())
-            .unwrap_or_else(next_subscription_id);
+        let Some(sub_id) = ctx.req_id.clone() else {
+            return DispatchOutcome::error(JsonRpcErrorResponse::invalid_request(
+                None,
+                "Invalid Request: subscriptions/listen requires a request id",
+            ));
+        };
 
         let mut ack_notifications = NotificationSubscriptions::default();
         if let Some(ref req_subs) = params.notifications {
@@ -142,12 +143,20 @@ impl SubscriptionsRegistry {
         }
 
         let mut ack_meta = RequestMetaObject::empty();
-        ack_meta.subscription_id = Some(sub_id);
+        ack_meta.subscription_id = Some(sub_id.clone());
         let base_ack = SubscriptionsAcknowledgedParams::new(ack_notifications).with_meta(ack_meta);
 
         let outcome = if let Some(ref handler) = self.listen_handler {
-            let request_ctx =
-                RequestContext::new(params.meta.clone(), ctx.headers.clone(), ctx.extensions);
+            let mut extensions = (*ctx.extensions).clone();
+            extensions.insert(Subscription {
+                id: sub_id.clone(),
+                notifications: base_ack.notifications.clone(),
+            });
+            let request_ctx = RequestContext::new(
+                params.meta.clone(),
+                ctx.headers.clone(),
+                Arc::new(extensions),
+            );
             match handler.call(request_ctx, params, base_ack).await {
                 Ok(res) => res,
                 Err(err) => return DispatchOutcome::error(err.into_error_response(ctx.req_id)),
@@ -170,14 +179,27 @@ impl SubscriptionsRegistry {
             }
         };
 
-        let body = if let Some(stream_body) = outcome.stream_body {
-            ResponseBody::new(ChainedBody {
-                first: Some(sse_bytes),
-                second: stream_body,
-            })
-        } else {
-            ResponseBody::from_bytes(sse_bytes)
+        let mut closure_meta = ResultMetaObject::new(None);
+        closure_meta.subscription_id = Some(sub_id.clone());
+        let closure = JsonRpcResultResponse::new(
+            sub_id,
+            serde_json::json!({ "resultType": "complete", "_meta": closure_meta }),
+        );
+        let closure_bytes = match format_sse_message(&closure) {
+            Ok(b) => b,
+            Err(err) => {
+                return DispatchOutcome::error(JsonRpcErrorResponse::internal_error(
+                    ctx.req_id,
+                    format!("Failed to serialize subscription closure: {err}"),
+                ));
+            }
         };
+
+        let body = ResponseBody::new(SubscriptionBody {
+            acknowledgment: Some(sse_bytes),
+            notifications: outcome.stream_body,
+            closure: Some(closure_bytes),
+        });
 
         DispatchOutcome::sse_stream(body)
     }

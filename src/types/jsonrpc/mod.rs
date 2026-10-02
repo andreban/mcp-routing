@@ -1,7 +1,6 @@
 // Copyright 2026 André Cipriani Bandarra
 // SPDX-License-Identifier: Apache-2.0
 
-mod batch;
 mod error;
 mod notification;
 mod request;
@@ -11,7 +10,6 @@ use std::{borrow::Cow, fmt::Debug};
 
 use serde::{Deserialize, Serialize};
 
-pub use batch::{JsonRpcBatchRequest, JsonRpcBatchResponse, JsonRpcPayload};
 pub use error::{
     INTERNAL_ERROR_CODE, INVALID_PARAMS_CODE, INVALID_REQUEST_CODE, JsonRpcError, JsonRpcErrorCode,
     METHOD_NOT_FOUND_CODE, PARSE_ERROR_CODE,

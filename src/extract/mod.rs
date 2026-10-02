@@ -16,6 +16,7 @@ pub mod meta;
 pub mod mrtr;
 pub mod registered;
 pub mod state;
+pub mod subscription;
 pub mod traits;
 
 pub use auth::{Authorization, BearerAuth};
@@ -29,6 +30,7 @@ pub use registered::{
     RegisteredPrompts, RegisteredResourceTemplates, RegisteredResources, RegisteredTools,
 };
 pub use state::{Extension, State};
+pub use subscription::Subscription;
 pub use traits::FromRequestContext;
 
 #[cfg(test)]

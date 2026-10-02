@@ -7,6 +7,7 @@
 //! - The acknowledgment and closure carry the listen request's JSON-RPC ID as `subscriptionId`
 //! - Only notification types backed by a declared capability are acknowledged
 //! - The stream ends with a graceful `resultType: "complete"` response
+//! - Handlers receive the subscription ID and acknowledged filter via the `Subscription` extractor
 
 mod common;
 
@@ -18,8 +19,14 @@ use tower::ServiceExt;
 
 use stateless_mcp::{
     McpRouter,
-    extract::{BearerAuth, State},
-    types::mcp::{NotificationSubscriptions, ServerCapabilities, resources::Resource},
+    ResponseBody,
+    extract::{BearerAuth, State, Subscription},
+    format_sse_message,
+    types::mcp::{
+        NotificationSubscriptions, ServerCapabilities,
+        resources::Resource,
+        subscriptions::{ListChangedParams, tools_list_changed_notification},
+    },
 };
 
 use common::sample_server_info;
@@ -312,4 +319,47 @@ async fn test_subscriptions_listen_uses_request_id_as_subscription_id() {
         messages[0]["params"]["_meta"]["io.modelcontextprotocol/subscriptionId"],
         42
     );
+}
+
+/// Tests that a listen handler receives the subscription ID and acknowledged filter via [`Subscription`].
+///
+/// Verifies:
+/// - `Subscription::notifications` reflects the acknowledged (capability-filtered) types
+/// - Notifications tagged with `Subscription::meta()` carry the request ID as `subscriptionId`
+/// - The handler's stream is followed by the graceful closure response
+#[tokio::test]
+async fn test_subscriptions_listen_handler_receives_subscription() {
+    let app = McpRouter::new(sample_server_info())
+        .capabilities(ServerCapabilities::empty().with_tools(Some(true)))
+        .subscriptions_listen(|subscription: Subscription| async move {
+            assert_eq!(subscription.notifications.tools_list_changed, Some(true));
+            assert_eq!(subscription.notifications.prompts_list_changed, None);
+            let notif = tools_list_changed_notification(Some(
+                ListChangedParams::new().with_meta(subscription.meta()),
+            ));
+            ResponseBody::from_bytes(format_sse_message(&notif).unwrap())
+        });
+
+    let messages = listen(
+        app,
+        json!({
+            "jsonrpc": "2.0",
+            "id": "listen-9",
+            "method": "subscriptions/listen",
+            "params": {
+                "_meta": common::meta(),
+                "notifications": { "toolsListChanged": true, "promptsListChanged": true }
+            }
+        }),
+    )
+    .await;
+
+    assert_eq!(messages.len(), 3);
+    assert_eq!(messages[1]["method"], "notifications/tools/list_changed");
+    assert_eq!(
+        messages[1]["params"]["_meta"]["io.modelcontextprotocol/subscriptionId"],
+        "listen-9"
+    );
+    assert_eq!(messages[2]["id"], "listen-9");
+    assert_eq!(messages[2]["result"]["resultType"], "complete");
 }

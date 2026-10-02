@@ -12,7 +12,7 @@ use std::task::{Context, Poll};
 use bytes::Bytes;
 
 use crate::body::{BoxError, ResponseBody};
-use crate::extract::RequestContext;
+use crate::extract::{RequestContext, Subscription};
 use crate::router::{DispatchOutcome, MethodContext};
 use crate::subscriptions::handler::{
     IntoSubscriptionsListenHandler, SubscriptionsListenHandler, SubscriptionsListenOutcome,
@@ -147,8 +147,16 @@ impl SubscriptionsRegistry {
         let base_ack = SubscriptionsAcknowledgedParams::new(ack_notifications).with_meta(ack_meta);
 
         let outcome = if let Some(ref handler) = self.listen_handler {
-            let request_ctx =
-                RequestContext::new(params.meta.clone(), ctx.headers.clone(), ctx.extensions);
+            let mut extensions = (*ctx.extensions).clone();
+            extensions.insert(Subscription {
+                id: sub_id.clone(),
+                notifications: base_ack.notifications.clone(),
+            });
+            let request_ctx = RequestContext::new(
+                params.meta.clone(),
+                ctx.headers.clone(),
+                Arc::new(extensions),
+            );
             match handler.call(request_ctx, params, base_ack).await {
                 Ok(res) => res,
                 Err(err) => return DispatchOutcome::error(err.into_error_response(ctx.req_id)),

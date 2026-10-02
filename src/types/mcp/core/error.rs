@@ -387,7 +387,10 @@ mod tests {
             "Missing elicitation capability",
             ClientCapabilities {
                 experimental: None,
-                elicitation: Some(crate::types::mcp::ElicitationCapability {}),
+                elicitation: Some(crate::types::mcp::ElicitationCapability {
+                    form: None,
+                    url: None,
+                }),
                 extensions: None,
             },
         );
@@ -426,7 +429,10 @@ mod tests {
             "Missing capability",
             ClientCapabilities {
                 experimental: None,
-                elicitation: Some(crate::types::mcp::ElicitationCapability {}),
+                elicitation: Some(crate::types::mcp::ElicitationCapability {
+                    form: None,
+                    url: None,
+                }),
                 extensions: None,
             },
         );
@@ -475,7 +481,10 @@ mod tests {
     fn test_missing_required_client_capability_data_helpers() {
         let data = MissingRequiredClientCapabilityData::new(ClientCapabilities {
             experimental: None,
-            elicitation: Some(crate::types::mcp::ElicitationCapability {}),
+            elicitation: Some(crate::types::mcp::ElicitationCapability {
+                form: None,
+                url: None,
+            }),
             extensions: None,
         });
 

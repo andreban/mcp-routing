@@ -9,6 +9,7 @@
 //! - Load-shedding patterns via `InputRequiredResult::load_shed`
 //! - Result tagging (`resultType: complete` vs `resultType: input_required`)
 //! - Caching rules: `input_required` and retry results carry `Cache-Control: no-store`
+//! - Input requests require the client to declare the matching capability (`-32021` otherwise)
 //! - Multi-round-trip flows across `tools/call`, `prompts/get`, `resources/read`, and `completion/complete`
 
 mod common;
@@ -27,6 +28,13 @@ use stateless_mcp::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+
+/// Returns request `_meta` declaring the `elicitation` client capability (form mode).
+fn elicitation_meta() -> serde_json::Value {
+    let mut meta = common::meta();
+    meta["io.modelcontextprotocol/clientCapabilities"] = json!({ "elicitation": {} });
+    meta
+}
 
 #[derive(Serialize, Deserialize)]
 struct ConfirmationResponse {
@@ -107,7 +115,7 @@ async fn test_tool_call_multi_round_trip_elicitation() {
             "id": 1,
             "method": "tools/call",
             "params": {
-                "_meta": common::meta(),
+                "_meta": elicitation_meta(),
                 "name": "dangerous_exec",
                 "arguments": { "action": "wipe_cache" }
             }
@@ -132,7 +140,7 @@ async fn test_tool_call_multi_round_trip_elicitation() {
             "id": 2,
             "method": "tools/call",
             "params": {
-                "_meta": common::meta(),
+                "_meta": elicitation_meta(),
                 "name": "dangerous_exec",
                 "arguments": { "action": "wipe_cache" },
                 "requestState": "step_1_confirmation",
@@ -212,7 +220,7 @@ async fn test_tool_call_mrtr_with_extractors() {
             "id": 10,
             "method": "tools/call",
             "params": {
-                "_meta": common::meta(),
+                "_meta": elicitation_meta(),
                 "name": "multi_step",
                 "arguments": {}
             }
@@ -237,7 +245,7 @@ async fn test_tool_call_mrtr_with_extractors() {
             "id": 11,
             "method": "tools/call",
             "params": {
-                "_meta": common::meta(),
+                "_meta": elicitation_meta(),
                 "name": "multi_step",
                 "arguments": {},
                 "requestState": "step_token_abc",
@@ -295,7 +303,7 @@ async fn test_load_shedding_mrtr() {
             "id": 20,
             "method": "tools/call",
             "params": {
-                "_meta": common::meta(),
+                "_meta": elicitation_meta(),
                 "name": "busy_tool",
                 "arguments": {}
             }
@@ -317,7 +325,7 @@ async fn test_load_shedding_mrtr() {
             "id": 21,
             "method": "tools/call",
             "params": {
-                "_meta": common::meta(),
+                "_meta": elicitation_meta(),
                 "name": "busy_tool",
                 "arguments": {},
                 "requestState": "ticket_shed_888"
@@ -352,7 +360,7 @@ async fn test_completion_complete_result_type() {
             "id": 30,
             "method": "completion/complete",
             "params": {
-                "_meta": common::meta(),
+                "_meta": elicitation_meta(),
                 "ref": {
                     "type": "ref/prompt",
                     "name": "generate_code"
@@ -422,7 +430,7 @@ async fn test_prompts_get_mrtr() {
             "id": 40,
             "method": "prompts/get",
             "params": {
-                "_meta": common::meta(),
+                "_meta": elicitation_meta(),
                 "name": "interactive_prompt"
             }
         }),
@@ -443,7 +451,7 @@ async fn test_prompts_get_mrtr() {
             "id": 41,
             "method": "prompts/get",
             "params": {
-                "_meta": common::meta(),
+                "_meta": elicitation_meta(),
                 "name": "interactive_prompt",
                 "requestState": "prompt_state_1",
                 "inputResponses": {
@@ -516,7 +524,7 @@ async fn test_resources_read_mrtr() {
                 "id": 50,
                 "method": "resources/read",
                 "params": {
-                    "_meta": common::meta(),
+                    "_meta": elicitation_meta(),
                     "uri": "custom://secure-data"
                 }
             })
@@ -548,7 +556,7 @@ async fn test_resources_read_mrtr() {
                 "id": 51,
                 "method": "resources/read",
                 "params": {
-                    "_meta": common::meta(),
+                    "_meta": elicitation_meta(),
                     "uri": "custom://secure-data",
                     "requestState": "resource_auth_token_99",
                     "inputResponses": {
@@ -606,7 +614,7 @@ fn cached_mrtr_router() -> McpRouter {
 
 /// Builds a `resources/read` request for `uri` with optional extra params.
 fn read_request(uri: &str, extra: serde_json::Value) -> Request<axum::body::Body> {
-    let mut params = json!({ "_meta": common::meta(), "uri": uri });
+    let mut params = json!({ "_meta": elicitation_meta(), "uri": uri });
     if let Some(extra) = extra.as_object() {
         for (key, value) in extra {
             params[key] = value.clone();
@@ -669,4 +677,80 @@ async fn test_cache_headers_match_result_hints() {
         headers.get("cache-control").unwrap(),
         "private, max-age=30"
     );
+}
+
+/// Builds a router whose tool always requests a `mode` elicitation.
+fn elicitation_tool_router(mode: &'static str) -> McpRouter {
+    let tool = Tool::new("needs_input");
+    McpRouter::new(sample_server_info()).register_tool(tool, move || async move {
+        InputRequiredResult::new()
+            .with_request_state("state")
+            .with_input_request(
+                "ask",
+                InputRequest::elicitation(&json!({ "mode": mode, "message": "Need input" }))
+                    .unwrap(),
+            )
+            .into_tool_result()
+    })
+}
+
+/// Calls the `needs_input` tool with the given client capabilities.
+async fn call_needs_input(
+    router: McpRouter,
+    client_capabilities: serde_json::Value,
+) -> (StatusCode, serde_json::Value) {
+    let mut meta = common::meta();
+    meta["io.modelcontextprotocol/clientCapabilities"] = client_capabilities;
+    let req = build_request(
+        Some("tools/call"),
+        Some("needs_input"),
+        json!({
+            "jsonrpc": "2.0",
+            "id": 70,
+            "method": "tools/call",
+            "params": { "_meta": meta, "name": "needs_input", "arguments": {} }
+        }),
+    );
+    let (status, _, body) = execute_request(router, req).await;
+    (status, body)
+}
+
+/// Tests that an elicitation input request is rejected with `-32021` when the client did not
+/// declare the `elicitation` capability.
+#[tokio::test]
+async fn test_elicitation_without_client_capability_is_rejected() {
+    let (status, body) = call_needs_input(elicitation_tool_router("form"), json!({})).await;
+
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert_eq!(body["id"], 70);
+    assert_eq!(body["error"]["code"], -32021);
+    assert_eq!(
+        body["error"]["data"]["requiredCapabilities"],
+        json!({ "elicitation": { "form": {} } })
+    );
+}
+
+/// Tests elicitation mode checks against the declared capability.
+///
+/// Verifies:
+/// - `url` mode is rejected when the client declares `elicitation: {}` (form only)
+/// - `url` mode is allowed when the client declares `elicitation: { url: {} }`
+#[tokio::test]
+async fn test_elicitation_mode_must_be_declared() {
+    let (status, body) =
+        call_needs_input(elicitation_tool_router("url"), json!({ "elicitation": {} })).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert_eq!(body["error"]["code"], -32021);
+    assert_eq!(
+        body["error"]["data"]["requiredCapabilities"],
+        json!({ "elicitation": { "url": {} } })
+    );
+
+    let (status, body) = call_needs_input(
+        elicitation_tool_router("url"),
+        json!({ "elicitation": { "url": {} } }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["result"]["resultType"], "input_required");
 }

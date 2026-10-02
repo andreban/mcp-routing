@@ -12,35 +12,12 @@ use crate::utils::{
 };
 
 impl McpRouterInner {
-    /// Dispatches a single item within a JSON-RPC batch array.
-    pub(crate) async fn dispatch_item(
-        &self,
-        item: serde_json::Value,
-        headers: &http::HeaderMap,
-        extensions: Arc<http::Extensions>,
-    ) -> Option<serde_json::Value> {
-        match item {
-            serde_json::Value::Object(map) => {
-                let outcome = self.dispatch_object(map, headers, extensions, true).await;
-                outcome.response
-            }
-            _ => {
-                let err = JsonRpcErrorResponse::invalid_request(
-                    None,
-                    "Invalid Request: expected object in batch array",
-                );
-                serde_json::to_value(err).ok()
-            }
-        }
-    }
-
     /// Dispatches a JSON-RPC object request or notification to the appropriate capability handler.
     pub(crate) async fn dispatch_object(
         &self,
         mut map: serde_json::Map<String, serde_json::Value>,
         headers: &http::HeaderMap,
         extensions: Arc<http::Extensions>,
-        is_batch: bool,
     ) -> DispatchOutcome {
         let (req_id, is_notification) = match map.remove("id") {
             None => (None, true),
@@ -102,7 +79,7 @@ impl McpRouterInner {
         };
 
         let header_method = extract_header_method(headers);
-        let method = match resolve_method(header_method, method_opt.as_deref(), is_batch) {
+        let method = match resolve_method(header_method, method_opt.as_deref()) {
             Ok(m) => m,
             Err(mut err) => {
                 err.id = req_id;
@@ -111,6 +88,10 @@ impl McpRouterInner {
         };
 
         let params_val = map.remove("params");
+        let is_retry = params_val
+            .as_ref()
+            .and_then(|p| p.as_object())
+            .is_some_and(|p| p.contains_key("requestState") || p.contains_key("inputResponses"));
 
         if !is_notification && let Err(reason) = validate_required_request_meta(params_val.as_ref())
         {
@@ -151,13 +132,12 @@ impl McpRouterInner {
         let ctx = MethodContext {
             req_id,
             is_notification,
-            is_batch,
             header_name,
             headers,
             extensions,
         };
 
-        match method {
+        let mut outcome = match method {
             "server/discover" => self.server.dispatch_discover(ctx, params_val).await,
             "tools/list" => self.tools.dispatch_list(ctx, params_val).await,
             "tools/call" => self.tools.dispatch_call(ctx, params_val).await,
@@ -178,27 +158,37 @@ impl McpRouterInner {
                     .tools
                     .as_ref()
                     .and_then(|t| t.list_changed)
-                    .unwrap_or(true);
+                    .unwrap_or(false);
                 let prompts_list_changed = self
                     .server
                     .capabilities
                     .prompts
                     .as_ref()
                     .and_then(|p| p.list_changed)
-                    .unwrap_or(true);
+                    .unwrap_or(false);
                 let resources_list_changed = self
                     .server
                     .capabilities
                     .resources
                     .as_ref()
                     .and_then(|r| r.list_changed)
-                    .unwrap_or(true);
-                let known_resources: Vec<String> = self
+                    .unwrap_or(false);
+                let resources_subscribe = self
+                    .server
+                    .capabilities
                     .resources
-                    .resources
-                    .iter()
-                    .map(|r| r.uri.clone())
-                    .collect();
+                    .as_ref()
+                    .and_then(|r| r.subscribe)
+                    .unwrap_or(false);
+                let known_resources: Vec<String> = if resources_subscribe {
+                    self.resources
+                        .resources
+                        .iter()
+                        .map(|r| r.uri.clone())
+                        .collect()
+                } else {
+                    Vec::new()
+                };
                 self.subscriptions
                     .dispatch_listen(
                         ctx,
@@ -221,6 +211,8 @@ impl McpRouterInner {
                     ))
                 }
             }
-        }
+        };
+        outcome.apply_cache_policy(is_retry);
+        outcome
     }
 }

@@ -10,7 +10,7 @@
 //! - Rejecting blank or whitespace-only `Origin` headers (`403 Forbidden`)
 //! - Permitting wildcard `"*"` origin matching
 //! - Permitting requests without `Origin` headers (non-browser clients)
-//! - Permissive default behavior when `allowed_origins` is unconfigured
+//! - Loopback-only default when `allowed_origins` is unconfigured
 
 mod common;
 
@@ -121,16 +121,35 @@ async fn test_origin_missing_when_allowed_origins_configured_allows_non_browser(
     assert_eq!(body["result"]["content"][0]["text"], "hello world");
 }
 
-/// Tests that when `allowed_origins` is not configured, any request passes origin validation.
+/// Tests that when `allowed_origins` is not configured, non-loopback origins are rejected with `403 Forbidden`.
 #[tokio::test]
-async fn test_origin_not_configured_allows_any_origin() {
+async fn test_origin_not_configured_rejects_remote_origin() {
     let app = McpRouter::new(common::sample_server_info()).register_tool("echo", echo_tool);
 
     let req = build_origin_request(Some("http://some-origin.com"));
     let (status, _, body) = common::execute_request(app, req).await;
 
-    assert_eq!(status, StatusCode::OK);
-    assert_eq!(body["result"]["content"][0]["text"], "hello world");
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    assert!(body.is_null());
+}
+
+/// Tests that when `allowed_origins` is not configured, loopback origins and requests without `Origin` are allowed.
+#[tokio::test]
+async fn test_origin_not_configured_allows_loopback_and_missing_origin() {
+    for origin in [
+        Some("http://localhost:3000"),
+        Some("http://127.0.0.1:8080"),
+        Some("http://[::1]:3000"),
+        None,
+    ] {
+        let app = McpRouter::new(common::sample_server_info()).register_tool("echo", echo_tool);
+
+        let req = build_origin_request(origin);
+        let (status, _, body) = common::execute_request(app, req).await;
+
+        assert_eq!(status, StatusCode::OK, "origin: {origin:?}");
+        assert_eq!(body["result"]["content"][0]["text"], "hello world");
+    }
 }
 
 /// Tests that blank or whitespace-only `Origin` headers are rejected with `403 Forbidden` when `allowed_origins` is set.

@@ -265,7 +265,7 @@ mod tests {
     #[test]
     fn test_subscriptions_acknowledged_notification() {
         let mut meta = RequestMetaObject::empty();
-        meta.subscription_id = Some("sub-12345".to_string());
+        meta.subscription_id = Some("sub-12345".into());
 
         let params = SubscriptionsAcknowledgedParams::new(
             NotificationSubscriptions::new().with_tools_list_changed(true),
@@ -288,7 +288,7 @@ mod tests {
     #[test]
     fn test_resource_updated_notification() {
         let mut meta = RequestMetaObject::empty();
-        meta.subscription_id = Some("sub-abc".to_string());
+        meta.subscription_id = Some("sub-abc".into());
 
         let params = ResourceUpdatedParams::new("sqlite://data.db/tables").with_meta(meta);
         let notif = resource_updated_notification(params);
@@ -306,7 +306,7 @@ mod tests {
     #[test]
     fn test_list_changed_notifications() {
         let mut meta = RequestMetaObject::empty();
-        meta.subscription_id = Some("sub-999".to_string());
+        meta.subscription_id = Some("sub-999".into());
 
         let tools_notif =
             tools_list_changed_notification(Some(ListChangedParams::new().with_meta(meta.clone())));

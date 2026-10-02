@@ -135,7 +135,6 @@ impl PromptRegistry {
         let prompt_name = match resolve_prompt_name(
             ctx.header_name.as_deref(),
             params_name.as_deref(),
-            ctx.is_batch,
             "prompt name",
         ) {
             Ok(name) => name,

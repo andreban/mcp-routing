@@ -209,6 +209,18 @@ pub(crate) fn json_response_with_status<T: serde::Serialize>(
     }
 }
 
+/// Helper function to construct a JSON response with status 200 OK and `Cache-Control: no-store`.
+pub(crate) fn json_response_no_store<T: serde::Serialize>(val: &T) -> Response<ResponseBody> {
+    let mut response = json_response(val);
+    if response.status() == StatusCode::OK {
+        response.headers_mut().insert(
+            header::CACHE_CONTROL,
+            header::HeaderValue::from_static("no-store"),
+        );
+    }
+    response
+}
+
 /// Helper function to construct a JSON response with status 200 OK, ETag, and optional Cache-Control headers.
 pub(crate) fn json_response_with_caching<T: serde::Serialize>(
     val: &T,

@@ -16,7 +16,7 @@ A [Tower](https://crates.io/crates/tower)-native routing library for building [M
 - **Dynamic Providers**: Dynamically generate or filter discovery metadata, tools, prompts, resources, and templates per request.
 - **Input Pre-Validation**: Pre-compiled JSON Schema validation for tool arguments prior to deserialization.
 - **HTTP Caching Directives**: Automatic generation of `Cache-Control` (`public`/`private`, `max-age`) and `ETag` headers based on metadata `ttl_ms` and `cache_scope`.
-- **JSON-RPC 2.0 Batches & Notifications**: Full support for concurrent batch request processing and notifications returning HTTP 204 No Content.
+- **Single-Message Framing & Notifications**: One JSON-RPC message per POST as required by Streamable HTTP (batch arrays are rejected with `-32600`); notifications return HTTP 202 Accepted.
 - **Zero Framework Lock-in**: Usable with Axum, Hyper, or any Tower-compatible server stack.
 
 ## Installation

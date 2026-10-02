@@ -1357,33 +1357,3 @@ async fn test_mcp_router_mcp_uri_mismatch_for_resources_read() {
     );
 }
 
-/// Tests batch request handling with individual body methods when Mcp-Method header is omitted on the HTTP request.
-#[tokio::test]
-async fn test_mcp_router_batch_request_without_header_method() {
-    let app = McpRouter::new(test_server_info())
-        .instructions("Batch test")
-        .register_tool("echo", mock_handler);
-
-    let req = Request::builder()
-        .method("POST")
-        .uri("/")
-        .header("Content-Type", "application/json")
-        .header("MCP-Protocol-Version", "2026-07-28")
-        .body(Body::from(
-            json!([
-                { "id": 1, "method": "server/discover", "params": { "_meta": common::meta() } },
-                { "id": 2, "method": "tools/list", "params": { "_meta": common::meta() } }
-            ])
-            .to_string(),
-        ))
-        .unwrap();
-
-    let resp = app.oneshot(req).await.unwrap();
-    assert_eq!(resp.status(), StatusCode::OK);
-
-    let bytes = resp.into_body().collect().await.unwrap().to_bytes();
-    let batch_res: Vec<serde_json::Value> = serde_json::from_slice(&bytes).unwrap();
-    assert_eq!(batch_res.len(), 2);
-    assert_eq!(batch_res[0]["id"], 1.0);
-    assert_eq!(batch_res[1]["id"], 2.0);
-}

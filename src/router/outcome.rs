@@ -18,6 +18,7 @@ pub(crate) struct DispatchOutcome {
     pub(crate) ttl_ms: Option<u64>,
     pub(crate) cache_scope: Option<CacheScope>,
     pub(crate) has_cache_headers: bool,
+    pub(crate) no_store: bool,
     pub(crate) status_code: StatusCode,
 }
 
@@ -33,6 +34,7 @@ impl DispatchOutcome {
             ttl_ms,
             cache_scope,
             has_cache_headers: true,
+            no_store: false,
             status_code: StatusCode::OK,
         }
     }
@@ -45,6 +47,7 @@ impl DispatchOutcome {
             ttl_ms: None,
             cache_scope: None,
             has_cache_headers: false,
+            no_store: false,
             status_code,
         }
     }
@@ -56,6 +59,7 @@ impl DispatchOutcome {
             ttl_ms: None,
             cache_scope: None,
             has_cache_headers: false,
+            no_store: false,
             status_code: StatusCode::ACCEPTED,
         }
     }
@@ -67,7 +71,49 @@ impl DispatchOutcome {
             ttl_ms: None,
             cache_scope: None,
             has_cache_headers: false,
+            no_store: false,
             status_code: StatusCode::OK,
+        }
+    }
+
+    /// Applies the MCP caching rules to a successful result.
+    ///
+    /// - `input_required` results are not cacheable: their `ttlMs` and `cacheScope` hints are
+    ///   removed and the response is marked `no-store`.
+    /// - Results of multi round-trip retries (requests carrying `requestState` or
+    ///   `inputResponses`) must not be cached: `ttlMs` is set to `0` and the response is marked
+    ///   `no-store`.
+    /// - Otherwise, HTTP caching directives are taken from the result's own `ttlMs` and
+    ///   `cacheScope` hints when present, so the body and headers never disagree.
+    pub(crate) fn apply_cache_policy(&mut self, is_retry: bool) {
+        let Some(result) = self
+            .response
+            .as_mut()
+            .and_then(|r| r.get_mut("result"))
+            .and_then(|r| r.as_object_mut())
+        else {
+            return;
+        };
+
+        if result.get("resultType").and_then(|v| v.as_str()) == Some("input_required") {
+            result.remove("ttlMs");
+            result.remove("cacheScope");
+            self.no_store = true;
+        } else if is_retry {
+            if result.contains_key("ttlMs") {
+                result.insert("ttlMs".to_string(), 0.into());
+            }
+            self.no_store = true;
+        } else if self.has_cache_headers {
+            if let Some(ttl_ms) = result.get("ttlMs").and_then(|v| v.as_u64()) {
+                self.ttl_ms = Some(ttl_ms);
+            }
+            if let Some(scope) = result
+                .get("cacheScope")
+                .and_then(|v| serde_json::from_value(v.clone()).ok())
+            {
+                self.cache_scope = Some(scope);
+            }
         }
     }
 }
@@ -76,7 +122,6 @@ impl DispatchOutcome {
 pub(crate) struct MethodContext<'a> {
     pub(crate) req_id: Option<JsonRpcRequestId>,
     pub(crate) is_notification: bool,
-    pub(crate) is_batch: bool,
     pub(crate) header_name: Option<Cow<'a, str>>,
     pub(crate) headers: &'a http::HeaderMap,
     pub(crate) extensions: Arc<http::Extensions>,

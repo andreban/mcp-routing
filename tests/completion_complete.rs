@@ -481,51 +481,6 @@ async fn test_completion_invalid_params() {
     assert_eq!(body2["error"]["code"], -32602);
 }
 
-/// Tests batch execution of multiple `completion/complete` requests in a single JSON-RPC batch.
-#[tokio::test]
-async fn test_completion_batch_request() {
-    let mut router = create_base_router().register_prompt_arg_completion(
-        "batch_prompt",
-        "arg",
-        |arg: CompleteArgument| async move { vec![format!("res_{}", arg.value)] },
-    );
-
-    let batch_payload = serde_json::json!([
-        {
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "completion/complete",
-            "params": {
-                "_meta": common::meta(),
-                "ref": { "type": "ref/prompt", "name": "batch_prompt" },
-                "argument": { "name": "arg", "value": "first" }
-            }
-        },
-        {
-            "jsonrpc": "2.0",
-            "id": 2,
-            "method": "completion/complete",
-            "params": {
-                "_meta": common::meta(),
-                "ref": { "type": "ref/prompt", "name": "batch_prompt" },
-                "argument": { "name": "arg", "value": "second" }
-            }
-        }
-    ]);
-
-    let (status, body, _) = send_mcp_request(&mut router, batch_payload, None).await;
-    assert_eq!(status, StatusCode::OK);
-    let array = body.as_array().unwrap();
-    assert_eq!(array.len(), 2);
-    assert_eq!(
-        array[0]["result"]["completion"]["values"],
-        serde_json::json!(["res_first"])
-    );
-    assert_eq!(
-        array[1]["result"]["completion"]["values"],
-        serde_json::json!(["res_second"])
-    );
-}
 
 /// Tests `completion/complete` routing when the method is passed via `Mcp-Method` header.
 #[tokio::test]

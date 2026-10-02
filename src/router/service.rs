@@ -14,8 +14,8 @@ use tower::Service;
 
 use crate::body::{
     BoxError, ResponseBody, bad_request, empty_response, forbidden, json_response,
-    json_response_with_caching, json_response_with_status, method_not_allowed, sse_response,
-    unsupported_media_type,
+    json_response_no_store, json_response_with_caching, json_response_with_status,
+    method_not_allowed, sse_response, unsupported_media_type,
 };
 use crate::router::{McpRouter, McpRouterInner};
 use crate::types::jsonrpc::JsonRpcErrorResponse;
@@ -39,9 +39,7 @@ impl McpRouterInner {
             return unsupported_media_type();
         }
 
-        if let Some(ref allowed) = self.server.allowed_origins
-            && !is_origin_header_allowed(req.headers(), allowed)
-        {
+        if !is_origin_header_allowed(req.headers(), self.server.allowed_origins.as_deref()) {
             tracing::debug!("Rejected untrusted Origin header with 403 Forbidden");
             return forbidden();
         }
@@ -106,34 +104,9 @@ impl McpRouterInner {
         };
 
         match raw_json {
-            serde_json::Value::Array(items) => {
-                if items.is_empty() {
-                    let error_response = JsonRpcErrorResponse::invalid_request(
-                        None,
-                        "Invalid Request: empty batch array",
-                    );
-                    json_response_with_status(StatusCode::BAD_REQUEST, &error_response)
-                } else {
-                    let mut responses: Vec<serde_json::Value> = Vec::with_capacity(items.len());
-                    for item in items {
-                        if let Some(resp) = self
-                            .dispatch_item(item, &parts.headers, Arc::clone(&extensions))
-                            .await
-                        {
-                            responses.push(resp);
-                        }
-                    }
-
-                    if responses.is_empty() {
-                        empty_response(StatusCode::ACCEPTED)
-                    } else {
-                        json_response(&responses)
-                    }
-                }
-            }
             serde_json::Value::Object(map) => {
                 let outcome = self
-                    .dispatch_object(map, &parts.headers, Arc::clone(&extensions), false)
+                    .dispatch_object(map, &parts.headers, Arc::clone(&extensions))
                     .await;
 
                 if let Some(stream_body) = outcome.stream_body {
@@ -142,7 +115,9 @@ impl McpRouterInner {
                     match outcome.response {
                         None => empty_response(StatusCode::ACCEPTED),
                         Some(val) => {
-                            if outcome.has_cache_headers {
+                            if outcome.no_store {
+                                json_response_no_store(&val)
+                            } else if outcome.has_cache_headers {
                                 json_response_with_caching(
                                     &val,
                                     outcome.ttl_ms,
@@ -160,7 +135,7 @@ impl McpRouterInner {
             _ => {
                 let error_response = JsonRpcErrorResponse::invalid_request(
                     None,
-                    "Invalid Request: expected object or batch array",
+                    "Invalid Request: the body must be a single JSON-RPC request or notification object",
                 );
                 json_response_with_status(StatusCode::BAD_REQUEST, &error_response)
             }

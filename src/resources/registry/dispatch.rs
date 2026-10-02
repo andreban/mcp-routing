@@ -228,11 +228,8 @@ impl ResourceRegistry {
         };
 
         let header_uri = extract_header_uri(ctx.headers);
-        let resource_uri = match resolve_resource_uri(
-            header_uri.as_deref(),
-            params_uri.as_deref(),
-            ctx.is_batch,
-        ) {
+        let resource_uri = match resolve_resource_uri(header_uri.as_deref(), params_uri.as_deref())
+        {
             Ok(uri) => uri,
             Err(mut err) => {
                 err.id = ctx.req_id;

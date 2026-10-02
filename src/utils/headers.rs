@@ -96,18 +96,44 @@ pub(crate) fn is_origin_allowed(origin: &str, allowed_origins: &[String]) -> boo
     })
 }
 
+/// Returns `true` if the origin's host is a loopback address (`localhost`, `127.0.0.1`, or `[::1]`).
+///
+/// The scheme and port are not considered.
+pub(crate) fn is_loopback_origin(origin: &str) -> bool {
+    let Some((_scheme, authority)) = origin.trim().trim_end_matches('/').split_once("://") else {
+        return false;
+    };
+    let host = if authority.starts_with('[') {
+        authority
+            .split_once(']')
+            .map_or(authority, |(h, _)| h)
+            .trim_start_matches('[')
+    } else {
+        authority.split(':').next().unwrap_or(authority)
+    };
+    host.eq_ignore_ascii_case("localhost") || host == "127.0.0.1" || host == "::1"
+}
+
 /// Validates whether the `Origin` header in the request is permitted.
 ///
 /// If no `Origin` header is present (such as with non-browser clients), returns `true`.
 /// If the `Origin` header is present, it must be valid and match at least one allowed origin.
-pub(crate) fn is_origin_header_allowed(headers: &HeaderMap, allowed_origins: &[String]) -> bool {
+/// When no allowed origins are configured, only loopback origins are permitted, protecting
+/// local servers against DNS rebinding by default.
+pub(crate) fn is_origin_header_allowed(
+    headers: &HeaderMap,
+    allowed_origins: Option<&[String]>,
+) -> bool {
     if !headers.contains_key(http::header::ORIGIN) {
         return true;
     }
     let Some(origin) = extract_origin(headers) else {
         return false;
     };
-    is_origin_allowed(origin, allowed_origins)
+    match allowed_origins {
+        Some(allowed) => is_origin_allowed(origin, allowed),
+        None => is_loopback_origin(origin),
+    }
 }
 
 /// Extracts the `protocolVersion` specified in the request body metadata (`params._meta` or `_meta`), if present.
@@ -346,21 +372,55 @@ mod tests {
 
         // No Origin header (non-browser client)
         let headers_empty = HeaderMap::new();
-        assert!(is_origin_header_allowed(&headers_empty, &allowed));
+        assert!(is_origin_header_allowed(&headers_empty, Some(&allowed)));
 
         // Valid Origin
         let mut headers_valid = HeaderMap::new();
         headers_valid.insert("Origin", "http://localhost:3000".parse().unwrap());
-        assert!(is_origin_header_allowed(&headers_valid, &allowed));
+        assert!(is_origin_header_allowed(&headers_valid, Some(&allowed)));
 
         // Untrusted Origin
         let mut headers_untrusted = HeaderMap::new();
         headers_untrusted.insert("Origin", "http://attacker.com".parse().unwrap());
-        assert!(!is_origin_header_allowed(&headers_untrusted, &allowed));
+        assert!(!is_origin_header_allowed(
+            &headers_untrusted,
+            Some(&allowed)
+        ));
 
         // Empty Origin
         let mut headers_blank = HeaderMap::new();
         headers_blank.insert("Origin", "".parse().unwrap());
-        assert!(!is_origin_header_allowed(&headers_blank, &allowed));
+        assert!(!is_origin_header_allowed(&headers_blank, Some(&allowed)));
+    }
+
+    /// Tests loopback origin detection across hosts, schemes, and ports.
+    #[test]
+    fn test_is_loopback_origin() {
+        assert!(is_loopback_origin("http://localhost"));
+        assert!(is_loopback_origin("http://localhost:3000"));
+        assert!(is_loopback_origin("https://LOCALHOST:8443/"));
+        assert!(is_loopback_origin("http://127.0.0.1:8080"));
+        assert!(is_loopback_origin("http://[::1]:3000"));
+        assert!(is_loopback_origin("http://[::1]"));
+
+        assert!(!is_loopback_origin("http://evil.com"));
+        assert!(!is_loopback_origin("http://localhost.evil.com"));
+        assert!(!is_loopback_origin("http://127.0.0.1.evil.com"));
+        assert!(!is_loopback_origin("null"));
+        assert!(!is_loopback_origin(""));
+    }
+
+    /// Tests that only loopback origins are permitted when no allowed origins are configured.
+    #[test]
+    fn test_is_origin_header_allowed_default_loopback_only() {
+        assert!(is_origin_header_allowed(&HeaderMap::new(), None));
+
+        let mut local = HeaderMap::new();
+        local.insert("Origin", "http://localhost:3000".parse().unwrap());
+        assert!(is_origin_header_allowed(&local, None));
+
+        let mut remote = HeaderMap::new();
+        remote.insert("Origin", "http://evil.com".parse().unwrap());
+        assert!(!is_origin_header_allowed(&remote, None));
     }
 }

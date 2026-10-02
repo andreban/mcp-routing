@@ -23,10 +23,6 @@ impl PromptRegistry {
         ctx: MethodContext<'_>,
         params_val: Option<serde_json::Value>,
     ) -> DispatchOutcome {
-        if ctx.is_notification {
-            return DispatchOutcome::notification();
-        }
-
         let params: ListPromptsParams = match params_val {
             Some(pv) => match serde_json::from_value(pv) {
                 Ok(p) => p,
@@ -114,14 +110,10 @@ impl PromptRegistry {
             Some(pv) => match serde_json::from_value(pv) {
                 Ok(p) => Some(p),
                 Err(err) => {
-                    return if ctx.is_notification {
-                        DispatchOutcome::notification()
-                    } else {
-                        DispatchOutcome::error(JsonRpcErrorResponse::invalid_params(
-                            ctx.req_id,
-                            format!("Invalid params: {err}"),
-                        ))
-                    };
+                    return DispatchOutcome::error(JsonRpcErrorResponse::invalid_params(
+                        ctx.req_id,
+                        format!("Invalid params: {err}"),
+                    ));
                 }
             },
             None => None,
@@ -140,24 +132,16 @@ impl PromptRegistry {
             Ok(name) => name,
             Err(mut err) => {
                 err.id = ctx.req_id;
-                return if ctx.is_notification {
-                    DispatchOutcome::notification()
-                } else {
-                    DispatchOutcome::error(err)
-                };
+                return DispatchOutcome::error(err);
             }
         };
 
         let Some(handler) = self.prompt_handlers.get(prompt_name) else {
             tracing::debug!(prompt_name, "Prompt not found");
-            return if ctx.is_notification {
-                DispatchOutcome::notification()
-            } else {
-                DispatchOutcome::error(JsonRpcErrorResponse::invalid_params(
-                    ctx.req_id,
-                    format!("Invalid params: prompt '{prompt_name}' not found"),
-                ))
-            };
+            return DispatchOutcome::error(JsonRpcErrorResponse::invalid_params(
+                ctx.req_id,
+                format!("Invalid params: prompt '{prompt_name}' not found"),
+            ));
         };
 
         let (prompt_ttl, prompt_scope) = self
@@ -167,25 +151,21 @@ impl PromptRegistry {
             .unwrap_or((None, None));
         let request_ctx = RequestContext::new(meta, ctx.headers.clone(), ctx.extensions);
         let result = handler.call(request_ctx, arguments).await;
-        if ctx.is_notification {
-            DispatchOutcome::notification()
-        } else {
-            match result {
-                Ok(res) => {
-                    let response = GetPromptResultResponse::new(
-                        ctx.req_id.clone().unwrap_or_else(|| "".into()),
-                        res,
-                    );
-                    match serde_json::to_value(response) {
-                        Ok(v) => DispatchOutcome::response_with_cache(v, prompt_ttl, prompt_scope),
-                        Err(err) => DispatchOutcome::error(JsonRpcErrorResponse::internal_error(
-                            ctx.req_id,
-                            format!("Failed to serialize response: {err}"),
-                        )),
-                    }
+        match result {
+            Ok(res) => {
+                let response = GetPromptResultResponse::new(
+                    ctx.req_id.clone().unwrap_or_else(|| "".into()),
+                    res,
+                );
+                match serde_json::to_value(response) {
+                    Ok(v) => DispatchOutcome::response_with_cache(v, prompt_ttl, prompt_scope),
+                    Err(err) => DispatchOutcome::error(JsonRpcErrorResponse::internal_error(
+                        ctx.req_id,
+                        format!("Failed to serialize response: {err}"),
+                    )),
                 }
-                Err(err) => DispatchOutcome::error(err.into_error_response(ctx.req_id)),
             }
+            Err(err) => DispatchOutcome::error(err.into_error_response(ctx.req_id)),
         }
     }
 }

@@ -121,7 +121,6 @@ impl DispatchOutcome {
 /// Context passed to capability dispatchers containing request correlation and metadata.
 pub(crate) struct MethodContext<'a> {
     pub(crate) req_id: Option<JsonRpcRequestId>,
-    pub(crate) is_notification: bool,
     pub(crate) header_name: Option<Cow<'a, str>>,
     pub(crate) headers: &'a http::HeaderMap,
     pub(crate) extensions: Arc<http::Extensions>,

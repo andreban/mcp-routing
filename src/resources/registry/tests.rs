@@ -12,13 +12,11 @@ use std::sync::Arc;
 #[tokio::test]
 async fn test_resource_registry_dispatch_read_unknown_resource_returns_invalid_params() {
     let registry = ResourceRegistry::new();
-    let mut headers = http::HeaderMap::new();
-    headers.insert("mcp-uri", "file:///non_existent.txt".parse().unwrap());
+    let headers = http::HeaderMap::new();
     let extensions = Arc::new(http::Extensions::new());
     let ctx = MethodContext {
         req_id: Some(JsonRpcRequestId::Number(42)),
-        is_notification: false,
-        header_name: None,
+        header_name: Some("file:///non_existent.txt".into()),
         headers: &headers,
         extensions,
     };

@@ -18,7 +18,7 @@ use crate::types::mcp::resources::{
         ListResourceTemplatesResultResponse,
     },
 };
-use crate::utils::{extract_header_uri, resolve_resource_uri};
+use crate::utils::resolve_resource_uri;
 
 impl ResourceRegistry {
     /// Dispatches an incoming `resources/list` JSON-RPC request.
@@ -27,10 +27,6 @@ impl ResourceRegistry {
         ctx: MethodContext<'_>,
         params_val: Option<serde_json::Value>,
     ) -> DispatchOutcome {
-        if ctx.is_notification {
-            return DispatchOutcome::notification();
-        }
-
         let params: ListResourcesParams = match params_val {
             Some(pv) => match serde_json::from_value(pv) {
                 Ok(p) => p,
@@ -116,10 +112,6 @@ impl ResourceRegistry {
         ctx: MethodContext<'_>,
         params_val: Option<serde_json::Value>,
     ) -> DispatchOutcome {
-        if ctx.is_notification {
-            return DispatchOutcome::notification();
-        }
-
         let params: ListResourceTemplatesParams = match params_val {
             Some(pv) => match serde_json::from_value(pv) {
                 Ok(p) => p,
@@ -209,14 +201,10 @@ impl ResourceRegistry {
             Some(pv) => match serde_json::from_value(pv) {
                 Ok(p) => Some(p),
                 Err(err) => {
-                    return if ctx.is_notification {
-                        DispatchOutcome::notification()
-                    } else {
-                        DispatchOutcome::error(JsonRpcErrorResponse::invalid_params(
-                            ctx.req_id,
-                            format!("Invalid params: {err}"),
-                        ))
-                    };
+                    return DispatchOutcome::error(JsonRpcErrorResponse::invalid_params(
+                        ctx.req_id,
+                        format!("Invalid params: {err}"),
+                    ));
                 }
             },
             None => None,
@@ -227,30 +215,21 @@ impl ResourceRegistry {
             None => (None, None),
         };
 
-        let header_uri = extract_header_uri(ctx.headers);
-        let resource_uri = match resolve_resource_uri(header_uri.as_deref(), params_uri.as_deref())
-        {
-            Ok(uri) => uri,
-            Err(mut err) => {
-                err.id = ctx.req_id;
-                return if ctx.is_notification {
-                    DispatchOutcome::notification()
-                } else {
-                    DispatchOutcome::error(err)
-                };
-            }
-        };
+        let resource_uri =
+            match resolve_resource_uri(ctx.header_name.as_deref(), params_uri.as_deref()) {
+                Ok(uri) => uri,
+                Err(mut err) => {
+                    err.id = ctx.req_id;
+                    return DispatchOutcome::error(err);
+                }
+            };
 
         let Some((handler, res_ttl, res_scope)) = self.find_handler(resource_uri) else {
             tracing::debug!(resource_uri, "Resource not found");
-            return if ctx.is_notification {
-                DispatchOutcome::notification()
-            } else {
-                DispatchOutcome::error(JsonRpcErrorResponse::invalid_params(
-                    ctx.req_id,
-                    format!("Invalid params: resource '{resource_uri}' not found"),
-                ))
-            };
+            return DispatchOutcome::error(JsonRpcErrorResponse::invalid_params(
+                ctx.req_id,
+                format!("Invalid params: resource '{resource_uri}' not found"),
+            ));
         };
 
         let request_ctx = RequestContext::new(meta, ctx.headers.clone(), ctx.extensions);
@@ -263,25 +242,21 @@ impl ResourceRegistry {
             )
             .await;
 
-        if ctx.is_notification {
-            DispatchOutcome::notification()
-        } else {
-            match result {
-                Ok(res) => {
-                    let response = ReadResourceResultResponse::new(
-                        ctx.req_id.clone().unwrap_or_else(|| "".into()),
-                        res,
-                    );
-                    match serde_json::to_value(response) {
-                        Ok(v) => DispatchOutcome::response_with_cache(v, res_ttl, res_scope),
-                        Err(err) => DispatchOutcome::error(JsonRpcErrorResponse::internal_error(
-                            ctx.req_id,
-                            format!("Failed to serialize response: {err}"),
-                        )),
-                    }
+        match result {
+            Ok(res) => {
+                let response = ReadResourceResultResponse::new(
+                    ctx.req_id.clone().unwrap_or_else(|| "".into()),
+                    res,
+                );
+                match serde_json::to_value(response) {
+                    Ok(v) => DispatchOutcome::response_with_cache(v, res_ttl, res_scope),
+                    Err(err) => DispatchOutcome::error(JsonRpcErrorResponse::internal_error(
+                        ctx.req_id,
+                        format!("Failed to serialize response: {err}"),
+                    )),
                 }
-                Err(err) => DispatchOutcome::error(err.into_error_response(ctx.req_id)),
             }
+            Err(err) => DispatchOutcome::error(err.into_error_response(ctx.req_id)),
         }
     }
 }

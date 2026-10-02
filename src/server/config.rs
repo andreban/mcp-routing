@@ -80,10 +80,6 @@ impl ServerConfig {
         ctx: MethodContext<'_>,
         params_val: Option<serde_json::Value>,
     ) -> DispatchOutcome {
-        if ctx.is_notification {
-            return DispatchOutcome::notification();
-        }
-
         let params: ServerDiscoverParams = match params_val {
             Some(pv) => match serde_json::from_value(pv) {
                 Ok(p) => p,

@@ -10,7 +10,7 @@ A [Tower](https://crates.io/crates/tower)-native routing library for building [M
 
 - **Stateless MCP (`2026-07-28`)**: Built specifically for the 2026-07-28 MCP specification featuring `server/discover`, `tools/*`, `prompts/*`, `resources/*`, `completion/*`, and `subscriptions/listen`. Features deprecated in this revision (Logging, Roots, Sampling) are not supported.
 - **Tower-Native**: Implements `tower::Service` for any HTTP request body implementing `http_body::Body<Data = Bytes>`.
-- **Header & Body Routing**: Dispatches requests via standard `Mcp-Method`, `Mcp-Name`, and `Mcp-Uri` headers with automatic fallback to JSON-RPC body parameters.
+- **Header & Body Validation**: Requires the standard `Mcp-Method` and `Mcp-Name` headers and verifies they exactly match the JSON-RPC body (`-32020 HeaderMismatch` otherwise).
 - **Typed Asynchronous Handlers**: Register async Rust functions with automatic JSON-RPC argument deserialization, structured output, and error mapping.
 - **Rich Extractors**: Extract `BearerAuth`, `State<T>`, `Extension<T>`, `Meta`, `RequestContext`, and registered registries.
 - **Dynamic Providers**: Dynamically generate or filter discovery metadata, tools, prompts, resources, and templates per request.
@@ -105,9 +105,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
 `stateless-mcp` targets the stateless [`2026-07-28` specification](https://modelcontextprotocol.io/docs/2026-07-28/) of the Model Context Protocol. Each HTTP request is self-contained.
 
-Incoming HTTP JSON-RPC requests are dispatched using headers with body fallback:
+Every request carries its method (and, where applicable, its target) both in the JSON-RPC body and in mirrored HTTP headers; the values must match exactly:
 
-| MCP Method | HTTP Headers | Body Fallback | Handler / Purpose |
+| MCP Method | HTTP Headers | JSON-RPC Body | Handler / Purpose |
 |---|---|---|---|
 | `server/discover` | `Mcp-Method: server/discover` | `method: "server/discover"` | Server discovery & capability negotiation |
 | `tools/list` | `Mcp-Method: tools/list` | `method: "tools/list"` | Discovers registered tools & schemas |
@@ -115,7 +115,7 @@ Incoming HTTP JSON-RPC requests are dispatched using headers with body fallback:
 | `prompts/list` | `Mcp-Method: prompts/list` | `method: "prompts/list"` | Discovers registered prompt templates |
 | `prompts/get` | `Mcp-Method: prompts/get`<br>`Mcp-Name: <name>` | `method: "prompts/get"`<br>`params.name: "<name>"` | Retrieves prompt messages & fills arguments |
 | `resources/list` | `Mcp-Method: resources/list` | `method: "resources/list"` | Discovers direct resources |
-| `resources/read` | `Mcp-Method: resources/read`<br>`Mcp-Uri: <uri>` | `method: "resources/read"`<br>`params.uri: "<uri>"` | Reads resource content or matches URI template |
+| `resources/read` | `Mcp-Method: resources/read`<br>`Mcp-Name: <uri>` | `method: "resources/read"`<br>`params.uri: "<uri>"` | Reads resource content or matches URI template |
 | `resources/templates/list` | `Mcp-Method: resources/templates/list` | `method: "resources/templates/list"` | Discovers RFC 6570 resource templates |
 | `completion/complete` | `Mcp-Method: completion/complete` | `method: "completion/complete"` | Autocompletes prompt arguments & URI templates |
 

@@ -23,48 +23,29 @@ pub(crate) fn is_json_content_type(headers: &HeaderMap) -> bool {
     media_type.eq_ignore_ascii_case("application/json")
 }
 
-/// Extracts the tool or prompt name from the `Mcp-Name` HTTP header, trimming leading and trailing slashes
-/// and decoding any RFC 2047-style Base64 sentinel value (`=?base64?...?=`).
+/// Trims HTTP optional whitespace (spaces and horizontal tabs) around a header field value.
+fn trim_ows(value: &str) -> &str {
+    value.trim_matches([' ', '\t'])
+}
+
+/// Extracts the `Mcp-Name` HTTP header (the tool or prompt name, or the resource URI), decoding
+/// any Base64 sentinel value (`=?base64?...?=`).
+///
+/// The value is otherwise used verbatim: header values are case-sensitive and must exactly match
+/// the corresponding body value.
 pub(crate) fn extract_header_name(headers: &HeaderMap) -> Option<Cow<'_, str>> {
     headers
         .get("Mcp-Name")
         .and_then(|v| v.to_str().ok())
-        .map(|s| {
-            let trimmed = s.trim().trim_matches('/');
-            let decoded = decode_sentinel_header(trimmed);
-            match decoded {
-                Cow::Borrowed(b) => Cow::Borrowed(b.trim_matches('/')),
-                Cow::Owned(o) => {
-                    let trimmed_owned = o.trim_matches('/').to_string();
-                    Cow::Owned(trimmed_owned)
-                }
-            }
-        })
+        .map(|s| decode_sentinel_header(trim_ows(s)))
 }
 
-/// Extracts the resource URI from HTTP headers (`Mcp-Uri` or `Mcp-Name`), trimming whitespace
-/// and decoding any RFC 2047-style Base64 sentinel value (`=?base64?...?=`).
-pub(crate) fn extract_header_uri(headers: &HeaderMap) -> Option<Cow<'_, str>> {
-    headers
-        .get("Mcp-Uri")
-        .or_else(|| headers.get("Mcp-Name"))
-        .and_then(|v| v.to_str().ok())
-        .map(|s| {
-            let trimmed = s.trim();
-            let decoded = decode_sentinel_header(trimmed);
-            match decoded {
-                Cow::Borrowed(b) => Cow::Borrowed(b.trim()),
-                Cow::Owned(o) => Cow::Owned(o.trim().to_string()),
-            }
-        })
-}
-
-/// Extracts the MCP method from the `Mcp-Method` HTTP header, trimming leading and trailing slashes.
+/// Extracts the MCP method from the `Mcp-Method` HTTP header.
 pub(crate) fn extract_header_method(headers: &HeaderMap) -> Option<&str> {
     headers
         .get("Mcp-Method")
         .and_then(|v| v.to_str().ok())
-        .map(|s| s.trim_matches('/'))
+        .map(trim_ows)
 }
 
 /// Extracts the MCP protocol version from the `MCP-Protocol-Version` HTTP header.
@@ -136,29 +117,14 @@ pub(crate) fn is_origin_header_allowed(
     }
 }
 
-/// Extracts the `protocolVersion` specified in the request body metadata (`params._meta` or `_meta`), if present.
+/// Extracts `params._meta["io.modelcontextprotocol/protocolVersion"]` from the request body, if present.
 pub(crate) fn extract_body_protocol_version(
     map: &serde_json::Map<String, serde_json::Value>,
 ) -> Option<&str> {
-    // 1. Check params._meta["io.modelcontextprotocol/protocolVersion"] or params.meta.protocolVersion
-    if let Some(serde_json::Value::Object(params)) = map.get("params")
-        && let Some(serde_json::Value::Object(meta)) =
-            params.get("_meta").or_else(|| params.get("meta"))
-        && let Some(serde_json::Value::String(ver)) = meta
-            .get("io.modelcontextprotocol/protocolVersion")
-            .or_else(|| meta.get("protocolVersion"))
-    {
-        return Some(ver.as_str());
-    }
-    // 2. Check top-level _meta["io.modelcontextprotocol/protocolVersion"] or _meta.protocolVersion
-    if let Some(serde_json::Value::Object(meta)) = map.get("_meta").or_else(|| map.get("meta"))
-        && let Some(serde_json::Value::String(ver)) = meta
-            .get("io.modelcontextprotocol/protocolVersion")
-            .or_else(|| meta.get("protocolVersion"))
-    {
-        return Some(ver.as_str());
-    }
-    None
+    map.get("params")?
+        .get("_meta")?
+        .get("io.modelcontextprotocol/protocolVersion")?
+        .as_str()
 }
 
 #[cfg(test)]
@@ -196,74 +162,46 @@ mod tests {
         assert!(!is_json_content_type(&headers));
     }
 
-    /// Tests extracting the `Mcp-Name` header and trimming slashes with sentinel decoding.
+    /// Tests that the `Mcp-Name` header is used verbatim apart from HTTP whitespace and sentinel decoding.
     #[test]
     fn test_extract_header_name() {
         let mut headers = HeaderMap::new();
         assert_eq!(extract_header_name(&headers), None);
 
+        headers.insert("Mcp-Name", "my_tool".parse().unwrap());
+        assert_eq!(extract_header_name(&headers).as_deref(), Some("my_tool"));
+
+        // Slashes are significant and preserved
         headers.insert("Mcp-Name", "/my_tool/".parse().unwrap());
-        assert_eq!(extract_header_name(&headers).as_deref(), Some("my_tool"));
+        assert_eq!(extract_header_name(&headers).as_deref(), Some("/my_tool/"));
 
-        headers.insert("Mcp-Name", "///".parse().unwrap());
-        assert_eq!(extract_header_name(&headers).as_deref(), Some(""));
-
-        // Sentinel encoded tool name
-        headers.insert("Mcp-Name", "=?base64?bXlfdG9vbA==?=".parse().unwrap());
-        assert_eq!(extract_header_name(&headers).as_deref(), Some("my_tool"));
-
-        // Sentinel encoded tool name with leading/trailing slashes in decoded value
-        headers.insert("Mcp-Name", "=?base64?L215X3Rvb2wv?=".parse().unwrap());
-        assert_eq!(extract_header_name(&headers).as_deref(), Some("my_tool"));
-
-        // Sentinel encoded unicode tool name ("echo_世界" -> "ZWNob1/kuJbnlYw=")
-        headers.insert("Mcp-Name", "=?base64?ZWNob1/kuJbnlYw=?=".parse().unwrap());
-        assert_eq!(extract_header_name(&headers).as_deref(), Some("echo_世界"));
-    }
-
-    /// Tests extracting the `Mcp-Uri` and `Mcp-Name` headers for resources with sentinel decoding.
-    #[test]
-    fn test_extract_header_uri() {
-        let mut headers = HeaderMap::new();
-        assert_eq!(extract_header_uri(&headers), None);
-
-        headers.insert("Mcp-Uri", "file:///app/config.json".parse().unwrap());
-        assert_eq!(
-            extract_header_uri(&headers).as_deref(),
-            Some("file:///app/config.json")
-        );
-
-        headers.remove("Mcp-Uri");
+        // Resource URIs are carried in Mcp-Name
         headers.insert("Mcp-Name", "file:///app/config.json".parse().unwrap());
         assert_eq!(
-            extract_header_uri(&headers).as_deref(),
+            extract_header_name(&headers).as_deref(),
             Some("file:///app/config.json")
         );
 
-        // Sentinel encoded URI ("file:///app/doc with space.txt" -> "ZmlsZTovLy9hcHAvZG9jIHdpdGggc3BhY2UudHh0")
-        headers.insert(
-            "Mcp-Uri",
-            "=?base64?ZmlsZTovLy9hcHAvZG9jIHdpdGggc3BhY2UudHh0?="
-                .parse()
-                .unwrap(),
-        );
-        assert_eq!(
-            extract_header_uri(&headers).as_deref(),
-            Some("file:///app/doc with space.txt")
-        );
+        // Sentinel encoded value ("echo_世界" -> "ZWNob1/kuJbnlYw=")
+        headers.insert("Mcp-Name", "=?base64?ZWNob1/kuJbnlYw=?=".parse().unwrap());
+        assert_eq!(extract_header_name(&headers).as_deref(), Some("echo_世界"));
+
+        // Sentinel encoded value keeps its own surrounding spaces (" padded " -> "IHBhZGRlZCA=")
+        headers.insert("Mcp-Name", "=?base64?IHBhZGRlZCA=?=".parse().unwrap());
+        assert_eq!(extract_header_name(&headers).as_deref(), Some(" padded "));
     }
 
-    /// Tests extracting the `Mcp-Method` header and trimming slashes.
+    /// Tests that the `Mcp-Method` header is used verbatim apart from HTTP whitespace.
     #[test]
     fn test_extract_header_method() {
         let mut headers = HeaderMap::new();
         assert_eq!(extract_header_method(&headers), None);
 
-        headers.insert("Mcp-Method", "/tools/call/".parse().unwrap());
+        headers.insert("Mcp-Method", "tools/call".parse().unwrap());
         assert_eq!(extract_header_method(&headers), Some("tools/call"));
 
-        headers.insert("Mcp-Method", "///".parse().unwrap());
-        assert_eq!(extract_header_method(&headers), Some(""));
+        headers.insert("Mcp-Method", "/tools/call/".parse().unwrap());
+        assert_eq!(extract_header_method(&headers), Some("/tools/call/"));
     }
 
     /// Tests extracting the `MCP-Protocol-Version` HTTP header with case-insensitivity.
@@ -281,41 +219,30 @@ mod tests {
         assert_eq!(extract_protocol_version(&headers), Some("2026-07-28"));
     }
 
-    /// Tests extracting the protocol version from JSON-RPC `_meta` in request body params or root.
+    /// Tests that the body protocol version is read only from `params._meta`.
     #[test]
     fn test_extract_body_protocol_version() {
-        let body_with_params_meta: serde_json::Map<String, serde_json::Value> =
-            serde_json::from_value(serde_json::json!({
-                "params": {
-                    "_meta": {
-                        "io.modelcontextprotocol/protocolVersion": "2026-07-28"
-                    }
-                }
-            }))
-            .unwrap();
+        let body = |value: serde_json::Value| -> serde_json::Map<String, serde_json::Value> {
+            serde_json::from_value(value).unwrap()
+        };
+
+        let in_params_meta = body(serde_json::json!({
+            "params": { "_meta": { "io.modelcontextprotocol/protocolVersion": "2026-07-28" } }
+        }));
         assert_eq!(
-            extract_body_protocol_version(&body_with_params_meta),
+            extract_body_protocol_version(&in_params_meta),
             Some("2026-07-28")
         );
 
-        let body_with_top_level_meta: serde_json::Map<String, serde_json::Value> =
-            serde_json::from_value(serde_json::json!({
-                "_meta": {
-                    "io.modelcontextprotocol/protocolVersion": "2026-07-28"
-                }
-            }))
-            .unwrap();
-        assert_eq!(
-            extract_body_protocol_version(&body_with_top_level_meta),
-            Some("2026-07-28")
-        );
-
-        let body_without_meta: serde_json::Map<String, serde_json::Value> =
-            serde_json::from_value(serde_json::json!({
-                "params": {}
-            }))
-            .unwrap();
-        assert_eq!(extract_body_protocol_version(&body_without_meta), None);
+        // Non-standard locations and keys are not recognized
+        for value in [
+            serde_json::json!({ "_meta": { "io.modelcontextprotocol/protocolVersion": "2026-07-28" } }),
+            serde_json::json!({ "params": { "meta": { "io.modelcontextprotocol/protocolVersion": "2026-07-28" } } }),
+            serde_json::json!({ "params": { "_meta": { "protocolVersion": "2026-07-28" } } }),
+            serde_json::json!({ "params": {} }),
+        ] {
+            assert_eq!(extract_body_protocol_version(&body(value)), None);
+        }
     }
 
     /// Tests extracting the `Origin` HTTP header and trimming whitespace.

@@ -24,10 +24,6 @@ impl ToolRegistry {
         ctx: MethodContext<'_>,
         params_val: Option<serde_json::Value>,
     ) -> DispatchOutcome {
-        if ctx.is_notification {
-            return DispatchOutcome::notification();
-        }
-
         let params: ListToolsParams = match params_val {
             Some(pv) => match serde_json::from_value(pv) {
                 Ok(p) => p,
@@ -113,14 +109,10 @@ impl ToolRegistry {
             Some(pv) => match serde_json::from_value(pv) {
                 Ok(p) => Some(p),
                 Err(err) => {
-                    return if ctx.is_notification {
-                        DispatchOutcome::notification()
-                    } else {
-                        DispatchOutcome::error(JsonRpcErrorResponse::invalid_params(
-                            ctx.req_id,
-                            format!("Invalid params: {err}"),
-                        ))
-                    };
+                    return DispatchOutcome::error(JsonRpcErrorResponse::invalid_params(
+                        ctx.req_id,
+                        format!("Invalid params: {err}"),
+                    ));
                 }
             },
             None => None,
@@ -139,24 +131,16 @@ impl ToolRegistry {
             Ok(name) => name,
             Err(mut err) => {
                 err.id = ctx.req_id;
-                return if ctx.is_notification {
-                    DispatchOutcome::notification()
-                } else {
-                    DispatchOutcome::error(err)
-                };
+                return DispatchOutcome::error(err);
             }
         };
 
         let Some(handler) = self.tool_handlers.get(tool_name) else {
             tracing::debug!(tool_name, "Tool not found");
-            return if ctx.is_notification {
-                DispatchOutcome::notification()
-            } else {
-                DispatchOutcome::error(JsonRpcErrorResponse::invalid_params(
-                    ctx.req_id,
-                    format!("Invalid params: tool '{tool_name}' not found"),
-                ))
-            };
+            return DispatchOutcome::error(JsonRpcErrorResponse::invalid_params(
+                ctx.req_id,
+                format!("Invalid params: tool '{tool_name}' not found"),
+            ));
         };
 
         let (tool_ttl, tool_scope) = self
@@ -178,50 +162,36 @@ impl ToolRegistry {
             ctx.headers,
         ) {
             err.id = ctx.req_id;
-            return if ctx.is_notification {
-                DispatchOutcome::notification()
-            } else {
-                DispatchOutcome::error(err)
-            };
+            return DispatchOutcome::error(err);
         }
 
         if let Some(validator) = self.tool_validators.get(tool_name)
             && let Err(err_msg) = validate_tool_arguments(validator, arguments.as_ref())
         {
-            if ctx.is_notification {
-                return DispatchOutcome::notification();
-            } else {
-                let response = CallToolResultResponse::new(
-                    ctx.req_id.clone().unwrap_or_else(|| "".into()),
-                    CallToolResult::<serde_json::Value>::error(err_msg),
-                );
-                return match serde_json::to_value(response) {
-                    Ok(v) => DispatchOutcome::response_with_cache(v, tool_ttl, tool_scope),
-                    Err(err) => DispatchOutcome::error(JsonRpcErrorResponse::internal_error(
-                        ctx.req_id,
-                        format!("Failed to serialize response: {err}"),
-                    )),
-                };
-            }
-        }
-
-        let request_ctx =
-            RequestContext::new(meta, ctx.headers.clone(), Arc::clone(&ctx.extensions));
-        let result = handler.call(request_ctx, arguments).await;
-        if ctx.is_notification {
-            DispatchOutcome::notification()
-        } else {
             let response = CallToolResultResponse::new(
                 ctx.req_id.clone().unwrap_or_else(|| "".into()),
-                result,
+                CallToolResult::<serde_json::Value>::error(err_msg),
             );
-            match serde_json::to_value(response) {
+            return match serde_json::to_value(response) {
                 Ok(v) => DispatchOutcome::response_with_cache(v, tool_ttl, tool_scope),
                 Err(err) => DispatchOutcome::error(JsonRpcErrorResponse::internal_error(
                     ctx.req_id,
                     format!("Failed to serialize response: {err}"),
                 )),
-            }
+            };
+        }
+
+        let request_ctx =
+            RequestContext::new(meta, ctx.headers.clone(), Arc::clone(&ctx.extensions));
+        let result = handler.call(request_ctx, arguments).await;
+        let response =
+            CallToolResultResponse::new(ctx.req_id.clone().unwrap_or_else(|| "".into()), result);
+        match serde_json::to_value(response) {
+            Ok(v) => DispatchOutcome::response_with_cache(v, tool_ttl, tool_scope),
+            Err(err) => DispatchOutcome::error(JsonRpcErrorResponse::internal_error(
+                ctx.req_id,
+                format!("Failed to serialize response: {err}"),
+            )),
         }
     }
 }

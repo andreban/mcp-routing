@@ -1292,7 +1292,7 @@ async fn test_mcp_router_mcp_name_mismatch_for_prompts_get() {
     );
 }
 
-/// Tests that missing `Mcp-Uri` header on `resources/read` returns HTTP 400 Bad Request with HeaderMismatch (-32020).
+/// Tests that missing `Mcp-Name` header on `resources/read` returns HTTP 400 Bad Request with HeaderMismatch (-32020).
 #[tokio::test]
 async fn test_mcp_router_missing_mcp_uri_header_for_resources_read() {
     let app = McpRouter::new(test_server_info())
@@ -1331,7 +1331,7 @@ async fn test_mcp_router_missing_mcp_uri_header_for_resources_read() {
     );
 }
 
-/// Tests that `Mcp-Uri` header mismatch with body `params.uri` on `resources/read` returns HTTP 400 Bad Request with HeaderMismatch (-32020).
+/// Tests that `Mcp-Name` header mismatch with body `params.uri` on `resources/read` returns HTTP 400 Bad Request with HeaderMismatch (-32020).
 #[tokio::test]
 async fn test_mcp_router_mcp_uri_mismatch_for_resources_read() {
     let app = McpRouter::new(test_server_info())
@@ -1343,7 +1343,7 @@ async fn test_mcp_router_mcp_uri_mismatch_for_resources_read() {
         .method("POST")
         .uri("/")
         .header("Mcp-Method", "resources/read")
-        .header("Mcp-Uri", "file:///config.json")
+        .header("Mcp-Name", "file:///config.json")
         .header("Content-Type", "application/json")
         .header("MCP-Protocol-Version", "2026-07-28")
         .body(Body::from(

@@ -95,10 +95,6 @@ impl SubscriptionsRegistry {
         resources_list_changed: bool,
         known_resources: &[String],
     ) -> DispatchOutcome {
-        if ctx.is_notification {
-            return DispatchOutcome::notification();
-        }
-
         let params: SubscriptionsListenParams = match params_val {
             Some(pv) => match serde_json::from_value(pv) {
                 Ok(p) => p,

@@ -32,6 +32,7 @@ async fn test_subscriptions_listen_basic_acknowledgment() {
         "id": 1,
         "method": "subscriptions/listen",
         "params": {
+            "_meta": common::meta(),
             "notifications": {
                 "toolsListChanged": true,
                 "promptsListChanged": true,
@@ -84,6 +85,7 @@ async fn test_subscriptions_listen_with_resource_subscriptions() {
         "id": "sub-req-2",
         "method": "subscriptions/listen",
         "params": {
+            "_meta": common::meta(),
             "notifications": {
                 "resourceSubscriptions": [
                     "file:///logs/app.log",
@@ -124,6 +126,8 @@ async fn test_subscriptions_listen_preserves_client_subscription_id() {
         "method": "subscriptions/listen",
         "params": {
             "_meta": {
+                "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+                "io.modelcontextprotocol/clientCapabilities": {},
                 "io.modelcontextprotocol/subscriptionId": "custom-client-sub-123"
             },
             "notifications": {
@@ -177,6 +181,7 @@ async fn test_subscriptions_listen_custom_handler_with_extractors() {
         "id": 10,
         "method": "subscriptions/listen",
         "params": {
+            "_meta": common::meta(),
             "notifications": {
                 "toolsListChanged": true
             }

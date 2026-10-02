@@ -152,7 +152,8 @@ async fn test_tool_builder_output_schema_in_tools_list() {
         json!({
             "jsonrpc": "2.0",
             "id": "list-req",
-            "method": "tools/list"
+            "method": "tools/list",
+            "params": { "_meta": common::meta() }
         }),
     );
 
@@ -193,6 +194,7 @@ async fn test_handler_returning_json_wrapper() {
             "id": 101,
             "method": "tools/call",
             "params": {
+                "_meta": common::meta(),
                 "name": "get_user",
                 "arguments": { "user_id": 42 }
             }
@@ -230,6 +232,7 @@ async fn test_handler_returning_json_wrapper_error() {
             "id": 102,
             "method": "tools/call",
             "params": {
+                "_meta": common::meta(),
                 "name": "get_user",
                 "arguments": { "user_id": 0 }
             }
@@ -262,7 +265,7 @@ async fn test_handler_returning_serde_json_value() {
             "jsonrpc": "2.0",
             "id": "health-check",
             "method": "tools/call",
-            "params": { "name": "get_health" }
+            "params": { "_meta": common::meta(), "name": "get_health" }
         }),
     );
 
@@ -296,6 +299,7 @@ async fn test_handler_returning_typed_call_tool_result() {
             "id": 200,
             "method": "tools/call",
             "params": {
+                "_meta": common::meta(),
                 "name": "typed_result",
                 "arguments": { "user_id": 99 }
             }
@@ -339,7 +343,7 @@ async fn test_handler_returning_tuples() {
             "jsonrpc": "2.0",
             "id": "t1",
             "method": "tools/call",
-            "params": { "name": "tuple_json_str" }
+            "params": { "_meta": common::meta(), "name": "tuple_json_str" }
         }),
     );
     let (status1, _, body1) = common::execute_request(app.clone(), req1).await;
@@ -361,7 +365,7 @@ async fn test_handler_returning_tuples() {
             "jsonrpc": "2.0",
             "id": "t2",
             "method": "tools/call",
-            "params": { "name": "tuple_str_json" }
+            "params": { "_meta": common::meta(), "name": "tuple_str_json" }
         }),
     );
     let (status2, _, body2) = common::execute_request(app.clone(), req2).await;
@@ -383,7 +387,7 @@ async fn test_handler_returning_tuples() {
             "jsonrpc": "2.0",
             "id": "t3",
             "method": "tools/call",
-            "params": { "name": "tuple_val_str" }
+            "params": { "_meta": common::meta(), "name": "tuple_val_str" }
         }),
     );
     let (status3, _, body3) = common::execute_request(app, req3).await;

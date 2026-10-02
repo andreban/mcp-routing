@@ -129,6 +129,7 @@ async fn test_tools_call_header_routing_with_name() {
             "id": "req-1",
             "method": "tools/call",
             "params": {
+                "_meta": common::meta(),
                 "name": "echo",
                 "arguments": {
                     "message": "Hello MCP!"
@@ -172,6 +173,7 @@ async fn test_tools_call_header_method_missing_name_returns_header_mismatch() {
             "id": 100,
             "method": "tools/call",
             "params": {
+                "_meta": common::meta(),
                 "name": "echo",
                 "arguments": {
                     "message": "Fallback tool name from body"
@@ -201,9 +203,10 @@ async fn test_tools_call_missing_method_header_returns_header_mismatch() {
         Some("calculator"),
         json!({
             "jsonrpc": "2.0",
-            "id": 200.5,
+            "id": 200,
             "method": "tools/call",
             "params": {
+                "_meta": common::meta(),
                 "name": "calculator",
                 "arguments": {
                     "a": 15,
@@ -244,7 +247,7 @@ async fn test_tools_call_no_args_handlers() {
             "jsonrpc": "2.0",
             "id": 1,
             "method": "tools/call",
-            "params": { "name": "no_args_static" }
+            "params": { "_meta": common::meta(), "name": "no_args_static" }
         }),
     );
     let (status, _, body) = common::execute_request(app.clone(), req1).await;
@@ -263,7 +266,7 @@ async fn test_tools_call_no_args_handlers() {
             "jsonrpc": "2.0",
             "id": 2,
             "method": "tools/call",
-            "params": { "name": "no_args_string" }
+            "params": { "_meta": common::meta(), "name": "no_args_string" }
         }),
     );
     let (status, _, body) = common::execute_request(app.clone(), req2).await;
@@ -282,7 +285,7 @@ async fn test_tools_call_no_args_handlers() {
             "jsonrpc": "2.0",
             "id": 3,
             "method": "tools/call",
-            "params": { "name": "no_args_err" }
+            "params": { "_meta": common::meta(), "name": "no_args_err" }
         }),
     );
     let (status, _, body) = common::execute_request(app, req3).await;
@@ -311,6 +314,7 @@ async fn test_tools_call_handler_business_logic_error() {
             "id": "div-zero",
             "method": "tools/call",
             "params": {
+                "_meta": common::meta(),
                 "name": "calculator",
                 "arguments": {
                     "a": 10,
@@ -353,6 +357,7 @@ async fn test_tools_call_invalid_argument_types_returns_tool_error() {
             "id": "invalid-args-test",
             "method": "tools/call",
             "params": {
+                "_meta": common::meta(),
                 "name": "calculator",
                 "arguments": {
                     "a": "not-a-number",
@@ -401,6 +406,7 @@ async fn test_tools_call_optional_fields_and_defaults() {
             "id": 1,
             "method": "tools/call",
             "params": {
+                "_meta": common::meta(),
                 "name": "optional_tool",
                 "arguments": {
                     "required_key": "val1",
@@ -426,6 +432,7 @@ async fn test_tools_call_optional_fields_and_defaults() {
             "id": 2,
             "method": "tools/call",
             "params": {
+                "_meta": common::meta(),
                 "name": "optional_tool",
                 "arguments": {
                     "required_key": "only_required"
@@ -458,6 +465,7 @@ async fn test_tools_call_empty_arguments_object() {
             "id": "empty-args-req",
             "method": "tools/call",
             "params": {
+                "_meta": common::meta(),
                 "name": "empty_args_tool",
                 "arguments": {}
             }
@@ -501,6 +509,7 @@ async fn test_tools_call_with_tool_caching_directives() {
             "id": "cache-calc-1",
             "method": "tools/call",
             "params": {
+                "_meta": common::meta(),
                 "name": "cached_calculator",
                 "arguments": { "a": 5, "b": 3, "operation": "add" }
             }
@@ -529,6 +538,7 @@ async fn test_tools_call_with_tool_caching_directives() {
             "id": "reg-calc-2",
             "method": "tools/call",
             "params": {
+                "_meta": common::meta(),
                 "name": "regular_calculator",
                 "arguments": { "a": 5, "b": 3, "operation": "add" }
             }
@@ -588,6 +598,7 @@ async fn test_tools_call_schema_pre_validation_success() {
             "id": "val-success-1",
             "method": "tools/call",
             "params": {
+                "_meta": common::meta(),
                 "name": "create_user",
                 "arguments": {
                     "username": "alice_99",
@@ -665,6 +676,7 @@ async fn test_tools_call_schema_pre_validation_failures() {
             "id": "val-fail-1",
             "method": "tools/call",
             "params": {
+                "_meta": common::meta(),
                 "name": "create_user",
                 "arguments": {
                     "username": "alice",
@@ -692,6 +704,7 @@ async fn test_tools_call_schema_pre_validation_failures() {
             "id": "val-fail-2",
             "method": "tools/call",
             "params": {
+                "_meta": common::meta(),
                 "name": "create_user",
                 "arguments": {
                     "username": "bob_underage",
@@ -720,6 +733,7 @@ async fn test_tools_call_schema_pre_validation_failures() {
             "id": "val-fail-3",
             "method": "tools/call",
             "params": {
+                "_meta": common::meta(),
                 "name": "create_user",
                 "arguments": {
                     "username": "charlie",
@@ -747,6 +761,7 @@ async fn test_tools_call_schema_pre_validation_failures() {
             "id": "val-fail-4",
             "method": "tools/call",
             "params": {
+                "_meta": common::meta(),
                 "name": "create_user",
                 "arguments": {
                     "username": "INVALID USERNAME WITH SPACES!",
@@ -774,6 +789,7 @@ async fn test_tools_call_schema_pre_validation_failures() {
             "id": "val-fail-5",
             "method": "tools/call",
             "params": {
+                "_meta": common::meta(),
                 "name": "create_user",
                 "arguments": {
                     "username": "dave_ok",

@@ -47,6 +47,7 @@ async fn test_tools_call_sentinel_encoded_ascii_name() {
             "id": "req-1",
             "method": "tools/call",
             "params": {
+                "_meta": common::meta(),
                 "name": "my_tool",
                 "arguments": {
                     "message": "sentinel test"
@@ -91,6 +92,7 @@ async fn test_tools_call_sentinel_encoded_unicode_name() {
             "id": "req-unicode",
             "method": "tools/call",
             "params": {
+                "_meta": common::meta(),
                 "name": "echo_世界",
                 "arguments": {
                     "message": "testing unicode tool name"
@@ -127,6 +129,7 @@ async fn test_tools_call_sentinel_encoded_with_slashes() {
             "id": "req-slashes",
             "method": "tools/call",
             "params": {
+                "_meta": common::meta(),
                 "name": "my_tool",
                 "arguments": {
                     "message": "trimmed slashes"
@@ -162,6 +165,7 @@ async fn test_prompts_get_sentinel_encoded_name() {
             "id": "req-prompt",
             "method": "prompts/get",
             "params": {
+                "_meta": common::meta(),
                 "name": "prompt_test"
             }
         }),
@@ -198,6 +202,7 @@ async fn test_resources_read_sentinel_encoded_uri() {
                 "id": "req-res",
                 "method": "resources/read",
                 "params": {
+                    "_meta": common::meta(),
                     "uri": "file:///doc/sample.txt"
                 }
             })
@@ -229,6 +234,7 @@ async fn test_sentinel_encoded_mismatch_returns_header_mismatch() {
             "id": "req-mismatch",
             "method": "tools/call",
             "params": {
+                "_meta": common::meta(),
                 "name": "my_tool",
                 "arguments": {
                     "message": "mismatch"

@@ -263,7 +263,7 @@ mod tests {
     /// Tests conversion of `ResourceError` variants into `JsonRpcErrorResponse`.
     #[test]
     fn test_resource_error_into_error_response() {
-        let req_id = Some(JsonRpcRequestId::Number(10.0));
+        let req_id = Some(JsonRpcRequestId::Number(10));
 
         let err_invalid = ResourceError::InvalidParams("bad uri".to_string());
         let resp_invalid = err_invalid.into_error_response(req_id.clone());

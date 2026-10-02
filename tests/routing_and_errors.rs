@@ -13,6 +13,7 @@
 //! - Non-standard method path suffixes (`-32601 Method Not Found`)
 //! - Unregistered tool execution attempts (`-32602 Invalid Params`)
 //! - Malformed JSON payloads across all endpoints (`-32700 Parse Error` with `id: null`)
+//! - Integer request IDs echoed back exactly, and fractional IDs rejected (`-32600 Invalid Request`)
 
 mod common;
 
@@ -46,7 +47,8 @@ async fn test_slash_normalization_in_headers_and_body() {
         json!({
             "jsonrpc": "2.0",
             "id": 1,
-            "method": "tools/call"
+            "method": "tools/call",
+            "params": { "_meta": common::meta(), "name": "echo_tool" }
         }),
     );
     let (status1, _, body1) = common::execute_request(app.clone(), req1).await;
@@ -60,7 +62,8 @@ async fn test_slash_normalization_in_headers_and_body() {
         json!({
             "jsonrpc": "2.0",
             "id": 2,
-            "method": "/tools/list/"
+            "method": "/tools/list/",
+            "params": { "_meta": common::meta() }
         }),
     );
     let (status2, _, body2) = common::execute_request(app.clone(), req2).await;
@@ -76,6 +79,7 @@ async fn test_slash_normalization_in_headers_and_body() {
             "id": 3,
             "method": "tools/call",
             "params": {
+                "_meta": common::meta(),
                 "name": "/echo_tool/"
             }
         }),
@@ -96,7 +100,8 @@ async fn test_missing_method_returns_invalid_request() {
         None,
         json!({
             "jsonrpc": "2.0",
-            "id": 1
+            "id": 1,
+            "params": { "_meta": common::meta() }
         }),
     );
 
@@ -127,7 +132,8 @@ async fn test_empty_method_returns_invalid_request() {
         None,
         json!({
             "jsonrpc": "2.0",
-            "id": 1
+            "id": 1,
+            "params": { "_meta": common::meta() }
         }),
     );
 
@@ -154,6 +160,7 @@ async fn test_missing_tool_name_returns_invalid_params() {
             "id": 1,
             "method": "tools/call",
             "params": {
+                "_meta": common::meta(),
                 "arguments": {}
             }
         }),
@@ -182,6 +189,7 @@ async fn test_empty_tool_name_returns_invalid_params() {
             "id": 1,
             "method": "tools/call",
             "params": {
+                "_meta": common::meta(),
                 "name": ""
             }
         }),
@@ -207,7 +215,8 @@ async fn test_unknown_method_returns_method_not_found() {
         json!({
             "jsonrpc": "2.0",
             "id": 1,
-            "method": "unknown/method"
+            "method": "unknown/method",
+            "params": { "_meta": common::meta() }
         }),
     );
 
@@ -231,7 +240,8 @@ async fn test_invalid_method_path_suffix_returns_method_not_found() {
         json!({
             "jsonrpc": "2.0",
             "id": 1,
-            "method": "tools/call/echo"
+            "method": "tools/call/echo",
+            "params": { "_meta": common::meta() }
         }),
     );
 
@@ -258,6 +268,7 @@ async fn test_unknown_tool_returns_invalid_params() {
             "id": 1,
             "method": "tools/call",
             "params": {
+                "_meta": common::meta(),
                 "name": "non_existent_tool"
             }
         }),
@@ -348,7 +359,7 @@ async fn test_http_method_not_allowed_returns_405() {
             .header("Mcp-Method", "server/discover")
             .header("Content-Type", "application/json")
             .body(Body::from(
-                json!({"id": 1, "method": "server/discover"}).to_string(),
+                json!({ "id": 1, "method": "server/discover", "params": { "_meta": common::meta() } }).to_string(),
             ))
             .unwrap();
 
@@ -378,7 +389,7 @@ async fn test_unsupported_media_type_returns_415() {
         .uri("/")
         .header("Mcp-Method", "server/discover")
         .body(Body::from(
-            json!({"id": 1, "method": "server/discover"}).to_string(),
+            json!({ "id": 1, "method": "server/discover", "params": { "_meta": common::meta() } }).to_string(),
         ))
         .unwrap();
 
@@ -393,7 +404,7 @@ async fn test_unsupported_media_type_returns_415() {
         .header("Mcp-Method", "server/discover")
         .header("Content-Type", "text/plain")
         .body(Body::from(
-            json!({"id": 2, "method": "server/discover"}).to_string(),
+            json!({ "id": 2, "method": "server/discover", "params": { "_meta": common::meta() } }).to_string(),
         ))
         .unwrap();
 
@@ -442,7 +453,7 @@ async fn test_valid_json_content_types_accepted() {
                     "jsonrpc": "2.0",
                     "id": ct,
                     "method": "tools/call",
-                    "params": { "name": "echo" }
+                    "params": { "_meta": common::meta(), "name": "echo" }
                 })
                 .to_string(),
             ))
@@ -456,4 +467,63 @@ async fn test_valid_json_content_types_accepted() {
         );
         assert_eq!(body["result"]["content"][0]["text"], "success");
     }
+}
+
+/// Tests that integer request IDs are echoed back exactly as integers, including values beyond 2^53.
+///
+/// Verifies:
+/// - `"id": 7` is returned as `"id":7` (not `7.0`)
+/// - `"id": 9007199254740993` is returned without loss of precision
+#[tokio::test]
+async fn test_integer_request_id_round_trips_exactly() {
+    for id in ["7", "9007199254740993"] {
+        let app = McpRouter::new(common::sample_server_info());
+        let body = format!(
+            r#"{{"jsonrpc":"2.0","id":{id},"method":"server/discover","params":{{"_meta":{{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{{}}}}}}}}"#
+        );
+        let req = Request::builder()
+            .method("POST")
+            .uri("/")
+            .header("Content-Type", "application/json")
+            .header("MCP-Protocol-Version", "2026-07-28")
+            .header("Mcp-Method", "server/discover")
+            .body(Body::from(body))
+            .unwrap();
+
+        let (status, _headers, bytes) = common::execute_request_raw(app, req).await;
+        assert_eq!(status, StatusCode::OK);
+        let text = std::str::from_utf8(&bytes).unwrap();
+        assert!(
+            text.contains(&format!("\"id\":{id},")) || text.contains(&format!("\"id\":{id}}}")),
+            "response did not echo id {id} exactly: {text}"
+        );
+    }
+}
+
+/// Tests that a fractional numeric request ID is rejected with `-32600 Invalid Request`.
+///
+/// Verifies:
+/// - MCP request IDs must be a string or an integer
+#[tokio::test]
+async fn test_fractional_request_id_is_rejected() {
+    let app = McpRouter::new(common::sample_server_info());
+    let req = common::build_request(
+        Some("server/discover"),
+        None,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 1.5,
+            "method": "server/discover",
+            "params": {
+                "_meta": {
+                    "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+                    "io.modelcontextprotocol/clientCapabilities": {}
+                }
+            }
+        }),
+    );
+
+    let (status, _headers, body) = common::execute_request(app, req).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert_eq!(body["error"]["code"], INVALID_REQUEST_CODE);
 }

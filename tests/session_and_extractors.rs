@@ -10,6 +10,8 @@
 //! - `State<T>` for application state shared via `.with_state()`
 //! - Axum shared state integration between web and MCP routes
 
+mod common;
+
 use bytes::Bytes;
 use http::{Request, StatusCode};
 use http_body_util::{BodyExt, Full};
@@ -147,6 +149,7 @@ async fn test_multiple_extractors_with_extensions() {
         "id": 10,
         "method": "tools/call",
         "params": {
+            "_meta": common::meta(),
             "name": "query_db",
             "arguments": {
                 "query": "SELECT * FROM users;"
@@ -197,6 +200,7 @@ async fn test_missing_extension_returns_extraction_error() {
         "id": 11,
         "method": "tools/call",
         "params": {
+            "_meta": common::meta(),
             "name": "query_db",
             "arguments": {
                 "query": "SELECT 1;"
@@ -240,6 +244,8 @@ async fn test_per_request_meta_propagation_in_prompts_get() {
         "method": "prompts/get",
         "params": {
             "_meta": {
+                "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+                "io.modelcontextprotocol/clientCapabilities": {},
                 "io.modelcontextprotocol/logLevel": "debug"
             },
             "name": "format_prompt",
@@ -283,6 +289,7 @@ async fn test_request_context_extractor_comprehensive() {
         "method": "tools/call",
         "params": {
             "_meta": {
+                "io.modelcontextprotocol/clientCapabilities": {},
                 "io.modelcontextprotocol/clientInfo": {
                     "name": "claude-desktop",
                     "version": "2.0.0"
@@ -376,6 +383,7 @@ async fn test_with_state_and_state_extractor() {
         "id": 20,
         "method": "tools/call",
         "params": {
+            "_meta": common::meta(),
             "name": "get_config",
             "arguments": {
                 "key": "timeout"
@@ -470,6 +478,7 @@ async fn test_axum_shared_state_between_web_and_mcp() {
         "id": 30,
         "method": "tools/call",
         "params": {
+            "_meta": common::meta(),
             "name": "increment",
             "arguments": { "amount": 5 }
         }

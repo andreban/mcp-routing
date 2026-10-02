@@ -13,6 +13,8 @@
 //! - Pagination support with cursor parameters and next cursor tokens
 //! - Error propagation from custom listing handlers
 
+mod common;
+
 use http::Request;
 use http_body_util::BodyExt;
 use stateless_mcp::{
@@ -38,7 +40,8 @@ async fn test_resources_list_empty() {
     let req_body = serde_json::json!({
         "jsonrpc": "2.0",
         "id": 1,
-        "method": "resources/list"
+        "method": "resources/list",
+        "params": { "_meta": common::meta() }
     });
 
     let request = Request::builder()
@@ -89,7 +92,8 @@ async fn test_resources_list_multiple_rich_resources() {
     let req_body = serde_json::json!({
         "jsonrpc": "2.0",
         "id": 100,
-        "method": "resources/list"
+        "method": "resources/list",
+        "params": { "_meta": common::meta() }
     });
 
     let request = Request::builder()
@@ -139,7 +143,7 @@ async fn test_resources_list_via_header_and_body_fallback() {
         .header("Content-Type", "application/json")
         .header("MCP-Protocol-Version", "2026-07-28")
         .header("Mcp-Method", "resources/list")
-        .body(serde_json::json!({ "jsonrpc": "2.0", "id": 1 }).to_string())
+        .body(serde_json::json!({ "jsonrpc": "2.0", "id": 1, "params": { "_meta": common::meta() } }).to_string())
         .unwrap();
 
     let resp_header = router.call(req_header).await.unwrap();
@@ -159,7 +163,8 @@ async fn test_resources_list_via_header_and_body_fallback() {
             serde_json::json!({
                 "jsonrpc": "2.0",
                 "id": 2,
-                "method": "resources/list"
+                "method": "resources/list",
+                "params": { "_meta": common::meta() }
             })
             .to_string(),
         )
@@ -188,7 +193,7 @@ async fn test_resources_capability_advertisement_in_discover() {
         .header("Content-Type", "application/json")
         .header("MCP-Protocol-Version", "2026-07-28")
         .header("Mcp-Method", "server/discover")
-        .body(serde_json::json!({ "jsonrpc": "2.0", "id": 1 }).to_string())
+        .body(serde_json::json!({ "jsonrpc": "2.0", "id": 1, "params": { "_meta": common::meta() } }).to_string())
         .unwrap();
 
     let response = router.call(request).await.unwrap();
@@ -213,7 +218,7 @@ async fn test_resources_list_caching_directives() {
         .header("Content-Type", "application/json")
         .header("MCP-Protocol-Version", "2026-07-28")
         .header("Mcp-Method", "resources/list")
-        .body(serde_json::json!({ "jsonrpc": "2.0", "id": 1 }).to_string())
+        .body(serde_json::json!({ "jsonrpc": "2.0", "id": 1, "params": { "_meta": common::meta() } }).to_string())
         .unwrap();
 
     let response = router.call(request).await.unwrap();
@@ -265,7 +270,7 @@ async fn test_resources_list_custom_handler_with_extractors_and_filtering() {
         .header("Content-Type", "application/json")
         .header("MCP-Protocol-Version", "2026-07-28")
         .header("Mcp-Method", "resources/list")
-        .body(serde_json::json!({ "jsonrpc": "2.0", "id": 1 }).to_string())
+        .body(serde_json::json!({ "jsonrpc": "2.0", "id": 1, "params": { "_meta": common::meta() } }).to_string())
         .unwrap();
 
     let response = router.call(request).await.unwrap();
@@ -313,7 +318,8 @@ async fn test_resources_list_custom_handler_with_pagination_cursor() {
             serde_json::json!({
                 "jsonrpc": "2.0",
                 "id": 1,
-                "method": "resources/list"
+                "method": "resources/list",
+                "params": { "_meta": common::meta() }
             })
             .to_string(),
         )
@@ -339,6 +345,7 @@ async fn test_resources_list_custom_handler_with_pagination_cursor() {
                 "id": 2,
                 "method": "resources/list",
                 "params": {
+                    "_meta": common::meta(),
                     "cursor": "page_2"
                 }
             })
@@ -371,7 +378,8 @@ async fn test_resources_list_custom_handler_error_propagation() {
             serde_json::json!({
                 "jsonrpc": "2.0",
                 "id": 1,
-                "method": "resources/list"
+                "method": "resources/list",
+                "params": { "_meta": common::meta() }
             })
             .to_string(),
         )

@@ -32,6 +32,13 @@ struct ConfirmationResponse {
     approved: bool,
 }
 
+/// Client `ElicitResult` for an elicitation whose form content is `T`.
+#[derive(Serialize, Deserialize)]
+struct ElicitResult<T> {
+    action: String,
+    content: Option<T>,
+}
+
 /// Tests multi-round-trip tool execution with user confirmation elicitation.
 #[tokio::test]
 async fn test_tool_call_multi_round_trip_elicitation() {
@@ -63,8 +70,9 @@ async fn test_tool_call_multi_round_trip_elicitation() {
                     let confirm_resp = responses
                         .get("confirm_action")
                         .expect("missing confirm response");
-                    let res: Option<ConfirmationResponse> = confirm_resp.get_result().unwrap();
-                    if res.map(|r| r.approved).unwrap_or(false) {
+                    let res: ElicitResult<ConfirmationResponse> =
+                        confirm_resp.get_result().unwrap();
+                    if res.action == "accept" && res.content.is_some_and(|c| c.approved) {
                         CallToolResult::text("Action executed successfully after confirmation")
                     } else {
                         CallToolResult::error("Action rejected by user")
@@ -98,6 +106,7 @@ async fn test_tool_call_multi_round_trip_elicitation() {
             "id": 1,
             "method": "tools/call",
             "params": {
+                "_meta": common::meta(),
                 "name": "dangerous_exec",
                 "arguments": { "action": "wipe_cache" }
             }
@@ -122,12 +131,14 @@ async fn test_tool_call_multi_round_trip_elicitation() {
             "id": 2,
             "method": "tools/call",
             "params": {
+                "_meta": common::meta(),
                 "name": "dangerous_exec",
                 "arguments": { "action": "wipe_cache" },
                 "requestState": "step_1_confirmation",
                 "inputResponses": {
                     "confirm_action": {
-                        "result": { "approved": true }
+                        "action": "accept",
+                        "content": { "approved": true }
                     }
                 }
             }
@@ -170,7 +181,7 @@ async fn test_tool_call_mrtr_with_extractors() {
                 assert_eq!(state.as_str(), "step_token_abc");
                 let responses = responses.expect("responses should be extracted");
                 let val: Option<serde_json::Value> = responses.get_result("sample_step").unwrap();
-                assert_eq!(val.unwrap()["answer"], 42);
+                assert_eq!(val.unwrap()["content"]["text"], "42");
                 Ok::<_, ToolError>(CallToolResult::text("Final answer computed: 42"))
             } else {
                 let sampling_req = InputRequest::sampling(&json!({
@@ -195,6 +206,7 @@ async fn test_tool_call_mrtr_with_extractors() {
             "id": 10,
             "method": "tools/call",
             "params": {
+                "_meta": common::meta(),
                 "name": "multi_step",
                 "arguments": {}
             }
@@ -219,12 +231,16 @@ async fn test_tool_call_mrtr_with_extractors() {
             "id": 11,
             "method": "tools/call",
             "params": {
+                "_meta": common::meta(),
                 "name": "multi_step",
                 "arguments": {},
                 "requestState": "step_token_abc",
                 "inputResponses": {
                     "sample_step": {
-                        "result": { "answer": 42 }
+                        "role": "assistant",
+                        "content": { "type": "text", "text": "42" },
+                        "model": "test-model",
+                        "stopReason": "endTurn"
                     }
                 }
             }
@@ -275,6 +291,7 @@ async fn test_load_shedding_mrtr() {
             "id": 20,
             "method": "tools/call",
             "params": {
+                "_meta": common::meta(),
                 "name": "busy_tool",
                 "arguments": {}
             }
@@ -296,6 +313,7 @@ async fn test_load_shedding_mrtr() {
             "id": 21,
             "method": "tools/call",
             "params": {
+                "_meta": common::meta(),
                 "name": "busy_tool",
                 "arguments": {},
                 "requestState": "ticket_shed_888"
@@ -330,6 +348,7 @@ async fn test_completion_complete_result_type() {
             "id": 30,
             "method": "completion/complete",
             "params": {
+                "_meta": common::meta(),
                 "ref": {
                     "type": "ref/prompt",
                     "name": "generate_code"
@@ -372,7 +391,9 @@ async fn test_prompts_get_mrtr() {
                 let responses = responses.expect("responses required");
                 let user_context: Option<serde_json::Value> =
                     responses.get_result("user_name").unwrap();
-                let name = user_context.unwrap()["name"].as_str().unwrap().to_string();
+                let user_context = user_context.unwrap();
+                assert_eq!(user_context["action"], "accept");
+                let name = user_context["content"]["name"].as_str().unwrap().to_string();
                 Ok::<_, PromptError>(GetPromptResult::user(format!("Hello, {name}!")))
             } else {
                 let elicit = InputRequest::elicitation(&json!({
@@ -397,6 +418,7 @@ async fn test_prompts_get_mrtr() {
             "id": 40,
             "method": "prompts/get",
             "params": {
+                "_meta": common::meta(),
                 "name": "interactive_prompt"
             }
         }),
@@ -417,11 +439,13 @@ async fn test_prompts_get_mrtr() {
             "id": 41,
             "method": "prompts/get",
             "params": {
+                "_meta": common::meta(),
                 "name": "interactive_prompt",
                 "requestState": "prompt_state_1",
                 "inputResponses": {
                     "user_name": {
-                        "result": { "name": "Alice" }
+                        "action": "accept",
+                        "content": { "name": "Alice" }
                     }
                 }
             }
@@ -450,7 +474,7 @@ async fn test_resources_read_mrtr() {
                 let responses = responses.expect("responses required");
                 let roots: Option<serde_json::Value> =
                     responses.get_result("roots_request").unwrap();
-                assert!(roots.is_some());
+                assert_eq!(roots.unwrap()["roots"][0]["uri"], "custom://workspace");
                 Ok::<_, ResourceError>(ReadResourceResult::text(
                     "custom://secure-data",
                     "Confidential content unlocked",
@@ -480,6 +504,7 @@ async fn test_resources_read_mrtr() {
                 "id": 50,
                 "method": "resources/read",
                 "params": {
+                    "_meta": common::meta(),
                     "uri": "custom://secure-data"
                 }
             })
@@ -511,13 +536,12 @@ async fn test_resources_read_mrtr() {
                 "id": 51,
                 "method": "resources/read",
                 "params": {
+                    "_meta": common::meta(),
                     "uri": "custom://secure-data",
                     "requestState": "resource_auth_token_99",
                     "inputResponses": {
                         "roots_request": {
-                            "result": {
-                                "roots": [{"uri": "custom://workspace", "name": "Main"}]
-                            }
+                            "roots": [{"uri": "custom://workspace", "name": "Main"}]
                         }
                     }
                 }

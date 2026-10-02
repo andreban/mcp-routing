@@ -127,6 +127,7 @@ async fn test_completion_prompt_specific_argument() {
         "id": 1,
         "method": "completion/complete",
         "params": {
+            "_meta": common::meta(),
             "ref": {
                 "type": "ref/prompt",
                 "name": "review"
@@ -166,6 +167,7 @@ async fn test_completion_prompt_all_arguments_fallback() {
         "id": 1,
         "method": "completion/complete",
         "params": {
+            "_meta": common::meta(),
             "ref": { "type": "ref/prompt", "name": "greet" },
             "argument": { "name": "title", "value": "" }
         }
@@ -183,6 +185,7 @@ async fn test_completion_prompt_all_arguments_fallback() {
         "id": 2,
         "method": "completion/complete",
         "params": {
+            "_meta": common::meta(),
             "ref": { "type": "ref/prompt", "name": "greet" },
             "argument": { "name": "name", "value": "" }
         }
@@ -224,6 +227,7 @@ async fn test_completion_resource_template_with_context() {
         "id": 10,
         "method": "completion/complete",
         "params": {
+            "_meta": common::meta(),
             "ref": {
                 "type": "ref/resource",
                 "uri": "postgres://production/users"
@@ -263,6 +267,7 @@ async fn test_completion_default_fallback_provider() {
         "id": 1,
         "method": "completion/complete",
         "params": {
+            "_meta": common::meta(),
             "ref": { "type": "ref/prompt", "name": "dynamic_prompt" },
             "argument": { "name": "topic", "value": "ai" }
         }
@@ -279,6 +284,7 @@ async fn test_completion_default_fallback_provider() {
         "id": 2,
         "method": "completion/complete",
         "params": {
+            "_meta": common::meta(),
             "ref": { "type": "ref/resource", "uri": "custom://file.txt" },
             "argument": { "name": "line", "value": "1" }
         }
@@ -319,6 +325,7 @@ async fn test_completion_with_extractors_and_state() {
         "id": 1,
         "method": "completion/complete",
         "params": {
+            "_meta": common::meta(),
             "ref": { "type": "ref/prompt", "name": "sql_query" },
             "argument": { "name": "table", "value": "orders" }
         }
@@ -350,6 +357,7 @@ async fn test_completion_clamping_and_pagination() {
         "id": 1,
         "method": "completion/complete",
         "params": {
+            "_meta": common::meta(),
             "ref": { "type": "ref/prompt", "name": "bulk" },
             "argument": { "name": "item", "value": "" }
         }
@@ -373,7 +381,8 @@ async fn test_completion_capability_advertisement_in_discover() {
     let payload = serde_json::json!({
         "jsonrpc": "2.0",
         "id": 1,
-        "method": "server/discover"
+        "method": "server/discover",
+        "params": { "_meta": common::meta() }
     });
 
     let (status, body, _) = send_mcp_request(&mut router, payload, None).await;
@@ -393,6 +402,7 @@ async fn test_completion_caching_directives() {
         "id": 1,
         "method": "completion/complete",
         "params": {
+            "_meta": common::meta(),
             "ref": { "type": "ref/prompt", "name": "cached_prompt" },
             "argument": { "name": "query", "value": "a" }
         }
@@ -421,6 +431,7 @@ async fn test_completion_unhandled_target_returns_invalid_params() {
         "id": 99,
         "method": "completion/complete",
         "params": {
+            "_meta": common::meta(),
             "ref": { "type": "ref/prompt", "name": "unknown_prompt" },
             "argument": { "name": "any_arg", "value": "test" }
         }
@@ -448,6 +459,7 @@ async fn test_completion_invalid_params() {
         "id": 1,
         "method": "completion/complete",
         "params": {
+            "_meta": common::meta(),
             "argument": { "name": "query", "value": "val" }
         }
     });
@@ -460,7 +472,8 @@ async fn test_completion_invalid_params() {
     let payload_missing_params = serde_json::json!({
         "jsonrpc": "2.0",
         "id": 2,
-        "method": "completion/complete"
+        "method": "completion/complete",
+        "params": { "_meta": common::meta() }
     });
 
     let (status, body2, _) = send_mcp_request(&mut router, payload_missing_params, None).await;
@@ -483,6 +496,7 @@ async fn test_completion_batch_request() {
             "id": 1,
             "method": "completion/complete",
             "params": {
+                "_meta": common::meta(),
                 "ref": { "type": "ref/prompt", "name": "batch_prompt" },
                 "argument": { "name": "arg", "value": "first" }
             }
@@ -492,6 +506,7 @@ async fn test_completion_batch_request() {
             "id": 2,
             "method": "completion/complete",
             "params": {
+                "_meta": common::meta(),
                 "ref": { "type": "ref/prompt", "name": "batch_prompt" },
                 "argument": { "name": "arg", "value": "second" }
             }
@@ -526,6 +541,7 @@ async fn test_completion_via_header_routing() {
         "jsonrpc": "2.0",
         "id": 1,
         "params": {
+            "_meta": common::meta(),
             "ref": { "type": "ref/prompt", "name": "hdr_prompt" },
             "argument": { "name": "arg", "value": "val" }
         }

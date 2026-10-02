@@ -4,7 +4,8 @@
 //! # Custom Parameter Headers (`x-mcp-header` & `Mcp-Param-{Name}`) Integration Tests
 //!
 //! Verifies the behavior of the Model Context Protocol (MCP) Streamable HTTP parameter headers:
-//! - Extracting `x-mcp-header: true` annotations from tool `inputSchema`
+//! - Extracting string `x-mcp-header` annotations (the `Mcp-Param-{Name}` header name) from tool `inputSchema`
+//! - Header names that differ from the annotated property name, including nested properties
 //! - Validating `Mcp-Param-{Name}` HTTP request headers against `tools/call` arguments
 //! - Rejection with HTTP 400 Bad Request and error code -32020 (`HEADER_MISMATCH`) on missing or mismatched headers
 //! - RFC 2047-style Base64 sentinel decoding (`=?base64?...?=`) for parameter headers
@@ -50,14 +51,14 @@ fn file_query_tool() -> Tool {
         "properties": {
             "repo": {
                 "type": "string",
-                "x-mcp-header": true
+                "x-mcp-header": "Repo"
             },
             "path": {
                 "type": "string"
             },
             "branch": {
                 "type": "string",
-                "x-mcp-header": true
+                "x-mcp-header": "Branch"
             }
         },
         "required": ["repo", "path"]
@@ -82,11 +83,11 @@ fn typed_params_tool() -> Tool {
         "properties": {
             "count": {
                 "type": "integer",
-                "x-mcp-header": true
+                "x-mcp-header": "Count"
             },
             "active": {
                 "type": "boolean",
-                "x-mcp-header": true
+                "x-mcp-header": "Active"
             }
         },
         "required": ["count", "active"]
@@ -114,6 +115,7 @@ async fn test_param_header_matching_success() {
                 "id": 1,
                 "method": "tools/call",
                 "params": {
+                    "_meta": common::meta(),
                     "name": "file_query",
                     "arguments": {
                         "repo": "mcp-routing",
@@ -153,6 +155,7 @@ async fn test_param_header_missing_returns_header_mismatch() {
                 "id": 2,
                 "method": "tools/call",
                 "params": {
+                    "_meta": common::meta(),
                     "name": "file_query",
                     "arguments": {
                         "repo": "mcp-routing",
@@ -199,6 +202,7 @@ async fn test_param_header_value_mismatch_returns_header_mismatch() {
                 "id": 3,
                 "method": "tools/call",
                 "params": {
+                    "_meta": common::meta(),
                     "name": "file_query",
                     "arguments": {
                         "repo": "mcp-routing",
@@ -245,6 +249,7 @@ async fn test_param_header_sentinel_encoded_success() {
                 "id": 4,
                 "method": "tools/call",
                 "params": {
+                    "_meta": common::meta(),
                     "name": "file_query",
                     "arguments": {
                         "repo": "mcp-routing / workspace 🚀",
@@ -285,6 +290,7 @@ async fn test_param_header_sentinel_encoded_mismatch() {
                 "id": 5,
                 "method": "tools/call",
                 "params": {
+                    "_meta": common::meta(),
                     "name": "file_query",
                     "arguments": {
                         "repo": "mcp-routing",
@@ -322,6 +328,7 @@ async fn test_param_header_typed_numeric_and_boolean() {
                 "id": 6,
                 "method": "tools/call",
                 "params": {
+                    "_meta": common::meta(),
                     "name": "typed_params",
                     "arguments": {
                         "count": 42,
@@ -347,7 +354,7 @@ async fn test_param_header_optional_field_omitted_success() {
     let app =
         McpRouter::new(sample_server_info()).register_tool(file_query_tool(), handle_file_query);
 
-    // Optional field "branch" has x-mcp-header: true, but is omitted in both body and headers
+    // Optional field "branch" has x-mcp-header: "Branch", but is omitted in both body and headers
     let req = Request::builder()
         .method("POST")
         .uri("/")
@@ -362,6 +369,7 @@ async fn test_param_header_optional_field_omitted_success() {
                 "id": 7,
                 "method": "tools/call",
                 "params": {
+                    "_meta": common::meta(),
                     "name": "file_query",
                     "arguments": {
                         "repo": "mcp-routing",
@@ -403,6 +411,7 @@ async fn test_param_header_optional_field_provided_in_both_success() {
                 "id": 8,
                 "method": "tools/call",
                 "params": {
+                    "_meta": common::meta(),
                     "name": "file_query",
                     "arguments": {
                         "repo": "mcp-routing",
@@ -445,6 +454,7 @@ async fn test_param_header_provided_without_body_param_returns_mismatch() {
                 "id": 9,
                 "method": "tools/call",
                 "params": {
+                    "_meta": common::meta(),
                     "name": "file_query",
                     "arguments": {
                         "repo": "mcp-routing",
@@ -480,6 +490,7 @@ async fn test_param_header_batch_request_without_header_success() {
                     "id": 10,
                     "method": "tools/call",
                     "params": {
+                        "_meta": common::meta(),
                         "name": "file_query",
                         "arguments": {
                             "repo": "mcp-routing-1",
@@ -492,6 +503,7 @@ async fn test_param_header_batch_request_without_header_success() {
                     "id": 11,
                     "method": "tools/call",
                     "params": {
+                        "_meta": common::meta(),
                         "name": "file_query",
                         "arguments": {
                             "repo": "mcp-routing-2",
@@ -516,4 +528,112 @@ async fn test_param_header_batch_request_without_header_success() {
         body[1]["result"]["content"][0]["text"],
         "repo=mcp-routing-2, path=src/main.rs, branch=main"
     );
+}
+
+#[derive(Serialize, Deserialize)]
+struct SqlParams {
+    tenant_id: String,
+    query: String,
+    options: SqlOptions,
+}
+
+#[derive(Serialize, Deserialize)]
+struct SqlOptions {
+    priority: i64,
+}
+
+async fn handle_sql(params: SqlParams) -> CallToolResult {
+    CallToolResult::text(format!(
+        "tenant={}, query={}, priority={}",
+        params.tenant_id, params.query, params.options.priority
+    ))
+}
+
+fn sql_tool() -> Tool {
+    let mut tool = Tool::new("execute_sql");
+    tool.input_schema = json!({
+        "type": "object",
+        "properties": {
+            "tenant_id": { "type": "string", "x-mcp-header": "Tenant" },
+            "query": { "type": "string" },
+            "options": {
+                "type": "object",
+                "properties": {
+                    "priority": { "type": "integer", "x-mcp-header": "Priority" }
+                }
+            }
+        },
+        "required": ["tenant_id", "query", "options"]
+    });
+    tool
+}
+
+fn sql_request(param_headers: &[(&str, &str)]) -> Request<Body> {
+    let mut builder = Request::builder()
+        .method("POST")
+        .uri("/")
+        .header("Content-Type", "application/json")
+        .header("MCP-Protocol-Version", "2026-07-28")
+        .header("Mcp-Method", "tools/call")
+        .header("Mcp-Name", "execute_sql");
+    for (name, value) in param_headers {
+        builder = builder.header(*name, *value);
+    }
+    builder
+        .body(Body::from(
+            json!({
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": {
+                    "_meta": common::meta(),
+                    "name": "execute_sql",
+                    "arguments": {
+                        "tenant_id": "acme",
+                        "query": "SELECT 1",
+                        "options": { "priority": 3 }
+                    }
+                }
+            })
+            .to_string(),
+        ))
+        .unwrap()
+}
+
+/// Tests that the `x-mcp-header` value (not the property name) names the `Mcp-Param-*` header.
+///
+/// Verifies:
+/// - `tenant_id` annotated with `"Tenant"` is validated against `Mcp-Param-Tenant`
+/// - Nested `options.priority` annotated with `"Priority"` is validated against `Mcp-Param-Priority`
+#[tokio::test]
+async fn test_param_header_name_from_annotation_value() {
+    let app = McpRouter::new(sample_server_info()).register_tool(sql_tool(), handle_sql);
+
+    let req = sql_request(&[("Mcp-Param-Tenant", "acme"), ("Mcp-Param-Priority", "3")]);
+    let (status, _, body) = execute_request(app, req).await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        body["result"]["content"][0]["text"],
+        "tenant=acme, query=SELECT 1, priority=3"
+    );
+}
+
+/// Tests that omitting a required `Mcp-Param-*` header for an annotated argument is rejected.
+///
+/// Verifies:
+/// - Missing `Mcp-Param-Tenant` while `tenant_id` is in the body returns HTTP 400 with `-32020`
+/// - Missing `Mcp-Param-Priority` for a nested argument returns HTTP 400 with `-32020`
+#[tokio::test]
+async fn test_param_header_required_when_annotated_value_present() {
+    for headers in [
+        vec![("Mcp-Param-Priority", "3")],
+        vec![("Mcp-Param-Tenant", "acme")],
+    ] {
+        let app = McpRouter::new(sample_server_info()).register_tool(sql_tool(), handle_sql);
+        let (status, _, body) = execute_request(app, sql_request(&headers)).await;
+
+        assert_eq!(status, StatusCode::BAD_REQUEST, "headers: {headers:?}");
+        assert_eq!(body["error"]["code"], HEADER_MISMATCH, "headers: {headers:?}");
+    }
 }

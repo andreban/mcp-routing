@@ -42,6 +42,7 @@ fn build_origin_request(origin_header: Option<&str>) -> Request<Body> {
         "id": 1,
         "method": "tools/call",
         "params": {
+            "_meta": common::meta(),
             "name": "echo",
             "arguments": {}
         }

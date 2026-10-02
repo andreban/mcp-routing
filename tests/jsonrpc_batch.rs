@@ -67,18 +67,21 @@ async fn test_batch_all_successful_requests() {
         {
             "jsonrpc": "2.0",
             "id": "req-1",
-            "method": "server/discover"
+            "method": "server/discover",
+            "params": { "_meta": common::meta() }
         },
         {
             "jsonrpc": "2.0",
             "id": 2,
-            "method": "tools/list"
+            "method": "tools/list",
+            "params": { "_meta": common::meta() }
         },
         {
             "jsonrpc": "2.0",
             "id": "req-3",
             "method": "tools/call",
             "params": {
+                "_meta": common::meta(),
                 "name": "echo",
                 "arguments": {
                     "message": "batch hello"
@@ -88,13 +91,15 @@ async fn test_batch_all_successful_requests() {
         {
             "jsonrpc": "2.0",
             "id": 4,
-            "method": "prompts/list"
+            "method": "prompts/list",
+            "params": { "_meta": common::meta() }
         },
         {
             "jsonrpc": "2.0",
             "id": "req-5",
             "method": "prompts/get",
             "params": {
+                "_meta": common::meta(),
                 "name": "greeting"
             }
         }
@@ -166,6 +171,7 @@ async fn test_batch_mixed_calls_notifications_and_errors() {
             "id": 1,
             "method": "tools/call",
             "params": {
+                "_meta": common::meta(),
                 "name": "echo",
                 "arguments": { "message": "msg1" }
             }
@@ -180,7 +186,8 @@ async fn test_batch_mixed_calls_notifications_and_errors() {
         {
             "jsonrpc": "2.0",
             "id": "err-unknown",
-            "method": "non_existent_method"
+            "method": "non_existent_method",
+            "params": { "_meta": common::meta() }
         },
         // 4. Invalid object missing method and id
         {
@@ -192,6 +199,7 @@ async fn test_batch_mixed_calls_notifications_and_errors() {
             "id": 5,
             "method": "tools/call",
             "params": {
+                "_meta": common::meta(),
                 "arguments": { "message": "missing name" }
             }
         },
@@ -199,7 +207,8 @@ async fn test_batch_mixed_calls_notifications_and_errors() {
         {
             "jsonrpc": "2.0",
             "id": "disc-9",
-            "method": "server/discover"
+            "method": "server/discover",
+            "params": { "_meta": common::meta() }
         }
     ]);
 
@@ -384,7 +393,8 @@ async fn test_batch_invalid_primitive_elements() {
                 {
                     "jsonrpc": "2.0",
                     "id": "valid-1",
-                    "method": "tools/list"
+                    "method": "tools/list",
+                    "params": { "_meta": common::meta() }
                 }
             ])
             .to_string(),
@@ -471,6 +481,7 @@ async fn test_batch_state_propagation() {
             "id": 1,
             "method": "tools/call",
             "params": {
+                "_meta": common::meta(),
                 "name": "stateful",
                 "arguments": { "message": "call 1" }
             }
@@ -480,6 +491,7 @@ async fn test_batch_state_propagation() {
             "id": 2,
             "method": "tools/call",
             "params": {
+                "_meta": common::meta(),
                 "name": "stateful",
                 "arguments": { "message": "call 2" }
             }
@@ -521,6 +533,7 @@ async fn test_batch_header_fallback() {
             "id": "fallback-1",
             "method": "tools/call",
             "params": {
+                "_meta": common::meta(),
                 "name": "echo",
                 "arguments": { "message": "from fallback" }
             }
@@ -529,7 +542,8 @@ async fn test_batch_header_fallback() {
         {
             "jsonrpc": "2.0",
             "id": "explicit-2",
-            "method": "server/discover"
+            "method": "server/discover",
+            "params": { "_meta": common::meta() }
         }
     ]);
 

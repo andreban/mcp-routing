@@ -98,7 +98,8 @@ async fn test_logging_capability_advertisement_in_discover() {
     let payload = json!({
         "jsonrpc": "2.0",
         "id": 1,
-        "method": "server/discover"
+        "method": "server/discover",
+        "params": { "_meta": common::meta() }
     });
 
     let (status, body, _) = send_mcp_request(&mut router, payload, None).await;
@@ -118,6 +119,7 @@ async fn test_logging_set_level_rejected_via_header() {
         "jsonrpc": "2.0",
         "id": "log-1",
         "params": {
+            "_meta": common::meta(),
             "level": "debug"
         }
     });
@@ -144,6 +146,7 @@ async fn test_logging_set_level_rejected_via_body() {
         "id": 42,
         "method": "logging/setLevel",
         "params": {
+            "_meta": common::meta(),
             "level": "error"
         }
     });
@@ -191,6 +194,8 @@ async fn test_per_request_log_level_and_current_logging_level_extractors() {
             "name": "echo_log",
             "arguments": {},
             "_meta": {
+                "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+                "io.modelcontextprotocol/clientCapabilities": {},
                 "io.modelcontextprotocol/logLevel": "debug"
             }
         }
@@ -209,6 +214,7 @@ async fn test_per_request_log_level_and_current_logging_level_extractors() {
         "id": "tool-2",
         "method": "tools/call",
         "params": {
+            "_meta": common::meta(),
             "name": "echo_log",
             "arguments": {}
         }

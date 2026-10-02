@@ -40,7 +40,8 @@ async fn test_prompts_list_empty() {
         json!({
             "jsonrpc": "2.0",
             "id": 1,
-            "method": "prompts/list"
+            "method": "prompts/list",
+            "params": { "_meta": common::meta() }
         }),
     );
 
@@ -99,7 +100,8 @@ async fn test_prompts_list_multiple_rich_prompts() {
         json!({
             "jsonrpc": "2.0",
             "id": "list-rich-prompts",
-            "method": "prompts/list"
+            "method": "prompts/list",
+            "params": { "_meta": common::meta() }
         }),
     );
 
@@ -160,7 +162,8 @@ async fn test_prompts_list_missing_method_header_returns_header_mismatch() {
         json!({
             "jsonrpc": "2.0",
             "id": 100,
-            "method": "prompts/list"
+            "method": "prompts/list",
+            "params": { "_meta": common::meta() }
         }),
     );
 
@@ -189,6 +192,7 @@ async fn test_prompts_list_with_pagination_cursor_and_meta() {
             "params": {
                 "cursor": "cursor_page_3",
                 "_meta": {
+                    "io.modelcontextprotocol/clientCapabilities": {},
                     "io.modelcontextprotocol/protocolVersion": "2026-07-28"
                 }
             }
@@ -217,7 +221,8 @@ async fn test_prompts_list_custom_caching_parameters() {
         json!({
             "jsonrpc": "2.0",
             "id": "cache-prompts-test",
-            "method": "prompts/list"
+            "method": "prompts/list",
+            "params": { "_meta": common::meta() }
         }),
     );
 
@@ -247,7 +252,8 @@ async fn test_prompts_capability_advertisement_in_discover() {
         json!({
             "jsonrpc": "2.0",
             "id": 1,
-            "method": "server/discover"
+            "method": "server/discover",
+            "params": { "_meta": common::meta() }
         }),
     );
 
@@ -295,7 +301,8 @@ async fn test_prompts_list_custom_handler_with_bearer_auth_and_extractors() {
         json!({
             "jsonrpc": "2.0",
             "id": 1,
-            "method": "prompts/list"
+            "method": "prompts/list",
+            "params": { "_meta": common::meta() }
         }),
     );
     req1.headers_mut().insert(
@@ -322,6 +329,8 @@ async fn test_prompts_list_custom_handler_with_bearer_auth_and_extractors() {
             "method": "prompts/list",
             "params": {
                 "_meta": {
+                    "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+                    "io.modelcontextprotocol/clientCapabilities": {},
                     "io.modelcontextprotocol/clientInfo": {
                         "name": "vip-client",
                         "version": "1.0.0"
@@ -349,7 +358,8 @@ async fn test_prompts_list_custom_handler_with_bearer_auth_and_extractors() {
         json!({
             "jsonrpc": "2.0",
             "id": 3,
-            "method": "prompts/list"
+            "method": "prompts/list",
+            "params": { "_meta": common::meta() }
         }),
     );
     let (status3, _headers3, body3) = common::execute_request(app, req3).await;
@@ -388,7 +398,8 @@ async fn test_prompts_list_custom_handler_with_pagination_cursor() {
         json!({
             "jsonrpc": "2.0",
             "id": 1,
-            "method": "prompts/list"
+            "method": "prompts/list",
+            "params": { "_meta": common::meta() }
         }),
     );
     let (status1, _, body1) = common::execute_request(app.clone(), req1).await;
@@ -409,7 +420,7 @@ async fn test_prompts_list_custom_handler_with_pagination_cursor() {
             "jsonrpc": "2.0",
             "id": 2,
             "method": "prompts/list",
-            "params": { "cursor": "next_cursor_page2" }
+            "params": { "_meta": common::meta(), "cursor": "next_cursor_page2" }
         }),
     );
     let (status2, _, body2) = common::execute_request(app, req2).await;
@@ -437,7 +448,8 @@ async fn test_prompts_list_custom_handler_error_propagation() {
         json!({
             "jsonrpc": "2.0",
             "id": 200,
-            "method": "prompts/list"
+            "method": "prompts/list",
+            "params": { "_meta": common::meta() }
         }),
     );
 
@@ -488,7 +500,7 @@ async fn test_prompts_list_registered_prompts_extractor_filtering() {
     let req_user = common::build_request(
         Some("prompts/list"),
         None,
-        json!({ "jsonrpc": "2.0", "id": 1, "method": "prompts/list" }),
+        json!({ "jsonrpc": "2.0", "id": 1, "method": "prompts/list", "params": { "_meta": common::meta() } }),
     );
     let (status_u, _, body_u) = common::execute_request(app.clone(), req_user).await;
     assert_eq!(status_u, StatusCode::OK);
@@ -501,7 +513,7 @@ async fn test_prompts_list_registered_prompts_extractor_filtering() {
     let mut req_admin = common::build_request(
         Some("prompts/list"),
         None,
-        json!({ "jsonrpc": "2.0", "id": 2, "method": "prompts/list" }),
+        json!({ "jsonrpc": "2.0", "id": 2, "method": "prompts/list", "params": { "_meta": common::meta() } }),
     );
     req_admin.headers_mut().insert(
         http::header::AUTHORIZATION,

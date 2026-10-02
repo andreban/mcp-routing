@@ -313,7 +313,6 @@ mod tests {
                 resources: None,
                 prompts: None,
                 completions: None,
-                logging: None,
                 experimental: None,
                 extensions: None,
             })
@@ -332,7 +331,6 @@ mod tests {
                 client_capabilities: None,
                 protocol_version: None,
                 progress_token: None,
-                log_level: None,
                 subscription_id: None,
                 extra: std::collections::HashMap::new(),
             }),

@@ -8,11 +8,11 @@ A [Tower](https://crates.io/crates/tower)-native routing library for building [M
 
 ## Features
 
-- **Stateless MCP (`2026-07-28`)**: Built specifically for the 2026-07-28 MCP specification featuring `server/discover`, `tools/*`, `prompts/*`, `resources/*`, `completion/*`, and `logging/*`.
+- **Stateless MCP (`2026-07-28`)**: Built specifically for the 2026-07-28 MCP specification featuring `server/discover`, `tools/*`, `prompts/*`, `resources/*`, `completion/*`, and `subscriptions/listen`. Features deprecated in this revision (Logging, Roots, Sampling) are not supported.
 - **Tower-Native**: Implements `tower::Service` for any HTTP request body implementing `http_body::Body<Data = Bytes>`.
 - **Header & Body Routing**: Dispatches requests via standard `Mcp-Method`, `Mcp-Name`, and `Mcp-Uri` headers with automatic fallback to JSON-RPC body parameters.
 - **Typed Asynchronous Handlers**: Register async Rust functions with automatic JSON-RPC argument deserialization, structured output, and error mapping.
-- **Rich Extractors**: Extract `BearerAuth`, `State<T>`, `Extension<T>`, `Meta`, `CurrentLoggingLevel`, `RequestContext`, and registered registries.
+- **Rich Extractors**: Extract `BearerAuth`, `State<T>`, `Extension<T>`, `Meta`, `RequestContext`, and registered registries.
 - **Dynamic Providers**: Dynamically generate or filter discovery metadata, tools, prompts, resources, and templates per request.
 - **Input Pre-Validation**: Pre-compiled JSON Schema validation for tool arguments prior to deserialization.
 - **HTTP Caching Directives**: Automatic generation of `Cache-Control` (`public`/`private`, `max-age`) and `ETag` headers based on metadata `ttl_ms` and `cache_scope`.
@@ -204,28 +204,6 @@ let router = McpRouter::new(server_info)
     });
 ```
 
-### 5. Logging & Diagnostics (`logging/*`)
-
-Configure server logging capabilities and initial default thresholds:
-
-```rust
-let router = McpRouter::new(server_info)
-    .logging_level(LoggingLevel::Info);
-```
-
-Inspect per-request `_meta.io.modelcontextprotocol/logLevel` and current server log thresholds in any tool or handler:
-
-```rust
-async fn process_task(
-    opt_level: Option<LoggingLevel>,
-    current_level: CurrentLoggingLevel,
-    params: TaskParams,
-) -> Result<String, String> {
-    let effective = opt_level.unwrap_or(current_level.level());
-    Ok(format!("Executing with log level: {effective}"))
-}
-```
-
 ---
 
 ## Request Extractors
@@ -238,9 +216,7 @@ Handlers can accept up to 5 Tower and MCP extractors in their signatures:
 | [`Authorization`](src/extract/mod.rs) | Raw `Authorization` header |
 | [`State<T>`](src/extract/mod.rs) | Application state shared across Tower layers / Axum handlers (`.with_state(state)`) |
 | [`Extension<T>`](src/extract/mod.rs) | Type-safe request extensions from Tower middleware |
-| [`Meta`](src/extract/mod.rs) / [`RequestMetaObject`](src/types/mcp/core/metadata.rs) | Client info, protocol version, log level, progress tokens |
-| [`CurrentLoggingLevel`](src/extract/logging.rs) | Dynamic server logging threshold |
-| [`LoggingLevel`](src/types/mcp/core/metadata.rs) / `Option<LoggingLevel>` | Per-request log level from `_meta.io.modelcontextprotocol/logLevel` |
+| [`Meta`](src/extract/mod.rs) / [`RequestMetaObject`](src/types/mcp/core/metadata.rs) | Client info, protocol version, progress tokens |
 | [`RequestContext`](src/extract/context.rs) | Full MCP request context (headers, extensions, metadata) |
 | [`RegisteredTools`](src/extract/mod.rs) | Injected registry of registered tools (useful in custom `.tools_list()`) |
 | [`RegisteredPrompts`](src/extract/mod.rs) | Injected registry of registered prompts (useful in custom `.prompts_list()`) |
@@ -264,7 +240,6 @@ Run any of the included examples with `cargo run --example <name>`:
 | **Completions** | `cargo run --example completions` | Autocompletion for prompt arguments and resource template variables |
 | **Extractors** | `cargo run --example extractors` | Sharing application state (`State<T>`), session IDs, and auth tokens |
 | **Discovery** | `cargo run --example discovery` | Dynamic capability advertisement and contextual server instructions |
-| **Logging** | `cargo run --example logging` | Server logging level advertisement and per-request log level handling |
 
 ---
 

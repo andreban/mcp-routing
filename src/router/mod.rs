@@ -32,7 +32,6 @@ use crate::resources::ResourceRegistry;
 use crate::server::ServerConfig;
 use crate::subscriptions::SubscriptionsRegistry;
 use crate::tools::ToolRegistry;
-use crate::types::mcp::LoggingLevel;
 
 type StateInjector = Arc<dyn Fn(&mut http::Extensions) + Send + Sync>;
 
@@ -50,6 +49,5 @@ pub(crate) struct McpRouterInner {
     pub(crate) resources: ResourceRegistry,
     pub(crate) completion: CompletionRegistry,
     pub(crate) subscriptions: SubscriptionsRegistry,
-    pub(crate) logging_level: LoggingLevel,
     pub(crate) state_injectors: Vec<StateInjector>,
 }

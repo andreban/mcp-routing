@@ -13,16 +13,15 @@ use crate::types::mcp::core::mrtr::types::RESULT_TYPE_INPUT_REQUIRED;
 
 /// A server-initiated input request that the client must fulfill before retrying the original request.
 ///
-/// In MCP 2026-07-28 (SEP-2322), this typically represents requests such as:
-/// - `sampling/createMessage`: Sampling completions from an LLM connected to the client.
-/// - `roots/list`: Requesting the list of root URIs / boundaries from the client.
-/// - `elicitation/create`: Requesting structured user confirmation or input.
+/// In MCP 2026-07-28 (SEP-2322), this is typically an `elicitation/create` request for structured
+/// user confirmation or input. The `sampling/createMessage` and `roots/list` requests belong to the
+/// Sampling and Roots features, which are deprecated (SEP-2577) and not supported by this crate.
 ///
 /// See <https://modelcontextprotocol.io/specification/2026-07-28/schema#inputrequest>
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct InputRequest {
-    /// The RPC method name to be invoked on the client (e.g. `"sampling/createMessage"`, `"roots/list"`, `"elicitation/create"`).
+    /// The RPC method name to be invoked on the client (e.g. `"elicitation/create"`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub method: Option<String>,
     /// Request parameters payload for the client invocation.
@@ -54,16 +53,6 @@ impl InputRequest {
             params: Some(params_val),
             extras: HashMap::new(),
         })
-    }
-
-    /// Creates a sampling input request (`"sampling/createMessage"`).
-    pub fn sampling<T: Serialize>(params: &T) -> Result<Self, serde_json::Error> {
-        Self::with_params("sampling/createMessage", params)
-    }
-
-    /// Creates a roots list input request (`"roots/list"`).
-    pub fn roots() -> Self {
-        Self::new("roots/list")
     }
 
     /// Creates an elicitation input request (`"elicitation/create"`).

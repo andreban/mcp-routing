@@ -135,7 +135,6 @@ pub struct MovieRating {
 * Implementation: `Implementation::new("cinelist-mcp", "1.0.0")`
 * Instructions: Guides the LLM on how to explore catalog genres, provide bearer tokens for personalized watchlists and ratings, and request recommendations.
 * Cache directive: Public caching for 1 hour (`3_600_000` ms) with `ETag`.
-* Logging: Advertises `LoggingLevel::Info` as baseline threshold.
 
 ### 4.2 Dedicated Tools (`tools/*`) with Schema Validation & Structured Outputs
 * **`search_movies`** *(Public)*:
@@ -197,7 +196,6 @@ pub struct MovieRating {
 * `State<Arc<RwLock<MovieDb>>>`: Thread-safe shared database state.
 * `Extension<StreamingSubscriptions>`: Tower middleware injecting active streaming subscriptions.
 * `Meta` / `RequestMetaObject`: Client metadata and protocol version tracking.
-* `CurrentLoggingLevel` & `Option<LoggingLevel>`: Logging and diagnostics threshold.
 * `RequestContext` & `HeaderMap`: MCP request headers and tracing context.
 
 ---

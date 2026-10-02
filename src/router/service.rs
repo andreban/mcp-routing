@@ -70,15 +70,6 @@ impl McpRouterInner {
         }
 
         let (mut parts, body) = req.into_parts();
-        if parts
-            .extensions
-            .get::<crate::extract::CurrentLoggingLevel>()
-            .is_none()
-        {
-            parts
-                .extensions
-                .insert(crate::extract::CurrentLoggingLevel(self.logging_level));
-        }
         for injector in &self.state_injectors {
             injector(&mut parts.extensions);
         }

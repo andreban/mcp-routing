@@ -12,9 +12,7 @@ use crate::router::{McpRouter, McpRouterInner, StateInjector};
 use crate::server::{IntoServerDiscoveryHandler, ServerConfig};
 use crate::subscriptions::SubscriptionsRegistry;
 use crate::tools::ToolRegistry;
-use crate::types::mcp::{
-    CacheScope, Implementation, LoggingCapability, LoggingLevel, ServerCapabilities,
-};
+use crate::types::mcp::{CacheScope, Implementation, ServerCapabilities};
 
 pub mod completion;
 pub mod prompts;
@@ -35,7 +33,6 @@ impl McpRouter {
                 resources: ResourceRegistry::new(),
                 completion: CompletionRegistry::new(),
                 subscriptions: SubscriptionsRegistry::new(),
-                logging_level: LoggingLevel::Info,
                 state_injectors: Vec::new(),
             }),
         }
@@ -140,20 +137,5 @@ impl McpRouter {
     pub fn server_discover_cache_scope(mut self, cache_scope: CacheScope) -> Self {
         Arc::make_mut(&mut self.inner).server.discover_cache_scope = Some(cache_scope);
         self
-    }
-
-    /// Sets the initial logging level and advertises the logging capability in `server/discover`.
-    pub fn logging_level(mut self, level: LoggingLevel) -> Self {
-        let inner = Arc::make_mut(&mut self.inner);
-        if inner.server.capabilities.logging.is_none() {
-            inner.server.capabilities.logging = Some(LoggingCapability {});
-        }
-        inner.logging_level = level;
-        self
-    }
-
-    /// Returns the server's configured default logging level.
-    pub fn current_logging_level(&self) -> LoggingLevel {
-        self.inner.logging_level
     }
 }

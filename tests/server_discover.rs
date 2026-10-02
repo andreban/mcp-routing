@@ -157,7 +157,6 @@ async fn test_server_discover_custom_capabilities_and_versions() {
             list_changed: Some(true),
         }),
         completions: Some(CompletionsCapability {}),
-        logging: None,
         experimental: Some(experimental),
         extensions: None,
     };
@@ -201,7 +200,7 @@ async fn test_server_discover_custom_capabilities_and_versions() {
 /// Tests that discovery requests carrying protocol-level metadata (`_meta`) in `params` parse cleanly.
 ///
 /// Verifies:
-/// - Parsing of `_meta` containing `clientInfo`, `clientCapabilities`, `protocolVersion`, `logLevel`, and extra custom fields
+/// - Parsing of `_meta` containing `clientInfo`, `clientCapabilities`, `protocolVersion`, and extra custom fields
 /// - Floating-point request IDs (`101.5`) are supported and round-tripped
 #[tokio::test]
 async fn test_server_discover_with_request_meta_params() {
@@ -223,10 +222,8 @@ async fn test_server_discover_with_request_meta_params() {
                         "version": "0.1.0"
                     },
                     "io.modelcontextprotocol/clientCapabilities": {
-                        "sampling": {},
                         "elicitation": {}
                     },
-                    "io.modelcontextprotocol/logLevel": "debug",
                     "customParam": "customValue"
                 }
             }
@@ -463,7 +460,6 @@ async fn test_server_discover_dynamic_provider_with_extractors() {
             }),
             prompts: Some(PromptsCapability { list_changed: None }),
             completions: None,
-            logging: None,
             experimental: None,
             extensions: None,
         };
@@ -531,7 +527,6 @@ async fn test_server_discover_dynamic_provider_returning_result_with_cache() {
                 resources: None,
                 prompts: None,
                 completions: Some(CompletionsCapability {}),
-                logging: None,
                 experimental: None,
                 extensions: None,
             },

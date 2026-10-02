@@ -2,7 +2,7 @@
 
 A [Tower](https://crates.io/crates/tower)-native routing library for building [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) servers in Rust.
 
-> **Note:** `stateless-mcp` exclusively supports the **stateless** version of the Model Context Protocol ([`2026-07-28` specification](https://modelcontextprotocol.io/docs/2026-07-28/)). It uses request-based discovery (`server/discover`) and direct tool execution, and does **not** support previous stateful protocol versions (e.g. 2024-11-05 `initialize` lifecycle).
+> **Note:** `stateless-mcp` exclusively supports the **stateless** version of the Model Context Protocol ([`2026-07-28` specification](https://modelcontextprotocol.io/specification/2026-07-28)). It uses request-based discovery (`server/discover`) and direct tool execution, and does **not** support previous stateful protocol versions (e.g. 2024-11-05 `initialize` lifecycle).
 
 `stateless-mcp` provides a composable, framework-agnostic [`McpRouter`] that implements [`tower::Service`]. It can be plugged directly into [Axum](https://crates.io/crates/axum), [Hyper](https://crates.io/crates/hyper), or any custom Tower middleware pipeline.
 
@@ -12,10 +12,12 @@ A [Tower](https://crates.io/crates/tower)-native routing library for building [M
 - **Tower-Native**: Implements `tower::Service` for any HTTP request body implementing `http_body::Body<Data = Bytes>`.
 - **Header & Body Validation**: Requires the standard `Mcp-Method` and `Mcp-Name` headers and verifies they exactly match the JSON-RPC body (`-32020 HeaderMismatch` otherwise).
 - **Typed Asynchronous Handlers**: Register async Rust functions with automatic JSON-RPC argument deserialization, structured output, and error mapping.
-- **Rich Extractors**: Extract `BearerAuth`, `State<T>`, `Extension<T>`, `Meta`, `RequestContext`, and registered registries.
+- **Rich Extractors**: Extract `BearerAuth`, `State<T>`, `Extension<T>`, `Meta`, `RequestContext`, `RequestState` / `InputResponses` (multi round-trip), `Subscription`, and registered registries.
 - **Dynamic Providers**: Dynamically generate or filter discovery metadata, tools, prompts, resources, and templates per request.
-- **Input Pre-Validation**: Pre-compiled JSON Schema validation for tool arguments prior to deserialization.
-- **HTTP Caching Directives**: Automatic generation of `Cache-Control` (`public`/`private`, `max-age`) and `ETag` headers based on metadata `ttl_ms` and `cache_scope`.
+- **Input Pre-Validation**: Pre-compiled JSON Schema validation for tool arguments prior to deserialization; failures are returned as `isError: true` tool results.
+- **Multi Round-Trip Requests**: Handlers can return `InputRequiredResult` to request elicitation from the client and resume on retry with `RequestState` / `InputResponses`.
+- **Subscriptions**: `subscriptions/listen` streams over SSE, acknowledging only notification types backed by declared capabilities.
+- **HTTP Caching Directives**: Automatic generation of `Cache-Control` (`public`/`private`, `max-age`) and `ETag` headers from each result's `ttlMs` and `cacheScope`; `input_required` and retry results are sent with `no-store`.
 - **Single-Message Framing & Notifications**: One JSON-RPC message per POST as required by Streamable HTTP (batch arrays are rejected with `-32600`); notifications return HTTP 202 Accepted.
 - **Zero Framework Lock-in**: Usable with Axum, Hyper, or any Tower-compatible server stack.
 
@@ -103,7 +105,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
 ## Protocol & Routing
 
-`stateless-mcp` targets the stateless [`2026-07-28` specification](https://modelcontextprotocol.io/docs/2026-07-28/) of the Model Context Protocol. Each HTTP request is self-contained.
+`stateless-mcp` targets the stateless [`2026-07-28` specification](https://modelcontextprotocol.io/specification/2026-07-28) of the Model Context Protocol. Each HTTP request is self-contained.
 
 Every request carries its method (and, where applicable, its target) both in the JSON-RPC body and in mirrored HTTP headers; the values must match exactly:
 
@@ -118,6 +120,23 @@ Every request carries its method (and, where applicable, its target) both in the
 | `resources/read` | `Mcp-Method: resources/read`<br>`Mcp-Name: <uri>` | `method: "resources/read"`<br>`params.uri: "<uri>"` | Reads resource content or matches URI template |
 | `resources/templates/list` | `Mcp-Method: resources/templates/list` | `method: "resources/templates/list"` | Discovers RFC 6570 resource templates |
 | `completion/complete` | `Mcp-Method: completion/complete` | `method: "completion/complete"` | Autocompletes prompt arguments & URI templates |
+| `subscriptions/listen` | `Mcp-Method: subscriptions/listen` | `method: "subscriptions/listen"` | Opens an SSE stream of change notifications |
+
+### Protocol Enforcement
+
+Requests that do not follow the specification are rejected before any handler runs:
+
+| Condition | Response |
+|---|---|
+| Missing or mismatched `MCP-Protocol-Version`, `Mcp-Method`, `Mcp-Name`, or `Mcp-Param-*` header (including malformed `=?base64?...?=` values) | `400`, `-32020` (`HeaderMismatch`) |
+| Unsupported protocol version | `400`, `-32022` with `data.supported` / `data.requested` |
+| Missing `_meta["io.modelcontextprotocol/protocolVersion"]` or `_meta["io.modelcontextprotocol/clientCapabilities"]` | `400`, `-32602` |
+| Batch array, missing `jsonrpc: "2.0"` or `method`, `null` or fractional `id`, or a request method sent without an `id` | `400`, `-32600` |
+| Unknown method | `404`, `-32601` |
+| `Origin` header not allowed (only loopback origins are allowed unless `.allowed_origins(...)` is configured) | `403` |
+| `input_required` result asking for elicitation the client did not declare | `400`, `-32021` |
+
+Every result carries `_meta["io.modelcontextprotocol/serverInfo"]`.
 
 ---
 
@@ -137,9 +156,9 @@ async fn query_db(
     Ok(Json(DbResult { rows: vec![] }))
 }
 
-let router = McpRouter::new(server_info)
-    .validate_tool_inputs(true) // Pre-validates arguments against input_schema
-    .register_tool(db_tool, query_db);
+// Arguments are validated against `db_tool.input_schema` before `query_db` runs;
+// validation failures are returned as `isError: true` tool results.
+let router = McpRouter::new(server_info).register_tool(db_tool, query_db);
 ```
 
 Supported return types ([`IntoToolResult`](src/tools/mod.rs)):
@@ -170,19 +189,13 @@ let router = McpRouter::new(server_info)
 Register direct resources or RFC 6570 URI templates:
 
 ```rust
-// Direct text resource
-let router = McpRouter::new(server_info)
-    .register_resource_text(
-        "config://app",
-        "App Config",
-        Some("Application configuration JSON"),
-        r#"{"debug": false}"#,
-        "application/json",
-    );
+// Direct resource
+let router = McpRouter::new(server_info).register_resource(("config://app", "App Config"), || async {
+    ReadResourceResult::text("config://app", r#"{"debug": false}"#, Some("application/json"))
+});
 
 // Dynamic RFC 6570 URI template handler
-let user_template = ResourceTemplate::new("users://{user_id}/profile", "User Profile")
-    .with_description("Returns user profile data");
+let user_template = ResourceTemplate::new("users://{user_id}/profile", "User Profile");
 
 let router = router.register_resource_template(user_template, |uri: String| async move {
     ReadResourceResult::text(uri, "User Profile Content", Some("application/json"))
@@ -194,13 +207,58 @@ let router = router.register_resource_template(user_template, |uri: String| asyn
 Provide autocompletion for prompt arguments and resource template variables:
 
 ```rust
-let router = McpRouter::new(server_info)
-    .register_prompt_completion("code_review", "language", |_ctx, query| async move {
-        let languages = vec!["rust", "python", "typescript", "go"];
-        languages
+let router = McpRouter::new(server_info).register_prompt_arg_completion(
+    "code_review",
+    "language",
+    |arg: CompleteArgument| async move {
+        ["rust", "python", "typescript", "go"]
             .into_iter()
-            .filter(|l| l.starts_with(&query))
+            .filter(|l| l.starts_with(arg.value.as_str()))
             .collect::<Vec<_>>()
+    },
+);
+```
+
+### 5. Multi Round-Trip Requests (elicitation)
+
+`tools/call`, `prompts/get`, and `resources/read` handlers can ask the client for input by returning an `InputRequiredResult`; the client retries with `requestState` and `inputResponses`. The client must declare the `elicitation` capability (and the requested mode), otherwise the request fails with `-32021`.
+
+```rust
+async fn delete_all(state: Option<RequestState>, responses: Option<InputResponses>) -> CallToolResult {
+    let confirmed = responses
+        .and_then(|r| r.get_result::<serde_json::Value>("confirm").ok().flatten())
+        .is_some_and(|answer| answer["action"] == "accept");
+    if state.is_some() && confirmed {
+        return CallToolResult::text("Deleted everything");
+    }
+    InputRequiredResult::new()
+        .with_request_state("delete_all")
+        .with_input_request(
+            "confirm",
+            InputRequest::elicitation(&json!({
+                "mode": "form",
+                "message": "Delete everything?",
+                "requestedSchema": { "type": "object", "properties": {} }
+            }))
+            .unwrap(),
+        )
+        .into_tool_result()
+}
+```
+
+`requestState` round-trips through the client, so treat it as untrusted input and integrity-protect it if it influences authorization or business logic.
+
+### 6. Subscriptions (`subscriptions/listen`)
+
+Declare the notification types the server emits, then stream them from a listen handler. The `Subscription` extractor provides the acknowledged filter and the subscription ID that every notification must carry:
+
+```rust
+let router = McpRouter::new(server_info)
+    .capabilities(ServerCapabilities::empty().with_tools(Some(true)))
+    .subscriptions_listen(|subscription: Subscription| async move {
+        // Stream only `subscription.notifications` types, tagging each with
+        // `subscription.meta()`; see examples/subscriptions for a full stream.
+        ResponseBody::empty()
     });
 ```
 
@@ -218,6 +276,8 @@ Handlers can accept up to 5 Tower and MCP extractors in their signatures:
 | [`Extension<T>`](src/extract/mod.rs) | Type-safe request extensions from Tower middleware |
 | [`Meta`](src/extract/mod.rs) / [`RequestMetaObject`](src/types/mcp/core/metadata.rs) | Client info, protocol version, progress tokens |
 | [`RequestContext`](src/extract/context.rs) | Full MCP request context (headers, extensions, metadata) |
+| [`RequestState`](src/extract/mrtr.rs) / [`InputResponses`](src/extract/mrtr.rs) | `requestState` and `inputResponses` of a multi round-trip retry (use `Option<_>` on the first attempt) |
+| [`Subscription`](src/extract/subscription.rs) | Subscription ID and acknowledged notification filter (`subscriptions/listen` handlers only) |
 | [`RegisteredTools`](src/extract/mod.rs) | Injected registry of registered tools (useful in custom `.tools_list()`) |
 | [`RegisteredPrompts`](src/extract/mod.rs) | Injected registry of registered prompts (useful in custom `.prompts_list()`) |
 | [`RegisteredResources`](src/extract/mod.rs) | Injected registry of direct resources (useful in custom `.resources_list()`) |
@@ -238,8 +298,10 @@ Run any of the included examples with `cargo run --example <name>`:
 | **Caching** | `cargo run --example caching` | Public and private caching directives (`Cache-Control`, `ETag`) |
 | **Prompts** | `cargo run --example prompts` | Parameterized and multi-turn prompt templates with role messages |
 | **Completions** | `cargo run --example completions` | Autocompletion for prompt arguments and resource template variables |
-| **Extractors** | `cargo run --example extractors` | Sharing application state (`State<T>`), session IDs, and auth tokens |
+| **Extractors** | `cargo run --example extractors` | Sharing application state (`State<T>`) between Axum routes and MCP handlers |
 | **Discovery** | `cargo run --example discovery` | Dynamic capability advertisement and contextual server instructions |
+| **Subscriptions** | `cargo run --example subscriptions` | Event-driven `subscriptions/listen` notification streams |
+| **Movie Watchlist** | `cargo run --example movie_watchlist` | End-to-end server with auth, dynamic discovery, prompts, resources, and completions |
 
 ---
 
@@ -251,9 +313,9 @@ Run the complete test suite:
 cargo test
 ```
 
-## Specification & Roadmap
+## Specification Compliance
 
-All planned capabilities across all 9 specification sections of the Model Context Protocol ([`2026-07-28`](https://modelcontextprotocol.io/docs/2026-07-28/)) are fully implemented. For historical development tracking and the phased implementation breakdown, see [docs/archive/ROADMAP.md](docs/archive/ROADMAP.md).
+`stateless-mcp` targets the Model Context Protocol [`2026-07-28`](https://modelcontextprotocol.io/specification/2026-07-28) specification for servers using the Streamable HTTP transport. Known compliance gaps are tracked as [GitHub issues](https://github.com/andreban/stateless-mcp/issues). The documents in [docs/archive/](docs/archive/) are historical and no longer reflect the current implementation.
 
 ## License
 

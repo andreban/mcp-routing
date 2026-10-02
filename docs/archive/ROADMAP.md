@@ -1,5 +1,8 @@
 # Model Context Protocol (MCP) Roadmap (Archived)
 
+> [!WARNING]
+> **Superseded.** This roadmap is historical. Several features described here (JSON-RPC batches, `Mcp-Uri`, Logging, Roots, and Sampling) were later removed to match the 2026-07-28 specification. See [`README.md`](../../README.md) for current behavior.
+
 > [!NOTE]
 > **Status: Completed & Archived**
 > All planned features across all 9 specification areas for the Model Context Protocol ([`2026-07-28` specification](https://modelcontextprotocol.io/docs/2026-07-28/)) have been fully implemented, verified with comprehensive unit and integration test suites, and documented.

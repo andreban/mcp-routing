@@ -1,5 +1,8 @@
 # MCP Specification Compliance Review (2026-07-28) (Archived)
 
+> [!WARNING]
+> **Superseded.** This review predates a later audit against the 2026-07-28 specification, which found that several items marked compliant here were not (for example, `x-mcp-header` is a header-name string rather than a boolean, `resources/read` uses `Mcp-Name` rather than `Mcp-Uri`, JSON-RPC batches are not allowed, and the deprecated Logging feature should not be implemented). Those findings were fixed in andreban/stateless-mcp#24 through #30. Treat this document as historical; see [`README.md`](../../README.md) for current behavior and [GitHub issues](https://github.com/andreban/stateless-mcp/issues) for open gaps.
+
 > [!NOTE]
 > **Status: All Action Items Resolved & Completed**  
 > All compliance items, header validations, error codes, MRTR implementations, and protocol changes identified in this review against the Model Context Protocol ([`2026-07-28` specification](https://modelcontextprotocol.io/docs/2026-07-28/)) have been fully implemented, verified with comprehensive unit and integration test suites, and documented.

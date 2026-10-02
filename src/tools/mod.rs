@@ -118,7 +118,7 @@ mod tests {
     /// Tests conversion of `ToolError` variants into `JsonRpcErrorResponse`.
     #[test]
     fn test_tool_error_into_error_response() {
-        let req_id = Some(JsonRpcRequestId::Number(3.0));
+        let req_id = Some(JsonRpcRequestId::Number(3));
 
         let err_invalid = ToolError::InvalidParams("schema validation failed".to_string());
         let resp_invalid = err_invalid.into_error_response(req_id.clone());

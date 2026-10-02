@@ -259,7 +259,7 @@ mod tests {
         let headers = http::HeaderMap::new();
         let extensions = Arc::new(http::Extensions::new());
         let ctx = MethodContext {
-            req_id: Some(JsonRpcRequestId::Number(1.0)),
+            req_id: Some(JsonRpcRequestId::Number(1)),
             is_notification: false,
             is_batch: false,
             header_name: None,
@@ -299,7 +299,7 @@ mod tests {
         let headers = http::HeaderMap::new();
         let extensions = Arc::new(http::Extensions::new());
         let ctx = MethodContext {
-            req_id: Some(JsonRpcRequestId::Number(2.0)),
+            req_id: Some(JsonRpcRequestId::Number(2)),
             is_notification: false,
             is_batch: false,
             header_name: None,
@@ -333,7 +333,7 @@ mod tests {
         let headers = http::HeaderMap::new();
         let extensions = Arc::new(http::Extensions::new());
         let ctx = MethodContext {
-            req_id: Some(JsonRpcRequestId::Number(3.0)),
+            req_id: Some(JsonRpcRequestId::Number(3)),
             is_notification: false,
             is_batch: false,
             header_name: None,

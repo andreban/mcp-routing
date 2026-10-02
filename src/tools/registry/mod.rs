@@ -8,6 +8,7 @@ use std::sync::Arc;
 
 use crate::tools::{IntoToolHandler, IntoToolsListHandler, ToolHandler, ToolsListHandler};
 use crate::types::mcp::{CacheScope, tools::Tool};
+use crate::utils::HeaderParam;
 
 pub mod dispatch;
 pub mod validation;
@@ -22,7 +23,7 @@ pub struct ToolRegistry {
     pub(crate) tool_handlers: HashMap<String, Arc<dyn ToolHandler>>,
     pub(crate) tool_cache_settings: HashMap<String, (Option<u64>, Option<CacheScope>)>,
     pub(crate) tool_validators: HashMap<String, Arc<jsonschema::Validator>>,
-    pub(crate) tool_header_params: HashMap<String, Vec<String>>,
+    pub(crate) tool_header_params: HashMap<String, Vec<HeaderParam>>,
     pub(crate) list_ttl_ms: Option<u64>,
     pub(crate) list_cache_scope: Option<CacheScope>,
     pub(crate) list_handler: Option<Arc<dyn ToolsListHandler>>,
@@ -95,9 +96,19 @@ impl ToolRegistry {
                 );
             }
         }
-        let header_params = crate::utils::extract_header_params_from_schema(&tool.input_schema);
-        if !header_params.is_empty() {
-            self.tool_header_params.insert(name.clone(), header_params);
+        match crate::utils::extract_header_params_from_schema(&tool.input_schema) {
+            Ok(header_params) => {
+                if !header_params.is_empty() {
+                    self.tool_header_params.insert(name.clone(), header_params);
+                }
+            }
+            Err(err) => {
+                tracing::warn!(
+                    tool_name = %name,
+                    %err,
+                    "Invalid x-mcp-header annotation in tool input schema; conforming clients will reject this tool"
+                );
+            }
         }
         self.tool_handlers
             .insert(name.clone(), handler.into_tool_handler());

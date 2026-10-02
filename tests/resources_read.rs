@@ -13,6 +13,8 @@
 //! - Per-resource HTTP caching directives (`ttlMs`, `cacheScope`, `Cache-Control`)
 //! - Error handling for missing URIs, unregistered resources, and internal handler failures
 
+mod common;
+
 use http::Request;
 use http_body_util::BodyExt;
 use stateless_mcp::{
@@ -43,6 +45,7 @@ async fn test_resources_read_exact_match_success() {
         "id": 1,
         "method": "resources/read",
         "params": {
+            "_meta": common::meta(),
             "uri": "file:///project/README.md"
         }
     });
@@ -93,6 +96,7 @@ async fn test_resources_read_header_routing_with_uri() {
                 "id": 42,
                 "method": "resources/read",
                 "params": {
+                    "_meta": common::meta(),
                     "uri": "memo://meeting-notes"
                 }
             })
@@ -133,6 +137,7 @@ async fn test_resources_read_header_routing_with_name_header_fallback() {
                 "id": 10,
                 "method": "resources/read",
                 "params": {
+                    "_meta": common::meta(),
                     "uri": "memo://system-status"
                 }
             })
@@ -176,6 +181,7 @@ async fn test_resources_read_header_body_mismatch_returns_header_mismatch() {
                 "id": 1,
                 "method": "resources/read",
                 "params": {
+                    "_meta": common::meta(),
                     "uri": "memo://secondary"
                 }
             })
@@ -223,6 +229,7 @@ async fn test_resources_read_blob_content() {
                 "id": 1,
                 "method": "resources/read",
                 "params": {
+                    "_meta": common::meta(),
                     "uri": "file:///data/binary.dat"
                 }
             })
@@ -285,6 +292,7 @@ async fn test_resources_read_with_extractors() {
                 "id": 1,
                 "method": "resources/read",
                 "params": {
+                    "_meta": common::meta(),
                     "uri": "config://app"
                 }
             })
@@ -329,6 +337,7 @@ async fn test_resources_read_with_caching_directives() {
                 "id": 1,
                 "method": "resources/read",
                 "params": {
+                    "_meta": common::meta(),
                     "uri": "file:///cacheable/data.json"
                 }
             })
@@ -372,6 +381,7 @@ async fn test_resources_read_missing_uri_returns_invalid_params() {
                 "id": 1,
                 "method": "resources/read",
                 "params": {
+                    "_meta": common::meta(),
                     "uri": ""
                 }
             })
@@ -413,6 +423,7 @@ async fn test_resources_read_unknown_resource_returns_invalid_params() {
                 "id": 1,
                 "method": "resources/read",
                 "params": {
+                    "_meta": common::meta(),
                     "uri": "file:///non_existent.txt"
                 }
             })
@@ -457,6 +468,7 @@ async fn test_resources_read_business_logic_error_returns_internal_error() {
                 "id": 1,
                 "method": "resources/read",
                 "params": {
+                    "_meta": common::meta(),
                     "uri": "file:///error.txt"
                 }
             })

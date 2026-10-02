@@ -12,69 +12,28 @@ use crate::types::mcp::RequestMetaObject;
 
 /// A client response to a server-initiated [`InputRequest`](crate::types::mcp::core::mrtr::InputRequest).
 ///
-/// In MCP 2026-07-28 (SEP-2322), this contains the result of the client fulfilling
-/// a requested input (e.g. LLM completion, roots list, or user elicitation).
+/// In MCP 2026-07-28 (SEP-2322), this is the client's result for the requested input itself:
+/// a `CreateMessageResult`, `ListRootsResult`, or `ElicitResult`. It is not wrapped in any envelope.
 ///
 /// See <https://modelcontextprotocol.io/specification/2026-07-28/schema#inputresponse>
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
-#[serde(rename_all = "camelCase")]
-pub struct InputResponse {
-    /// Result payload returned by the client.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub result: Option<Value>,
-    /// Error payload if the client failed to fulfill the request.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub error: Option<Value>,
-    /// Additional unrecognized or custom metadata properties.
-    #[serde(flatten, skip_serializing_if = "HashMap::is_empty")]
-    pub extras: HashMap<String, Value>,
-}
+#[serde(transparent)]
+pub struct InputResponse(Value);
 
 impl InputResponse {
-    /// Creates a successful [`InputResponse`] containing a serialized result payload.
+    /// Creates an [`InputResponse`] by serializing the client's result.
     pub fn result<T: Serialize>(value: &T) -> Result<Self, serde_json::Error> {
-        let val = serde_json::to_value(value)?;
-        Ok(Self {
-            result: Some(val),
-            error: None,
-            extras: HashMap::new(),
-        })
-    }
-
-    /// Creates an error [`InputResponse`] containing a serialized error payload.
-    pub fn error<T: Serialize>(error: &T) -> Result<Self, serde_json::Error> {
-        let err_val = serde_json::to_value(error)?;
-        Ok(Self {
-            result: None,
-            error: Some(err_val),
-            extras: HashMap::new(),
-        })
+        serde_json::to_value(value).map(Self)
     }
 
     /// Creates an [`InputResponse`] from an arbitrary JSON value.
     pub fn from_value(value: Value) -> Self {
-        serde_json::from_value(value).unwrap_or_default()
+        Self(value)
     }
 
-    /// Returns `true` if this input response represents an error.
-    pub fn is_error(&self) -> bool {
-        self.error.is_some()
-    }
-
-    /// Deserializes the result payload into a typed struct.
-    pub fn get_result<T: DeserializeOwned>(&self) -> Result<Option<T>, serde_json::Error> {
-        match &self.result {
-            Some(v) => serde_json::from_value(v.clone()).map(Some),
-            None => Ok(None),
-        }
-    }
-
-    /// Deserializes the error payload into a typed struct.
-    pub fn get_error<T: DeserializeOwned>(&self) -> Result<Option<T>, serde_json::Error> {
-        match &self.error {
-            Some(v) => serde_json::from_value(v.clone()).map(Some),
-            None => Ok(None),
-        }
+    /// Deserializes the client's result into a typed struct.
+    pub fn get_result<T: DeserializeOwned>(&self) -> Result<T, serde_json::Error> {
+        serde_json::from_value(self.0.clone())
     }
 }
 

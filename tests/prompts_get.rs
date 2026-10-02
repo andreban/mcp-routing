@@ -133,7 +133,8 @@ async fn test_prompts_get_header_routing_with_name() {
         json!({
             "jsonrpc": "2.0",
             "id": "header-req-1",
-            "method": "prompts/get"
+            "method": "prompts/get",
+            "params": { "_meta": common::meta(), "name": "simple_prompt" }
         }),
     );
 
@@ -170,6 +171,7 @@ async fn test_prompts_get_header_method_missing_name_returns_header_mismatch() {
             "id": 2,
             "method": "prompts/get",
             "params": {
+                "_meta": common::meta(),
                 "name": "code_review",
                 "arguments": {
                     "code": "fn main() {}",
@@ -202,6 +204,7 @@ async fn test_prompts_get_missing_method_header_returns_header_mismatch() {
             "id": "body-fallback-prompt",
             "method": "prompts/get",
             "params": {
+                "_meta": common::meta(),
                 "name": "translate",
                 "arguments": {
                     "text": "Hello world",
@@ -233,7 +236,7 @@ async fn test_prompts_get_no_args_handlers() {
     let req1 = common::build_request(
         Some("prompts/get"),
         Some("string_prompt"),
-        json!({ "jsonrpc": "2.0", "id": 1, "method": "prompts/get" }),
+        json!({ "jsonrpc": "2.0", "id": 1, "method": "prompts/get", "params": { "_meta": common::meta(), "name": "string_prompt" } }),
     );
     let (_, _, body1) = common::execute_request(app.clone(), req1).await;
     let res1: GetPromptResultResponse = serde_json::from_value(body1).unwrap();
@@ -243,7 +246,7 @@ async fn test_prompts_get_no_args_handlers() {
     let req2 = common::build_request(
         Some("prompts/get"),
         Some("message_prompt"),
-        json!({ "jsonrpc": "2.0", "id": 2, "method": "prompts/get" }),
+        json!({ "jsonrpc": "2.0", "id": 2, "method": "prompts/get", "params": { "_meta": common::meta(), "name": "message_prompt" } }),
     );
     let (_, _, body2) = common::execute_request(app.clone(), req2).await;
     let res2: GetPromptResultResponse = serde_json::from_value(body2).unwrap();
@@ -254,7 +257,7 @@ async fn test_prompts_get_no_args_handlers() {
     let req3 = common::build_request(
         Some("prompts/get"),
         Some("multi_turn_prompt"),
-        json!({ "jsonrpc": "2.0", "id": 3, "method": "prompts/get" }),
+        json!({ "jsonrpc": "2.0", "id": 3, "method": "prompts/get", "params": { "_meta": common::meta(), "name": "multi_turn_prompt" } }),
     );
     let (_, _, body3) = common::execute_request(app.clone(), req3).await;
     let res3: GetPromptResultResponse = serde_json::from_value(body3).unwrap();
@@ -267,7 +270,7 @@ async fn test_prompts_get_no_args_handlers() {
     let req4 = common::build_request(
         Some("prompts/get"),
         Some("desc_prompt"),
-        json!({ "jsonrpc": "2.0", "id": 4, "method": "prompts/get" }),
+        json!({ "jsonrpc": "2.0", "id": 4, "method": "prompts/get", "params": { "_meta": common::meta(), "name": "desc_prompt" } }),
     );
     let (_, _, body4) = common::execute_request(app, req4).await;
     let res4: GetPromptResultResponse = serde_json::from_value(body4).unwrap();
@@ -286,7 +289,7 @@ async fn test_prompts_get_multimodal_content() {
     let req = common::build_request(
         Some("prompts/get"),
         Some("multimodal"),
-        json!({ "jsonrpc": "2.0", "id": 10, "method": "prompts/get" }),
+        json!({ "jsonrpc": "2.0", "id": 10, "method": "prompts/get", "params": { "_meta": common::meta(), "name": "multimodal" } }),
     );
     let (status, _headers, body) = common::execute_request(app, req).await;
 
@@ -316,7 +319,7 @@ async fn test_prompts_get_with_caching_directives() {
     let req = common::build_request(
         Some("prompts/get"),
         Some("cached_prompt"),
-        json!({ "jsonrpc": "2.0", "id": "cache-test", "method": "prompts/get" }),
+        json!({ "jsonrpc": "2.0", "id": "cache-test", "method": "prompts/get", "params": { "_meta": common::meta(), "name": "cached_prompt" } }),
     );
 
     let (status, headers, body) = common::execute_request(app, req).await;
@@ -341,7 +344,7 @@ async fn test_prompts_get_unknown_prompt_returns_invalid_params() {
     let req = common::build_request(
         Some("prompts/get"),
         Some("nonexistent_prompt"),
-        json!({ "jsonrpc": "2.0", "id": "unknown-test", "method": "prompts/get" }),
+        json!({ "jsonrpc": "2.0", "id": "unknown-test", "method": "prompts/get", "params": { "_meta": common::meta(), "name": "nonexistent_prompt" } }),
     );
 
     let (status, _headers, body) = common::execute_request(app, req).await;
@@ -364,7 +367,7 @@ async fn test_prompts_get_missing_prompt_name_returns_invalid_params() {
     let req = common::build_request(
         Some("prompts/get"),
         Some(""),
-        json!({ "jsonrpc": "2.0", "id": "missing-name", "method": "prompts/get", "params": { "name": "" } }),
+        json!({ "jsonrpc": "2.0", "id": "missing-name", "method": "prompts/get", "params": { "_meta": common::meta(), "name": "" } }),
     );
 
     let (status, _headers, body) = common::execute_request(app, req).await;
@@ -393,6 +396,7 @@ async fn test_prompts_get_invalid_arguments_returns_invalid_params() {
             "id": "bad-args",
             "method": "prompts/get",
             "params": {
+                "_meta": common::meta(),
                 "name": "translate",
                 "arguments": {
                     "invalid_field": 123
@@ -427,6 +431,7 @@ async fn test_prompts_get_business_logic_error_returns_internal_error() {
             "id": "logic-err",
             "method": "prompts/get",
             "params": {
+                "_meta": common::meta(),
                 "name": "code_review",
                 "arguments": {
                     "code": "   "

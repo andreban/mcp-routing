@@ -175,7 +175,7 @@ mod tests {
     /// Tests conversion of `PromptError` variants into `JsonRpcErrorResponse`.
     #[test]
     fn test_prompt_error_into_error_response() {
-        let req_id = Some(JsonRpcRequestId::Number(5.0));
+        let req_id = Some(JsonRpcRequestId::Number(5));
 
         let err_invalid = PromptError::InvalidParams("invalid prompt argument".to_string());
         let resp_invalid = err_invalid.into_error_response(req_id.clone());

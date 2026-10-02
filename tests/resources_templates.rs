@@ -10,6 +10,8 @@
 //! - Custom caching directives (`ttlMs`, `cacheScope`, `Cache-Control`)
 //! - Custom template list handlers with extractors (`RegisteredResourceTemplates`)
 
+mod common;
+
 use http::Request;
 use http_body_util::BodyExt;
 use stateless_mcp::{
@@ -33,7 +35,8 @@ async fn test_resource_templates_list_empty() {
     let req_body = serde_json::json!({
         "jsonrpc": "2.0",
         "id": 1,
-        "method": "resources/templates/list"
+        "method": "resources/templates/list",
+        "params": { "_meta": common::meta() }
     });
 
     let request = Request::builder()
@@ -84,7 +87,8 @@ async fn test_resource_templates_list_multiple_rich_templates() {
     let req_body = serde_json::json!({
         "jsonrpc": "2.0",
         "id": 50,
-        "method": "resources/templates/list"
+        "method": "resources/templates/list",
+        "params": { "_meta": common::meta() }
     });
 
     let request = Request::builder()
@@ -128,6 +132,7 @@ async fn test_resource_templates_dynamic_read_dispatching() {
         "id": 1,
         "method": "resources/read",
         "params": {
+            "_meta": common::meta(),
             "uri": "file:///src/models/user.rs"
         }
     });
@@ -172,7 +177,7 @@ async fn test_resource_templates_list_caching_directives() {
         .header("Content-Type", "application/json")
         .header("MCP-Protocol-Version", "2026-07-28")
         .header("Mcp-Method", "resources/templates/list")
-        .body(serde_json::json!({ "jsonrpc": "2.0", "id": 1 }).to_string())
+        .body(serde_json::json!({ "jsonrpc": "2.0", "id": 1, "params": { "_meta": common::meta() } }).to_string())
         .unwrap();
 
     let response = router.call(request).await.unwrap();
@@ -222,7 +227,7 @@ async fn test_resource_templates_list_custom_handler_with_extractors() {
         .header("Content-Type", "application/json")
         .header("MCP-Protocol-Version", "2026-07-28")
         .header("Mcp-Method", "resources/templates/list")
-        .body(serde_json::json!({ "jsonrpc": "2.0", "id": 1 }).to_string())
+        .body(serde_json::json!({ "jsonrpc": "2.0", "id": 1, "params": { "_meta": common::meta() } }).to_string())
         .unwrap();
 
     let response = router.call(request).await.unwrap();

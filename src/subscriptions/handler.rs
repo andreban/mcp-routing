@@ -285,7 +285,7 @@ mod tests {
     /// Tests conversion of `SubscriptionError` variants into `JsonRpcErrorResponse`.
     #[test]
     fn test_subscription_error_into_error_response() {
-        let req_id = Some(JsonRpcRequestId::Number(9.0));
+        let req_id = Some(JsonRpcRequestId::Number(9));
 
         let err_invalid = SubscriptionError::InvalidParams("invalid subscription uri".to_string());
         let resp_invalid = err_invalid.into_error_response(req_id.clone());

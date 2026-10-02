@@ -15,7 +15,7 @@ async fn test_tool_registry_dispatch_call_unknown_tool_returns_invalid_params() 
     let headers = http::HeaderMap::new();
     let extensions = Arc::new(http::Extensions::new());
     let ctx = MethodContext {
-        req_id: Some(JsonRpcRequestId::Number(42.0)),
+        req_id: Some(JsonRpcRequestId::Number(42)),
         is_notification: false,
         is_batch: false,
         header_name: Some(std::borrow::Cow::Borrowed("non_existent_tool")),

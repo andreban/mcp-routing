@@ -117,7 +117,7 @@ fn test_input_response_request_params_serde() {
     let json_val = serde_json::to_value(&params).unwrap();
     assert_eq!(json_val["requestState"], "opaque_state_12345");
     assert_eq!(
-        json_val["inputResponses"]["sampling_1"]["result"]["model"],
+        json_val["inputResponses"]["sampling_1"]["model"],
         "gemini-2.5-flash"
     );
 
@@ -128,9 +128,8 @@ fn test_input_response_request_params_serde() {
     );
 
     let resp = deserialized.get_response("sampling_1").unwrap();
-    assert!(!resp.is_error());
-    let res_json: Option<Value> = resp.get_result().unwrap();
-    assert_eq!(res_json.unwrap()["model"], "gemini-2.5-flash");
+    let res_json: Value = resp.get_result().unwrap();
+    assert_eq!(res_json["model"], "gemini-2.5-flash");
 }
 
 /// Tests InputRequiredResult into_extras conversion.

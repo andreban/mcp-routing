@@ -353,7 +353,7 @@ mod tests {
     /// Tests conversion of `DiscoveryError` variants into `JsonRpcErrorResponse`.
     #[test]
     fn test_discovery_error_into_error_response() {
-        let req_id = Some(JsonRpcRequestId::Number(12.0));
+        let req_id = Some(JsonRpcRequestId::Number(12));
 
         let err_invalid =
             DiscoveryError::InvalidParams("unsupported client capability".to_string());

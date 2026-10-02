@@ -45,7 +45,8 @@ async fn test_server_discover_via_header() {
         json!({
             "jsonrpc": "2.0",
             "id": "test-id-1",
-            "method": "server/discover"
+            "method": "server/discover",
+            "params": { "_meta": common::meta() }
         }),
     );
 
@@ -119,7 +120,8 @@ async fn test_server_discover_missing_method_header_returns_header_mismatch() {
         json!({
             "jsonrpc": "2.0",
             "id": 999,
-            "method": "server/discover"
+            "method": "server/discover",
+            "params": { "_meta": common::meta() }
         }),
     );
 
@@ -170,7 +172,8 @@ async fn test_server_discover_custom_capabilities_and_versions() {
         json!({
             "jsonrpc": "2.0",
             "id": "caps-test",
-            "method": "server/discover"
+            "method": "server/discover",
+            "params": { "_meta": common::meta() }
         }),
     );
 
@@ -210,7 +213,7 @@ async fn test_server_discover_with_request_meta_params() {
         None,
         json!({
             "jsonrpc": "2.0",
-            "id": 101.5,
+            "id": 101,
             "method": "server/discover",
             "params": {
                 "_meta": {
@@ -234,7 +237,7 @@ async fn test_server_discover_with_request_meta_params() {
 
     assert_eq!(status, StatusCode::OK);
     let res: ServerDiscoverResultResponse = serde_json::from_value(body).unwrap();
-    assert_eq!(res.id, 101.5.into());
+    assert_eq!(res.id, 101.into());
     assert_eq!(
         res.result.meta.unwrap().server_info.unwrap().name,
         "meta-aware-server"
@@ -260,7 +263,8 @@ async fn test_server_discover_caching_headers_and_custom_ttl() {
         json!({
             "jsonrpc": "2.0",
             "id": "cache-test-1",
-            "method": "server/discover"
+            "method": "server/discover",
+            "params": { "_meta": common::meta() }
         }),
     );
 
@@ -294,6 +298,7 @@ async fn test_server_discover_protocol_version_negotiation_success() {
             "method": "server/discover",
             "params": {
                 "_meta": {
+                    "io.modelcontextprotocol/clientCapabilities": {},
                     "io.modelcontextprotocol/protocolVersion": "2026-07-28"
                 }
             }
@@ -330,6 +335,7 @@ async fn test_server_discover_protocol_version_negotiation_failure() {
                 "method": "server/discover",
                 "params": {
                     "_meta": {
+                        "io.modelcontextprotocol/clientCapabilities": {},
                         "io.modelcontextprotocol/protocolVersion": "2024-11-05"
                     }
                 }
@@ -371,6 +377,7 @@ async fn test_server_discover_protocol_version_header_body_mismatch() {
             "method": "server/discover",
             "params": {
                 "_meta": {
+                    "io.modelcontextprotocol/clientCapabilities": {},
                     "io.modelcontextprotocol/protocolVersion": "2024-11-05"
                 }
             }
@@ -408,6 +415,7 @@ async fn test_server_discover_protocol_version_validation_disabled() {
             "method": "server/discover",
             "params": {
                 "_meta": {
+                    "io.modelcontextprotocol/clientCapabilities": {},
                     "io.modelcontextprotocol/protocolVersion": "2024-11-05"
                 }
             }
@@ -476,6 +484,8 @@ async fn test_server_discover_dynamic_provider_with_extractors() {
             "method": "server/discover",
             "params": {
                 "_meta": {
+                    "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+                    "io.modelcontextprotocol/clientCapabilities": {},
                     "io.modelcontextprotocol/clientInfo": {
                         "name": "developer-cli",
                         "version": "0.5.0"
@@ -540,7 +550,8 @@ async fn test_server_discover_dynamic_provider_returning_result_with_cache() {
         json!({
             "jsonrpc": "2.0",
             "id": "dyn-cache-1",
-            "method": "server/discover"
+            "method": "server/discover",
+            "params": { "_meta": common::meta() }
         }),
     );
 
@@ -583,7 +594,8 @@ async fn test_server_discover_dynamic_provider_error_handling() {
         json!({
             "jsonrpc": "2.0",
             "id": "fail-1",
-            "method": "server/discover"
+            "method": "server/discover",
+            "params": { "_meta": common::meta() }
         }),
     );
 
@@ -617,7 +629,8 @@ async fn test_server_discover_dynamic_provider_simple_instructions() {
         json!({
             "jsonrpc": "2.0",
             "id": "inst-1",
-            "method": "server/discover"
+            "method": "server/discover",
+            "params": { "_meta": common::meta() }
         }),
     );
 

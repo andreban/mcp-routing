@@ -148,7 +148,7 @@ mod tests {
     /// Tests conversion of `CompletionError` variants into `JsonRpcErrorResponse`.
     #[test]
     fn test_completion_error_into_error_response() {
-        let req_id = Some(JsonRpcRequestId::Number(7.0));
+        let req_id = Some(JsonRpcRequestId::Number(7));
 
         let err_invalid = CompletionError::InvalidParams("bad argument name".to_string());
         let resp_invalid = err_invalid.into_error_response(req_id.clone());

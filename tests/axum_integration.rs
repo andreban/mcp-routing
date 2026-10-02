@@ -62,7 +62,8 @@ async fn test_axum_nested_service_oneshot() {
             json!({
                 "jsonrpc": "2.0",
                 "id": "axum-disc",
-                "method": "server/discover"
+                "method": "server/discover",
+                "params": { "_meta": common::meta() }
             })
             .to_string(),
         ))
@@ -88,7 +89,8 @@ async fn test_axum_nested_service_oneshot() {
             json!({
                 "jsonrpc": "2.0",
                 "id": "axum-list",
-                "method": "tools/list"
+                "method": "tools/list",
+                "params": { "_meta": common::meta() }
             })
             .to_string(),
         ))
@@ -115,6 +117,7 @@ async fn test_axum_nested_service_oneshot() {
                 "id": "axum-call",
                 "method": "tools/call",
                 "params": {
+                    "_meta": common::meta(),
                     "name": "greet",
                     "arguments": {
                         "name": "Rustacean"
@@ -166,7 +169,7 @@ async fn test_axum_multiple_nested_mcp_routers() {
                 "jsonrpc": "2.0",
                 "id": 1,
                 "method": "tools/call",
-                "params": { "name": "v1_tool" }
+                "params": { "_meta": common::meta(), "name": "v1_tool" }
             })
             .to_string(),
         ))
@@ -195,7 +198,7 @@ async fn test_axum_multiple_nested_mcp_routers() {
                 "jsonrpc": "2.0",
                 "id": 2,
                 "method": "tools/call",
-                "params": { "name": "v2_tool" }
+                "params": { "_meta": common::meta(), "name": "v2_tool" }
             })
             .to_string(),
         ))
@@ -241,7 +244,8 @@ async fn test_axum_real_tcp_server_e2e() {
     let disc_body = json!({
         "jsonrpc": "2.0",
         "id": "tcp-disc-1",
-        "method": "server/discover"
+        "method": "server/discover",
+        "params": { "_meta": common::meta() }
     })
     .to_string();
 
@@ -276,6 +280,7 @@ async fn test_axum_real_tcp_server_e2e() {
         "id": 42,
         "method": "tools/call",
         "params": {
+            "_meta": common::meta(),
             "name": "greet",
             "arguments": {
                 "name": "TCP Client"
@@ -323,7 +328,7 @@ async fn test_axum_real_tcp_server_e2e() {
             "jsonrpc": "2.0",
             "id": 99,
             "method": "tools/call",
-            "params": { "name": "unknown" }
+            "params": { "_meta": common::meta(), "name": "unknown" }
         })
         .to_string(),
     )

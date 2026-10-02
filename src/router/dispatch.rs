@@ -8,7 +8,7 @@ use crate::types::jsonrpc::{JsonRpcErrorResponse, JsonRpcRequestId};
 use crate::types::mcp::header_mismatch_error;
 use crate::utils::{
     extract_body_protocol_version, extract_header_method, extract_header_name,
-    extract_protocol_version, resolve_method,
+    extract_protocol_version, resolve_method, validate_required_request_meta,
 };
 
 impl McpRouterInner {
@@ -45,15 +45,20 @@ impl McpRouterInner {
         let (req_id, is_notification) = match map.remove("id") {
             None => (None, true),
             Some(serde_json::Value::String(s)) => (Some(JsonRpcRequestId::String(s)), false),
-            Some(serde_json::Value::Number(n)) => {
-                let num = n.as_f64().unwrap_or(0.0);
-                (Some(JsonRpcRequestId::Number(num)), false)
-            }
+            Some(serde_json::Value::Number(n)) => match n.as_i64() {
+                Some(num) => (Some(JsonRpcRequestId::Number(num)), false),
+                None => {
+                    return DispatchOutcome::error(JsonRpcErrorResponse::invalid_request(
+                        None,
+                        "Invalid Request: numeric id must be an integer",
+                    ));
+                }
+            },
             Some(serde_json::Value::Null) => (None, false),
             Some(_) => {
                 return DispatchOutcome::error(JsonRpcErrorResponse::invalid_request(
                     None,
-                    "Invalid Request: id must be a string, number, or null",
+                    "Invalid Request: id must be a string, integer, or null",
                 ));
             }
         };
@@ -106,6 +111,18 @@ impl McpRouterInner {
         };
 
         let params_val = map.remove("params");
+
+        if !is_notification && let Err(reason) = validate_required_request_meta(params_val.as_ref())
+        {
+            tracing::debug!(%reason, "Rejected request with malformed _meta");
+            let mut outcome = DispatchOutcome::error(JsonRpcErrorResponse::invalid_params(
+                req_id,
+                format!("Invalid params: {reason}"),
+            ));
+            outcome.status_code = http::StatusCode::BAD_REQUEST;
+            return outcome;
+        }
+
         let header_name = extract_header_name(headers);
 
         let mut extensions = extensions;

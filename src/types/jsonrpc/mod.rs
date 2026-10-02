@@ -20,11 +20,14 @@ pub use notification::JsonRpcNotification;
 pub use request::JsonRpcRequest;
 pub use response::{JsonRpcErrorResponse, JsonRpcResponse, JsonRpcResultResponse};
 
+/// A JSON-RPC request identifier.
+///
+/// MCP requires request IDs to be a string or an integer (never `null` or a fractional number).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum JsonRpcRequestId {
     String(String),
-    Number(f64),
+    Number(i64),
 }
 
 impl From<String> for JsonRpcRequestId {
@@ -41,24 +44,12 @@ impl From<&str> for JsonRpcRequestId {
 
 impl From<i32> for JsonRpcRequestId {
     fn from(n: i32) -> Self {
-        Self::Number(n as f64)
+        Self::Number(i64::from(n))
     }
 }
 
 impl From<i64> for JsonRpcRequestId {
     fn from(n: i64) -> Self {
-        Self::Number(n as f64)
-    }
-}
-
-impl From<u64> for JsonRpcRequestId {
-    fn from(n: u64) -> Self {
-        Self::Number(n as f64)
-    }
-}
-
-impl From<f64> for JsonRpcRequestId {
-    fn from(n: f64) -> Self {
         Self::Number(n)
     }
 }
@@ -89,22 +80,20 @@ mod tests {
         assert_eq!(id_string, JsonRpcRequestId::String("hello".to_string()));
 
         let id_i32: JsonRpcRequestId = 42_i32.into();
-        assert_eq!(id_i32, JsonRpcRequestId::Number(42.0));
+        assert_eq!(id_i32, JsonRpcRequestId::Number(42));
 
-        let id_i64: JsonRpcRequestId = 1000_i64.into();
-        assert_eq!(id_i64, JsonRpcRequestId::Number(1000.0));
+        let id_i64: JsonRpcRequestId = 9_007_199_254_740_993_i64.into();
+        assert_eq!(id_i64, JsonRpcRequestId::Number(9_007_199_254_740_993));
+        assert_eq!(serde_json::to_string(&id_i64).unwrap(), "9007199254740993");
 
-        let id_u64: JsonRpcRequestId = 2000_u64.into();
-        assert_eq!(id_u64, JsonRpcRequestId::Number(2000.0));
-
-        let id_f64: JsonRpcRequestId = 3.5_f64.into();
-        assert_eq!(id_f64, JsonRpcRequestId::Number(3.5));
+        // Fractional numbers are not valid request IDs
+        assert!(serde_json::from_str::<JsonRpcRequestId>("3.5").is_err());
 
         let serialized = serde_json::to_string(&id_str).unwrap();
         assert_eq!(serialized, "\"abc\"");
 
         let serialized_num = serde_json::to_string(&id_i32).unwrap();
-        assert_eq!(serialized_num, "42.0");
+        assert_eq!(serialized_num, "42");
     }
 
     /// Tests JSON-RPC 2.0 message envelope structures ([`JsonRpcRequest`], [`JsonRpcResultResponse`], [`JsonRpcErrorResponse`], [`JsonRpcNotification`], [`JsonRpcMessage`]).
@@ -115,13 +104,13 @@ mod tests {
         let req_json = serde_json::to_value(&req).unwrap();
         assert_eq!(req_json["jsonrpc"], "2.0");
         assert_eq!(req_json["method"], "tools/list");
-        assert_eq!(req_json["id"], 1.0);
+        assert_eq!(req_json["id"], 1);
 
         // Result Response
         let res = JsonRpcResultResponse::new(1.into(), "success_result");
         let res_json = serde_json::to_value(&res).unwrap();
         assert_eq!(res_json["jsonrpc"], "2.0");
-        assert_eq!(res_json["id"], 1.0);
+        assert_eq!(res_json["id"], 1);
         assert_eq!(res_json["result"], "success_result");
 
         // Error Response with numeric ID
@@ -134,7 +123,7 @@ mod tests {
         );
         let err_json = serde_json::to_value(&err_resp).unwrap();
         assert_eq!(err_json["jsonrpc"], "2.0");
-        assert_eq!(err_json["id"], 1.0);
+        assert_eq!(err_json["id"], 1);
         assert_eq!(err_json["error"]["code"], -32601);
 
         // Error Response with null ID (e.g. Parse Error)

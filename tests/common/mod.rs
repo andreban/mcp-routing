@@ -117,6 +117,15 @@ pub fn sample_prompt(name: &str) -> stateless_mcp::types::mcp::prompts::Prompt {
     }
 }
 
+/// Returns the `_meta` object carrying the fields every MCP request must include
+/// (`io.modelcontextprotocol/protocolVersion` and `io.modelcontextprotocol/clientCapabilities`).
+pub fn meta() -> Value {
+    json!({
+        "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+        "io.modelcontextprotocol/clientCapabilities": {}
+    })
+}
+
 /// Builds an HTTP `POST /` request containing the optional `Mcp-Method` and `Mcp-Name` headers with a JSON body.
 pub fn build_request(
     method_header: Option<&str>,

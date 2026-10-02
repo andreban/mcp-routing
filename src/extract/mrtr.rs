@@ -144,7 +144,7 @@ impl InputResponses {
         key: &str,
     ) -> Result<Option<T>, serde_json::Error> {
         match self.0.get(key) {
-            Some(resp) => resp.get_result(),
+            Some(resp) => resp.get_result().map(Some),
             None => Ok(None),
         }
     }

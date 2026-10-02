@@ -145,7 +145,7 @@ async fn test_multi_modal_single_text_block() {
             "jsonrpc": "2.0",
             "id": "text-test",
             "method": "tools/call",
-            "params": { "name": "single_text" }
+            "params": { "_meta": common::meta(), "name": "single_text" }
         }),
     );
 
@@ -187,7 +187,7 @@ async fn test_multi_modal_single_image_block() {
             "jsonrpc": "2.0",
             "id": "image-test",
             "method": "tools/call",
-            "params": { "name": "single_image" }
+            "params": { "_meta": common::meta(), "name": "single_image" }
         }),
     );
 
@@ -226,7 +226,7 @@ async fn test_multi_modal_comprehensive_result() {
             "jsonrpc": "2.0",
             "id": 888,
             "method": "tools/call",
-            "params": { "name": "multi_modal_tool" }
+            "params": { "_meta": common::meta(), "name": "multi_modal_tool" }
         }),
     );
 

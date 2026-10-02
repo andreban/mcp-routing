@@ -6,7 +6,8 @@ use std::sync::Arc;
 use crate::router::{DispatchOutcome, McpRouterInner, MethodContext};
 use crate::types::jsonrpc::{JsonRpcErrorResponse, JsonRpcRequestId};
 use crate::types::mcp::{
-    ClientCapabilities, header_mismatch_error, unsupported_protocol_version_error,
+    ClientCapabilities, NotificationSubscriptions, header_mismatch_error,
+    unsupported_protocol_version_error,
 };
 use crate::utils::{
     extract_body_protocol_version, extract_header_method, extract_header_name,
@@ -201,52 +202,45 @@ impl McpRouterInner {
             }
             "completion/complete" => self.completion.dispatch_complete(ctx, params_val).await,
             "subscriptions/listen" => {
-                let tools_list_changed = self
-                    .server
-                    .capabilities
-                    .tools
-                    .as_ref()
-                    .and_then(|t| t.list_changed)
-                    .unwrap_or(false);
-                let prompts_list_changed = self
-                    .server
-                    .capabilities
-                    .prompts
-                    .as_ref()
-                    .and_then(|p| p.list_changed)
-                    .unwrap_or(false);
-                let resources_list_changed = self
-                    .server
-                    .capabilities
-                    .resources
-                    .as_ref()
-                    .and_then(|r| r.list_changed)
-                    .unwrap_or(false);
-                let resources_subscribe = self
-                    .server
-                    .capabilities
+                let capabilities = &self.server.capabilities;
+                let resources_subscribe = capabilities
                     .resources
                     .as_ref()
                     .and_then(|r| r.subscribe)
                     .unwrap_or(false);
-                let known_resources: Vec<String> = if resources_subscribe {
-                    self.resources
-                        .resources
-                        .iter()
-                        .map(|r| r.uri.clone())
-                        .collect()
-                } else {
-                    Vec::new()
-                };
-                self.subscriptions
-                    .dispatch_listen(
-                        ctx,
-                        params_val,
-                        tools_list_changed,
-                        prompts_list_changed,
-                        resources_list_changed,
-                        &known_resources,
+                let supported = NotificationSubscriptions::new()
+                    .with_tools_list_changed(
+                        capabilities
+                            .tools
+                            .as_ref()
+                            .and_then(|t| t.list_changed)
+                            .unwrap_or(false),
                     )
+                    .with_prompts_list_changed(
+                        capabilities
+                            .prompts
+                            .as_ref()
+                            .and_then(|p| p.list_changed)
+                            .unwrap_or(false),
+                    )
+                    .with_resources_list_changed(
+                        capabilities
+                            .resources
+                            .as_ref()
+                            .and_then(|r| r.list_changed)
+                            .unwrap_or(false),
+                    )
+                    .with_resource_subscriptions(if resources_subscribe {
+                        self.resources
+                            .resources
+                            .iter()
+                            .map(|r| r.uri.clone())
+                            .collect()
+                    } else {
+                        Vec::new()
+                    });
+                self.subscriptions
+                    .dispatch_listen(ctx, params_val, &supported, &self.server.server_info)
                     .await
             }
             unknown_method => {

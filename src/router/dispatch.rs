@@ -110,14 +110,24 @@ impl McpRouterInner {
             }
         };
 
+        if is_notification {
+            if method.starts_with("notifications/") {
+                return DispatchOutcome::notification();
+            }
+            tracing::debug!(%method, "Rejected request method sent without an id");
+            return DispatchOutcome::error(JsonRpcErrorResponse::invalid_request(
+                None,
+                format!("Invalid Request: '{method}' is a request and must include an id"),
+            ));
+        }
+
         let params_val = map.remove("params");
         let is_retry = params_val
             .as_ref()
             .and_then(|p| p.as_object())
             .is_some_and(|p| p.contains_key("requestState") || p.contains_key("inputResponses"));
 
-        if !is_notification && let Err(reason) = validate_required_request_meta(params_val.as_ref())
-        {
+        if let Err(reason) = validate_required_request_meta(params_val.as_ref()) {
             tracing::debug!(%reason, "Rejected request with malformed _meta");
             let mut outcome = DispatchOutcome::error(JsonRpcErrorResponse::invalid_params(
                 req_id,
@@ -154,7 +164,6 @@ impl McpRouterInner {
 
         let ctx = MethodContext {
             req_id,
-            is_notification,
             header_name,
             headers,
             extensions,
@@ -225,14 +234,10 @@ impl McpRouterInner {
             }
             unknown_method => {
                 tracing::debug!(%unknown_method, "Method not found");
-                if ctx.is_notification {
-                    DispatchOutcome::notification()
-                } else {
-                    DispatchOutcome::error(JsonRpcErrorResponse::method_not_found(
-                        ctx.req_id,
-                        format!("Method not found: {unknown_method}"),
-                    ))
-                }
+                DispatchOutcome::error(JsonRpcErrorResponse::method_not_found(
+                    ctx.req_id,
+                    format!("Method not found: {unknown_method}"),
+                ))
             }
         };
         outcome.apply_cache_policy(is_retry);

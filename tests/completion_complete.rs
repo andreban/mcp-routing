@@ -50,7 +50,6 @@ async fn send_mcp_request(
 
     let mut has_mcp_method = false;
     let mut has_mcp_name = false;
-    let mut has_mcp_uri = false;
     if let Some(ref hdrs) = headers {
         for (k, _) in hdrs {
             if k.eq_ignore_ascii_case("Mcp-Method") {
@@ -58,9 +57,6 @@ async fn send_mcp_request(
             }
             if k.eq_ignore_ascii_case("Mcp-Name") {
                 has_mcp_name = true;
-            }
-            if k.eq_ignore_ascii_case("Mcp-Uri") {
-                has_mcp_uri = true;
             }
         }
     }
@@ -72,19 +68,10 @@ async fn send_mcp_request(
     if !has_mcp_name
         && let Some(name) = body
             .get("params")
-            .and_then(|p| p.get("name"))
+            .and_then(|p| p.get("name").or_else(|| p.get("uri")))
             .and_then(|v| v.as_str())
     {
         req_builder = req_builder.header("Mcp-Name", name);
-    }
-
-    if !has_mcp_uri
-        && let Some(uri) = body
-            .get("params")
-            .and_then(|p| p.get("uri"))
-            .and_then(|v| v.as_str())
-    {
-        req_builder = req_builder.header("Mcp-Uri", uri);
     }
 
     if let Some(hdrs) = headers {

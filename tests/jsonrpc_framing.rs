@@ -7,6 +7,7 @@
 //! - JSON-RPC batch arrays (including empty `[]`) are rejected with HTTP 400 and `-32600`
 //!   without dispatching any element
 //! - Single notifications return HTTP 202 Accepted with an empty body
+//! - Request methods sent without an `id` are rejected with HTTP 400 and `-32600`, and their handlers never run
 //! - Malformed JSON returns a Parse Error (`-32700`) with `id: null`
 //! - Top-level JSON primitive payloads return Invalid Request (`-32600`)
 
@@ -135,4 +136,41 @@ async fn test_top_level_primitive_returns_invalid_request() {
     assert_eq!(err.jsonrpc, "2.0");
     assert_eq!(err.id, None);
     assert_eq!(err.error.code.code(), INVALID_REQUEST_CODE);
+}
+
+/// Tests that a request method sent without an `id` is rejected and its handler never runs.
+///
+/// Verifies:
+/// - `tools/call` without `id` returns HTTP 400 with `-32600` and `id: null`
+/// - The tool handler is not invoked
+#[tokio::test]
+async fn test_request_method_without_id_is_rejected() {
+    let calls = Arc::new(AtomicUsize::new(0));
+    let counter = Arc::clone(&calls);
+    let app = McpRouter::new(common::sample_server_info()).register_tool("count", move || {
+        let counter = Arc::clone(&counter);
+        async move {
+            counter.fetch_add(1, Ordering::SeqCst);
+            "counted"
+        }
+    });
+
+    let mut req = raw_request(
+        Some("tools/call"),
+        json!({
+            "jsonrpc": "2.0",
+            "method": "tools/call",
+            "params": { "_meta": common::meta(), "name": "count" }
+        })
+        .to_string(),
+    );
+    req.headers_mut()
+        .insert("Mcp-Name", "count".parse().unwrap());
+
+    let (status, _, body) = common::execute_request(app, req).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    let err: JsonRpcErrorResponse = serde_json::from_value(body).unwrap();
+    assert_eq!(err.id, None);
+    assert_eq!(err.error.code.code(), INVALID_REQUEST_CODE);
+    assert_eq!(calls.load(Ordering::SeqCst), 0);
 }

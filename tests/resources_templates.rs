@@ -143,7 +143,7 @@ async fn test_resource_templates_dynamic_read_dispatching() {
         .header("Content-Type", "application/json")
         .header("MCP-Protocol-Version", "2026-07-28")
         .header("Mcp-Method", "resources/read")
-        .header("Mcp-Uri", "file:///src/models/user.rs")
+        .header("Mcp-Name", "file:///src/models/user.rs")
         .body(req_body.to_string())
         .unwrap();
 

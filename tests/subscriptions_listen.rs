@@ -142,9 +142,9 @@ async fn test_subscriptions_listen_invalid_params() {
     assert_eq!(body_json["error"]["code"], -32602);
 }
 
-/// Tests `subscriptions/listen` notification (omitted `id`) returns HTTP 202 Accepted.
+/// Tests that `subscriptions/listen` sent without an `id` is rejected with `-32600` and HTTP 400.
 #[tokio::test]
-async fn test_subscriptions_listen_notification() {
+async fn test_subscriptions_listen_without_id_is_rejected() {
     let server_info = sample_server_info();
     let app = McpRouter::new(server_info);
 
@@ -168,9 +168,10 @@ async fn test_subscriptions_listen_notification() {
         .unwrap();
 
     let resp = app.oneshot(req).await.unwrap();
-    assert_eq!(resp.status(), StatusCode::ACCEPTED);
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
     let body_bytes = resp.into_body().collect().await.unwrap().to_bytes();
-    assert!(body_bytes.is_empty());
+    let body: serde_json::Value = serde_json::from_slice(&body_bytes).unwrap();
+    assert_eq!(body["error"]["code"], -32600);
 }
 
 /// Tests the acknowledgment and graceful closure of a `subscriptions/listen` stream.

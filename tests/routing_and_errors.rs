@@ -6,7 +6,7 @@
 //! Verifies the error boundaries, JSON-RPC 2.0 error codes, and header normalization of [`McpRouter`](stateless_mcp::McpRouter):
 //! - HTTP verb validation (rejecting non-POST methods with `405 Method Not Allowed` and `Allow: POST`)
 //! - Media type validation (rejecting missing/non-JSON `Content-Type` with `415 Unsupported Media Type`)
-//! - Header and body normalization (leading/trailing slash tolerance in `Mcp-Method` and `Mcp-Name`)
+//! - Exact header-vs-body matching (surrounding slashes in `Mcp-Method` and `Mcp-Name` are significant)
 //! - Missing or empty method rejection (`-32600 Invalid Request`)
 //! - Missing or empty tool name rejection for `tools/call` (`-32602 Invalid Params`)
 //! - Unknown method rejection (`-32601 Method Not Found`)
@@ -34,61 +34,53 @@ async fn dummy_tool() -> &'static str {
     "success"
 }
 
-/// Tests that leading and trailing slashes in headers (`/tools/call/`, `/echo_tool/`) and body strings are normalized.
+/// Tests that header values must match body values exactly, including surrounding slashes.
 ///
 /// Verifies:
-/// - Method and tool name resolution is robust to surrounding slashes
+/// - `Mcp-Method: /tools/call/` does not match body `tools/call` (`-32020`)
+/// - `Mcp-Name: /echo_tool/` does not match body `echo_tool` (`-32020`)
+/// - A tool whose name contains slashes is callable when header and body match exactly
 #[tokio::test]
-async fn test_slash_normalization_in_headers_and_body() {
-    let app = McpRouter::new(common::sample_server_info()).register_tool("echo_tool", dummy_tool);
+async fn test_header_values_match_body_exactly() {
+    let app = McpRouter::new(common::sample_server_info())
+        .register_tool("echo_tool", dummy_tool)
+        .register_tool("/echo_tool/", dummy_tool);
 
-    // 1. Headers with leading and trailing slashes
-    let req1 = common::build_request(
-        Some("/tools/call/"),
-        Some("/echo_tool/"),
-        json!({
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "tools/call",
-            "params": { "_meta": common::meta(), "name": "echo_tool" }
-        }),
-    );
-    let (status1, _, body1) = common::execute_request(app.clone(), req1).await;
-    assert_eq!(status1, StatusCode::OK);
-    assert_eq!(body1["result"]["content"][0]["text"], "success");
+    for (method_header, name_header, body_name) in [
+        ("/tools/call/", "echo_tool", "echo_tool"),
+        ("tools/call", "/echo_tool/", "echo_tool"),
+    ] {
+        let req = common::build_request(
+            Some(method_header),
+            Some(name_header),
+            json!({
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": { "_meta": common::meta(), "name": body_name }
+            }),
+        );
+        let (status, _, body) = common::execute_request(app.clone(), req).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{method_header} / {name_header}");
+        assert_eq!(
+            body["error"]["code"],
+            stateless_mcp::types::mcp::HEADER_MISMATCH
+        );
+    }
 
-    // 2. Body method with leading and trailing slashes matching header
-    let req2 = common::build_request(
-        Some("/tools/list/"),
-        None,
-        json!({
-            "jsonrpc": "2.0",
-            "id": 2,
-            "method": "/tools/list/",
-            "params": { "_meta": common::meta() }
-        }),
-    );
-    let (status2, _, body2) = common::execute_request(app.clone(), req2).await;
-    assert_eq!(status2, StatusCode::OK);
-    assert_eq!(body2["result"]["tools"].as_array().unwrap().len(), 1);
-
-    // 3. Body tool name with leading and trailing slashes matching header
-    let req3 = common::build_request(
+    let req = common::build_request(
         Some("tools/call"),
         Some("/echo_tool/"),
         json!({
             "jsonrpc": "2.0",
             "id": 3,
             "method": "tools/call",
-            "params": {
-                "_meta": common::meta(),
-                "name": "/echo_tool/"
-            }
+            "params": { "_meta": common::meta(), "name": "/echo_tool/" }
         }),
     );
-    let (status3, _, body3) = common::execute_request(app.clone(), req3).await;
-    assert_eq!(status3, StatusCode::OK);
-    assert_eq!(body3["result"]["content"][0]["text"], "success");
+    let (status, _, body) = common::execute_request(app, req).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["result"]["content"][0]["text"], "success");
 }
 
 /// Tests that requests lacking a method in the `Mcp-Method` header return `HeaderMismatch` (-32020).

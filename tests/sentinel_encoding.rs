@@ -115,10 +115,11 @@ async fn test_tools_call_sentinel_encoded_unicode_name() {
     }
 }
 
-/// Tests calling a tool where `Mcp-Name` is Base64 sentinel encoded with leading and trailing slashes (`/my_tool/`).
+/// Tests calling a tool named `/my_tool/` where `Mcp-Name` is Base64 sentinel encoded; the decoded
+/// value keeps its slashes and must match the body name exactly.
 #[tokio::test]
 async fn test_tools_call_sentinel_encoded_with_slashes() {
-    let app = McpRouter::new(common::sample_server_info()).register_tool("my_tool", handle_echo);
+    let app = McpRouter::new(common::sample_server_info()).register_tool("/my_tool/", handle_echo);
 
     // "/my_tool/" in base64 is "L215X3Rvb2wv"
     let req = common::build_request(
@@ -130,9 +131,9 @@ async fn test_tools_call_sentinel_encoded_with_slashes() {
             "method": "tools/call",
             "params": {
                 "_meta": common::meta(),
-                "name": "my_tool",
+                "name": "/my_tool/",
                 "arguments": {
-                    "message": "trimmed slashes"
+                    "message": "kept slashes"
                 }
             }
         }),
@@ -143,7 +144,7 @@ async fn test_tools_call_sentinel_encoded_with_slashes() {
     assert_eq!(status, StatusCode::OK);
     let res: CallToolResultResponse = serde_json::from_value(body).unwrap();
     if let ContentBlock::Text(ref text_block) = res.result.content[0] {
-        assert_eq!(text_block.text, "Echo: trimmed slashes");
+        assert_eq!(text_block.text, "Echo: kept slashes");
     } else {
         panic!("Expected ContentBlock::Text");
     }
@@ -181,7 +182,7 @@ async fn test_prompts_get_sentinel_encoded_name() {
     );
 }
 
-/// Tests `resources/read` where `Mcp-Uri` is Base64 sentinel encoded.
+/// Tests `resources/read` where `Mcp-Name` is Base64 sentinel encoded.
 #[tokio::test]
 async fn test_resources_read_sentinel_encoded_uri() {
     let res = Resource::new("file:///doc/sample.txt", "Sample Resource");
@@ -195,7 +196,7 @@ async fn test_resources_read_sentinel_encoded_uri() {
         .header("Content-Type", "application/json")
         .header("MCP-Protocol-Version", "2026-07-28")
         .header("Mcp-Method", "resources/read")
-        .header("Mcp-Uri", "=?base64?ZmlsZTovLy9kb2Mvc2FtcGxlLnR4dA==?=")
+        .header("Mcp-Name", "=?base64?ZmlsZTovLy9kb2Mvc2FtcGxlLnR4dA==?=")
         .body(axum::body::Body::from(
             json!({
                 "jsonrpc": "2.0",

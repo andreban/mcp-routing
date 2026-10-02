@@ -128,10 +128,6 @@ impl CompletionRegistry {
         ctx: MethodContext<'_>,
         params_val: Option<serde_json::Value>,
     ) -> DispatchOutcome {
-        if ctx.is_notification {
-            return DispatchOutcome::notification();
-        }
-
         let Some(pv) = params_val else {
             return DispatchOutcome::error(JsonRpcErrorResponse::invalid_params(
                 ctx.req_id,
@@ -260,7 +256,6 @@ mod tests {
         let extensions = Arc::new(http::Extensions::new());
         let ctx = MethodContext {
             req_id: Some(JsonRpcRequestId::Number(1)),
-            is_notification: false,
             header_name: None,
             headers: &headers,
             extensions,
@@ -299,7 +294,6 @@ mod tests {
         let extensions = Arc::new(http::Extensions::new());
         let ctx = MethodContext {
             req_id: Some(JsonRpcRequestId::Number(2)),
-            is_notification: false,
             header_name: None,
             headers: &headers,
             extensions,
@@ -332,7 +326,6 @@ mod tests {
         let extensions = Arc::new(http::Extensions::new());
         let ctx = MethodContext {
             req_id: Some(JsonRpcRequestId::Number(3)),
-            is_notification: false,
             header_name: None,
             headers: &headers,
             extensions,

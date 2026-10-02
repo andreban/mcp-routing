@@ -509,7 +509,7 @@ async fn test_resources_read_mrtr() {
         .header("Content-Type", "application/json")
         .header("MCP-Protocol-Version", "2026-07-28")
         .header("Mcp-Method", "resources/read")
-        .header("Mcp-Uri", "custom://secure-data")
+        .header("Mcp-Name", "custom://secure-data")
         .body(axum::body::Body::from(
             json!({
                 "jsonrpc": "2.0",
@@ -541,7 +541,7 @@ async fn test_resources_read_mrtr() {
         .header("Content-Type", "application/json")
         .header("MCP-Protocol-Version", "2026-07-28")
         .header("Mcp-Method", "resources/read")
-        .header("Mcp-Uri", "custom://secure-data")
+        .header("Mcp-Name", "custom://secure-data")
         .body(axum::body::Body::from(
             json!({
                 "jsonrpc": "2.0",

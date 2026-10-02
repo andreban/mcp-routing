@@ -180,7 +180,8 @@ async fn test_subscriptions_listen_without_id_is_rejected() {
 /// - The first message is `notifications/subscriptions/acknowledged`
 /// - Only `toolsListChanged` is acknowledged when the server declares `tools.listChanged` alone
 /// - The acknowledgment and the closing response carry the request ID as `subscriptionId`
-/// - The stream ends with a `resultType: "complete"` response correlated by the request ID
+/// - The stream ends with a `resultType: "complete"` response correlated by the request ID and
+///   carrying `serverInfo`
 #[tokio::test]
 async fn test_subscriptions_listen_acknowledgment_and_closure() {
     let app = McpRouter::new(sample_server_info())
@@ -217,6 +218,10 @@ async fn test_subscriptions_listen_acknowledgment_and_closure() {
     let closure = &messages[1];
     assert_eq!(closure["id"], 1);
     assert_eq!(closure["result"]["resultType"], "complete");
+    assert_eq!(
+        closure["result"]["_meta"]["io.modelcontextprotocol/serverInfo"]["name"],
+        "test-mcp-server"
+    );
     assert_eq!(
         closure["result"]["_meta"]["io.modelcontextprotocol/subscriptionId"],
         1

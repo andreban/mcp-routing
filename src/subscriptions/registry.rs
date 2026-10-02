@@ -19,7 +19,7 @@ use crate::subscriptions::handler::{
 };
 use crate::types::jsonrpc::{JsonRpcErrorResponse, JsonRpcResultResponse};
 use crate::types::mcp::{
-    RequestMetaObject, ResultMetaObject,
+    Implementation, RequestMetaObject, ResultMetaObject,
     subscriptions::{
         NotificationSubscriptions, SubscriptionsAcknowledgedParams, SubscriptionsListenParams,
         subscriptions_acknowledged_notification,
@@ -86,14 +86,16 @@ impl SubscriptionsRegistry {
     }
 
     /// Dispatches an incoming `subscriptions/listen` JSON-RPC request.
+    ///
+    /// `supported` describes the notification types the server's capabilities back; the
+    /// acknowledgment is the intersection of the client's request with it. `server_info`
+    /// identifies the server in the graceful-closure result.
     pub(crate) async fn dispatch_listen(
         &self,
         ctx: MethodContext<'_>,
         params_val: Option<serde_json::Value>,
-        tools_list_changed: bool,
-        prompts_list_changed: bool,
-        resources_list_changed: bool,
-        known_resources: &[String],
+        supported: &NotificationSubscriptions,
+        server_info: &Implementation,
     ) -> DispatchOutcome {
         let params: SubscriptionsListenParams = match params_val {
             Some(pv) => match serde_json::from_value(pv) {
@@ -117,16 +119,23 @@ impl SubscriptionsRegistry {
 
         let mut ack_notifications = NotificationSubscriptions::default();
         if let Some(ref req_subs) = params.notifications {
-            if req_subs.tools_list_changed == Some(true) && tools_list_changed {
+            if req_subs.tools_list_changed == Some(true)
+                && supported.tools_list_changed == Some(true)
+            {
                 ack_notifications.tools_list_changed = Some(true);
             }
-            if req_subs.prompts_list_changed == Some(true) && prompts_list_changed {
+            if req_subs.prompts_list_changed == Some(true)
+                && supported.prompts_list_changed == Some(true)
+            {
                 ack_notifications.prompts_list_changed = Some(true);
             }
-            if req_subs.resources_list_changed == Some(true) && resources_list_changed {
+            if req_subs.resources_list_changed == Some(true)
+                && supported.resources_list_changed == Some(true)
+            {
                 ack_notifications.resources_list_changed = Some(true);
             }
             if let Some(ref uris) = req_subs.resource_subscriptions {
+                let known_resources = supported.resource_subscriptions.as_deref().unwrap_or(&[]);
                 let matched: Vec<String> = uris
                     .iter()
                     .filter(|u| known_resources.contains(u))
@@ -175,7 +184,7 @@ impl SubscriptionsRegistry {
             }
         };
 
-        let mut closure_meta = ResultMetaObject::new(None);
+        let mut closure_meta = ResultMetaObject::new(Some(server_info.clone()));
         closure_meta.subscription_id = Some(sub_id.clone());
         let closure = JsonRpcResultResponse::new(
             sub_id,

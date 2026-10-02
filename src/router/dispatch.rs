@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use crate::router::{DispatchOutcome, McpRouterInner, MethodContext};
 use crate::types::jsonrpc::{JsonRpcErrorResponse, JsonRpcRequestId};
-use crate::types::mcp::header_mismatch_error;
+use crate::types::mcp::{header_mismatch_error, unsupported_protocol_version_error};
 use crate::utils::{
     extract_body_protocol_version, extract_header_method, extract_header_name,
     extract_protocol_version, resolve_method, validate_required_request_meta,
@@ -31,55 +31,78 @@ impl McpRouterInner {
                     ));
                 }
             },
-            Some(serde_json::Value::Null) => (None, false),
             Some(_) => {
                 return DispatchOutcome::error(JsonRpcErrorResponse::invalid_request(
                     None,
-                    "Invalid Request: id must be a string, integer, or null",
+                    "Invalid Request: id must be a string or an integer",
                 ));
             }
         };
 
-        if self.server.validate_protocol_version
-            && let Some(header_ver) = extract_protocol_version(headers)
-            && let Some(body_ver) = extract_body_protocol_version(&map)
-            && body_ver != header_ver
-        {
-            tracing::debug!(
-                %header_ver,
-                %body_ver,
-                "MCP-Protocol-Version header value does not match body metadata"
-            );
-            return DispatchOutcome::error(header_mismatch_error(
-                req_id,
-                format!(
-                    "Header mismatch: MCP-Protocol-Version header value '{header_ver}' does not match body value '{body_ver}'"
-                ),
-            ));
+        if self.server.validate_protocol_version {
+            let Some(header_ver) = extract_protocol_version(headers) else {
+                tracing::debug!("Missing required MCP-Protocol-Version header");
+                return DispatchOutcome::error(header_mismatch_error(
+                    req_id,
+                    "Header mismatch: missing required MCP-Protocol-Version header",
+                ));
+            };
+            if !self
+                .server
+                .supported_versions
+                .iter()
+                .any(|v| v == header_ver)
+            {
+                tracing::debug!(%header_ver, "Unsupported MCP-Protocol-Version header");
+                return DispatchOutcome::error(unsupported_protocol_version_error(
+                    req_id,
+                    format!("Unsupported protocol version '{header_ver}'"),
+                    self.server.supported_versions.clone(),
+                    header_ver,
+                ));
+            }
+            if let Some(body_ver) = extract_body_protocol_version(&map)
+                && body_ver != header_ver
+            {
+                tracing::debug!(
+                    %header_ver,
+                    %body_ver,
+                    "MCP-Protocol-Version header value does not match body metadata"
+                );
+                return DispatchOutcome::error(header_mismatch_error(
+                    req_id,
+                    format!(
+                        "Header mismatch: MCP-Protocol-Version header value '{header_ver}' does not match body value '{body_ver}'"
+                    ),
+                ));
+            }
         }
 
-        if let Some(v) = map.get("jsonrpc")
-            && !v.is_string()
-        {
+        if map.get("jsonrpc").and_then(|v| v.as_str()) != Some("2.0") {
             return DispatchOutcome::error(JsonRpcErrorResponse::invalid_request(
                 req_id,
-                "Invalid Request: jsonrpc must be string \"2.0\"",
+                "Invalid Request: jsonrpc must be \"2.0\"",
             ));
         }
 
-        let method_opt = match map.remove("method") {
-            Some(serde_json::Value::String(s)) => Some(s),
+        let body_method = match map.remove("method") {
+            Some(serde_json::Value::String(s)) => s,
             Some(_) => {
                 return DispatchOutcome::error(JsonRpcErrorResponse::invalid_request(
                     req_id,
                     "Invalid Request: method must be a string",
                 ));
             }
-            None => None,
+            None => {
+                return DispatchOutcome::error(JsonRpcErrorResponse::invalid_request(
+                    req_id,
+                    "Invalid Request: missing method",
+                ));
+            }
         };
 
         let header_method = extract_header_method(headers);
-        let method = match resolve_method(header_method, method_opt.as_deref()) {
+        let method = match resolve_method(header_method, Some(&body_method)) {
             Ok(m) => m,
             Err(mut err) => {
                 err.id = req_id;

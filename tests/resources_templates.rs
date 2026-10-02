@@ -177,7 +177,7 @@ async fn test_resource_templates_list_caching_directives() {
         .header("Content-Type", "application/json")
         .header("MCP-Protocol-Version", "2026-07-28")
         .header("Mcp-Method", "resources/templates/list")
-        .body(serde_json::json!({ "jsonrpc": "2.0", "id": 1, "params": { "_meta": common::meta() } }).to_string())
+        .body(serde_json::json!({ "jsonrpc": "2.0", "id": 1, "method": "resources/templates/list", "params": { "_meta": common::meta() } }).to_string())
         .unwrap();
 
     let response = router.call(request).await.unwrap();
@@ -227,7 +227,7 @@ async fn test_resource_templates_list_custom_handler_with_extractors() {
         .header("Content-Type", "application/json")
         .header("MCP-Protocol-Version", "2026-07-28")
         .header("Mcp-Method", "resources/templates/list")
-        .body(serde_json::json!({ "jsonrpc": "2.0", "id": 1, "params": { "_meta": common::meta() } }).to_string())
+        .body(serde_json::json!({ "jsonrpc": "2.0", "id": 1, "method": "resources/templates/list", "params": { "_meta": common::meta() } }).to_string())
         .unwrap();
 
     let response = router.call(request).await.unwrap();

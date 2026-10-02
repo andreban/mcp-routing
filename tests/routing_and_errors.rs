@@ -14,6 +14,8 @@
 //! - Unregistered tool execution attempts (`-32602 Invalid Params`)
 //! - Malformed JSON payloads across all endpoints (`-32700 Parse Error` with `id: null`)
 //! - Integer request IDs echoed back exactly, and fractional IDs rejected (`-32600 Invalid Request`)
+//! - `null` request IDs, a non-`"2.0"` `jsonrpc`, and a missing body `method` rejected (`-32600 Invalid Request`)
+//! - Protocol-version header errors (`-32020`, `-32022`) echo the request ID
 
 mod common;
 
@@ -115,10 +117,7 @@ async fn test_missing_method_returns_invalid_request() {
     let err_resp: JsonRpcErrorResponse = serde_json::from_value(body).unwrap();
     assert_eq!(err_resp.jsonrpc, "2.0");
     assert_eq!(err_resp.id, Some(1.into()));
-    assert_eq!(
-        err_resp.error.code.code(),
-        stateless_mcp::types::mcp::HEADER_MISMATCH
-    );
+    assert_eq!(err_resp.error.code.code(), INVALID_REQUEST_CODE);
 }
 
 /// Tests that requests with an empty `Mcp-Method` header string return `Invalid Request` (-32600).
@@ -359,7 +358,7 @@ async fn test_http_method_not_allowed_returns_405() {
             .header("Mcp-Method", "server/discover")
             .header("Content-Type", "application/json")
             .body(Body::from(
-                json!({ "id": 1, "method": "server/discover", "params": { "_meta": common::meta() } }).to_string(),
+                json!({ "jsonrpc": "2.0", "id": 1, "method": "server/discover", "params": { "_meta": common::meta() } }).to_string(),
             ))
             .unwrap();
 
@@ -389,7 +388,7 @@ async fn test_unsupported_media_type_returns_415() {
         .uri("/")
         .header("Mcp-Method", "server/discover")
         .body(Body::from(
-            json!({ "id": 1, "method": "server/discover", "params": { "_meta": common::meta() } }).to_string(),
+            json!({ "jsonrpc": "2.0", "id": 1, "method": "server/discover", "params": { "_meta": common::meta() } }).to_string(),
         ))
         .unwrap();
 
@@ -404,7 +403,7 @@ async fn test_unsupported_media_type_returns_415() {
         .header("Mcp-Method", "server/discover")
         .header("Content-Type", "text/plain")
         .body(Body::from(
-            json!({ "id": 2, "method": "server/discover", "params": { "_meta": common::meta() } }).to_string(),
+            json!({ "jsonrpc": "2.0", "id": 2, "method": "server/discover", "params": { "_meta": common::meta() } }).to_string(),
         ))
         .unwrap();
 
@@ -526,4 +525,81 @@ async fn test_fractional_request_id_is_rejected() {
     let (status, _headers, body) = common::execute_request(app, req).await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
     assert_eq!(body["error"]["code"], INVALID_REQUEST_CODE);
+}
+
+/// Tests that a request with `"id": null` is rejected with `-32600 Invalid Request` and HTTP 400.
+#[tokio::test]
+async fn test_null_request_id_is_rejected() {
+    let app = McpRouter::new(common::sample_server_info());
+    let req = common::build_request(
+        Some("tools/list"),
+        None,
+        json!({
+            "jsonrpc": "2.0",
+            "id": null,
+            "method": "tools/list",
+            "params": { "_meta": common::meta() }
+        }),
+    );
+
+    let (status, _headers, body) = common::execute_request(app, req).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert_eq!(body["error"]["code"], INVALID_REQUEST_CODE);
+    assert_eq!(body["id"], serde_json::Value::Null);
+}
+
+/// Tests that a missing or non-`"2.0"` `jsonrpc` member, or a missing body `method`, is rejected
+/// with `-32600 Invalid Request` even when the `Mcp-Method` header is present.
+#[tokio::test]
+async fn test_malformed_envelope_is_rejected() {
+    let bodies = [
+        json!({ "jsonrpc": "1.0", "id": 1, "method": "tools/list", "params": { "_meta": common::meta() } }),
+        json!({ "id": 1, "method": "tools/list", "params": { "_meta": common::meta() } }),
+        json!({ "jsonrpc": "2.0", "id": 1, "params": { "_meta": common::meta() } }),
+    ];
+    for body in bodies {
+        let app = McpRouter::new(common::sample_server_info());
+        let req = common::build_request(Some("tools/list"), None, body.clone());
+
+        let (status, _headers, response) = common::execute_request(app, req).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "body: {body}");
+        assert_eq!(response["error"]["code"], INVALID_REQUEST_CODE, "body: {body}");
+        assert_eq!(response["id"], 1, "body: {body}");
+    }
+}
+
+/// Tests that protocol-version header errors echo the request ID.
+///
+/// Verifies:
+/// - A missing `MCP-Protocol-Version` header returns `-32020` with the request ID
+/// - An unsupported `MCP-Protocol-Version` header returns `-32022` with the request ID
+#[tokio::test]
+async fn test_protocol_version_errors_echo_request_id() {
+    for (version, code) in [(None, -32020), (Some("1900-01-01"), -32022)] {
+        let app = McpRouter::new(common::sample_server_info());
+        let mut builder = Request::builder()
+            .method("POST")
+            .uri("/")
+            .header("Content-Type", "application/json")
+            .header("Mcp-Method", "tools/list");
+        if let Some(version) = version {
+            builder = builder.header("MCP-Protocol-Version", version);
+        }
+        let req = builder
+            .body(Body::from(
+                json!({
+                    "jsonrpc": "2.0",
+                    "id": "req-7",
+                    "method": "tools/list",
+                    "params": { "_meta": common::meta() }
+                })
+                .to_string(),
+            ))
+            .unwrap();
+
+        let (status, _headers, body) = common::execute_request(app, req).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "version: {version:?}");
+        assert_eq!(body["error"]["code"], code, "version: {version:?}");
+        assert_eq!(body["id"], "req-7", "version: {version:?}");
+    }
 }

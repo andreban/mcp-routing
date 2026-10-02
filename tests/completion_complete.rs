@@ -482,7 +482,7 @@ async fn test_completion_invalid_params() {
 }
 
 
-/// Tests `completion/complete` routing when the method is passed via `Mcp-Method` header.
+/// Tests `completion/complete` routing when the `Mcp-Method` header mirrors the body method.
 #[tokio::test]
 async fn test_completion_via_header_routing() {
     let mut router = create_base_router().register_prompt_arg_completion(
@@ -491,10 +491,10 @@ async fn test_completion_via_header_routing() {
         |arg: CompleteArgument| async move { vec![format!("hdr_{}", arg.value)] },
     );
 
-    // method omitted in body, provided in Mcp-Method header
     let payload = serde_json::json!({
         "jsonrpc": "2.0",
         "id": 1,
+        "method": "completion/complete",
         "params": {
             "_meta": common::meta(),
             "ref": { "type": "ref/prompt", "name": "hdr_prompt" },

@@ -19,8 +19,7 @@ use crate::body::{
 };
 use crate::router::{McpRouter, McpRouterInner};
 use crate::types::jsonrpc::JsonRpcErrorResponse;
-use crate::types::mcp::{header_mismatch_error, unsupported_protocol_version_error};
-use crate::utils::{extract_protocol_version, is_json_content_type, is_origin_header_allowed};
+use crate::utils::{is_json_content_type, is_origin_header_allowed};
 
 impl McpRouterInner {
     /// Dispatches an incoming HTTP request into JSON-RPC handling.
@@ -42,31 +41,6 @@ impl McpRouterInner {
         if !is_origin_header_allowed(req.headers(), self.server.allowed_origins.as_deref()) {
             tracing::debug!("Rejected untrusted Origin header with 403 Forbidden");
             return forbidden();
-        }
-
-        if self.server.validate_protocol_version {
-            match extract_protocol_version(req.headers()) {
-                None => {
-                    tracing::debug!("Missing required MCP-Protocol-Version header");
-                    let error_response = header_mismatch_error(
-                        None,
-                        "Header mismatch: missing required MCP-Protocol-Version header",
-                    );
-                    return json_response_with_status(StatusCode::BAD_REQUEST, &error_response);
-                }
-                Some(req_ver) => {
-                    if !self.server.supported_versions.iter().any(|v| v == req_ver) {
-                        tracing::debug!(%req_ver, "Unsupported MCP-Protocol-Version header");
-                        let error_response = unsupported_protocol_version_error(
-                            None,
-                            format!("Unsupported protocol version '{req_ver}'"),
-                            self.server.supported_versions.clone(),
-                            req_ver,
-                        );
-                        return json_response_with_status(StatusCode::BAD_REQUEST, &error_response);
-                    }
-                }
-            }
         }
 
         let (mut parts, body) = req.into_parts();

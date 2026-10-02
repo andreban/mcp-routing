@@ -143,7 +143,7 @@ async fn test_resources_list_via_header_and_body_fallback() {
         .header("Content-Type", "application/json")
         .header("MCP-Protocol-Version", "2026-07-28")
         .header("Mcp-Method", "resources/list")
-        .body(serde_json::json!({ "jsonrpc": "2.0", "id": 1, "params": { "_meta": common::meta() } }).to_string())
+        .body(serde_json::json!({ "jsonrpc": "2.0", "id": 1, "method": "resources/list", "params": { "_meta": common::meta() } }).to_string())
         .unwrap();
 
     let resp_header = router.call(req_header).await.unwrap();
@@ -193,7 +193,7 @@ async fn test_resources_capability_advertisement_in_discover() {
         .header("Content-Type", "application/json")
         .header("MCP-Protocol-Version", "2026-07-28")
         .header("Mcp-Method", "server/discover")
-        .body(serde_json::json!({ "jsonrpc": "2.0", "id": 1, "params": { "_meta": common::meta() } }).to_string())
+        .body(serde_json::json!({ "jsonrpc": "2.0", "id": 1, "method": "server/discover", "params": { "_meta": common::meta() } }).to_string())
         .unwrap();
 
     let response = router.call(request).await.unwrap();
@@ -218,7 +218,7 @@ async fn test_resources_list_caching_directives() {
         .header("Content-Type", "application/json")
         .header("MCP-Protocol-Version", "2026-07-28")
         .header("Mcp-Method", "resources/list")
-        .body(serde_json::json!({ "jsonrpc": "2.0", "id": 1, "params": { "_meta": common::meta() } }).to_string())
+        .body(serde_json::json!({ "jsonrpc": "2.0", "id": 1, "method": "resources/list", "params": { "_meta": common::meta() } }).to_string())
         .unwrap();
 
     let response = router.call(request).await.unwrap();
@@ -270,7 +270,7 @@ async fn test_resources_list_custom_handler_with_extractors_and_filtering() {
         .header("Content-Type", "application/json")
         .header("MCP-Protocol-Version", "2026-07-28")
         .header("Mcp-Method", "resources/list")
-        .body(serde_json::json!({ "jsonrpc": "2.0", "id": 1, "params": { "_meta": common::meta() } }).to_string())
+        .body(serde_json::json!({ "jsonrpc": "2.0", "id": 1, "method": "resources/list", "params": { "_meta": common::meta() } }).to_string())
         .unwrap();
 
     let response = router.call(request).await.unwrap();

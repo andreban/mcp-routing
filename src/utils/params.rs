@@ -160,16 +160,18 @@ pub(crate) fn get_mcp_param_header<'a>(
 }
 
 /// Compares a JSON argument value against a decoded HTTP header parameter string.
+///
+/// Numbers are compared numerically, so a header of `42.0` matches a body value of `42`.
 pub(crate) fn match_param_value(arg_val: &serde_json::Value, decoded_header: &str) -> bool {
     if let Some(s) = arg_val.as_str() {
         s == decoded_header
     } else if let Some(b) = arg_val.as_bool() {
         (b && decoded_header == "true") || (!b && decoded_header == "false")
     } else if let Some(n) = arg_val.as_number() {
-        decoded_header
-            .parse::<serde_json::Number>()
-            .map(|parsed| &parsed == n)
-            .unwrap_or(false)
+        match (decoded_header.parse::<f64>(), n.as_f64()) {
+            (Ok(header), Some(body)) => header.is_finite() && header == body,
+            _ => false,
+        }
     } else if arg_val.is_null() {
         false
     } else {
@@ -202,7 +204,12 @@ pub(crate) fn validate_tool_header_params(
 
         match (arg_val, header_val) {
             (Some(val), Some(h_val)) => {
-                let decoded = decode_sentinel_header(h_val);
+                let decoded = decode_sentinel_header(h_val).map_err(|reason| {
+                    header_mismatch_error(
+                        req_id.clone(),
+                        format!("Header mismatch: Mcp-Param-{name} header is invalid: {reason}"),
+                    )
+                })?;
                 if !match_param_value(val, decoded.as_ref()) {
                     return Err(header_mismatch_error(
                         req_id,
@@ -359,6 +366,10 @@ mod tests {
 
         assert!(match_param_value(&json!(42), "42"));
         assert!(!match_param_value(&json!(42), "43"));
+        assert!(match_param_value(&json!(42), "42.0"));
+        assert!(match_param_value(&json!(-7), "-7"));
+        assert!(!match_param_value(&json!(42), "forty-two"));
+        assert!(!match_param_value(&json!(42), "NaN"));
 
         assert!(match_param_value(&json!(true), "true"));
         assert!(match_param_value(&json!(false), "false"));

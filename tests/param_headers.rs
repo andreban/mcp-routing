@@ -9,7 +9,8 @@
 //! - Validating `Mcp-Param-{Name}` HTTP request headers against `tools/call` arguments
 //! - Rejection with HTTP 400 Bad Request and error code -32020 (`HEADER_MISMATCH`) on missing or mismatched headers
 //! - RFC 2047-style Base64 sentinel decoding (`=?base64?...?=`) for parameter headers
-//! - Support for string, numeric, and boolean parameter types
+//! - Support for string, numeric, and boolean parameter types (numbers compared numerically)
+//! - Rejection of malformed Base64 sentinel parameter values
 //! - Proper handling of optional parameters
 
 mod common;
@@ -578,4 +579,34 @@ async fn test_param_header_required_when_annotated_value_present() {
         assert_eq!(status, StatusCode::BAD_REQUEST, "headers: {headers:?}");
         assert_eq!(body["error"]["code"], HEADER_MISMATCH, "headers: {headers:?}");
     }
+}
+
+/// Tests that integer `Mcp-Param-*` values are compared numerically (`3.0` matches `3`).
+#[tokio::test]
+async fn test_param_header_integer_compared_numerically() {
+    let app = McpRouter::new(sample_server_info()).register_tool(sql_tool(), handle_sql);
+
+    let req = sql_request(&[("Mcp-Param-Tenant", "acme"), ("Mcp-Param-Priority", "3.0")]);
+    let (status, _, body) = execute_request(app, req).await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        body["result"]["content"][0]["text"],
+        "tenant=acme, query=SELECT 1, priority=3"
+    );
+}
+
+/// Tests that a malformed Base64 sentinel `Mcp-Param-*` value is rejected with `-32020`.
+#[tokio::test]
+async fn test_param_header_malformed_sentinel_is_rejected() {
+    let app = McpRouter::new(sample_server_info()).register_tool(sql_tool(), handle_sql);
+
+    let req = sql_request(&[
+        ("Mcp-Param-Tenant", "=?base64?not base64?="),
+        ("Mcp-Param-Priority", "3"),
+    ]);
+    let (status, _, body) = execute_request(app, req).await;
+
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert_eq!(body["error"]["code"], HEADER_MISMATCH);
 }

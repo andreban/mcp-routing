@@ -146,7 +146,15 @@ impl McpRouterInner {
             .and_then(|c| serde_json::from_value(c.clone()).ok());
         let response_id = req_id.clone();
 
-        let header_name = extract_header_name(headers);
+        let header_name = match extract_header_name(headers) {
+            Ok(name) => name,
+            Err(reason) => {
+                return DispatchOutcome::error(header_mismatch_error(
+                    req_id,
+                    format!("Header mismatch: Mcp-Name header is invalid: {reason}"),
+                ));
+            }
+        };
 
         let mut extensions = extensions;
         if let Some(ref pv) = params_val
@@ -250,6 +258,7 @@ impl McpRouterInner {
             }
         };
         outcome.require_client_capabilities(response_id, client_capabilities.as_ref());
+        outcome.add_server_info(&self.server.server_info);
         outcome.apply_cache_policy(is_retry);
         outcome
     }

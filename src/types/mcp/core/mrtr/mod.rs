@@ -3,9 +3,8 @@
 
 //! Multi Round-Trip Request (MRTR) types per MCP 2026-07-28 specification (SEP-2322).
 //!
-//! MRTR enables stateless multi round-trip interactions (such as model sampling,
-//! user confirmation / elicitation, and filesystem root selection) between client
-//! and server without requiring persistent connections.
+//! MRTR enables stateless multi round-trip interactions (such as user confirmation via
+//! elicitation) between client and server without requiring persistent connections.
 //!
 //! See <https://modelcontextprotocol.io/specification/2026-07-28/schema#inputrequiredresult>
 

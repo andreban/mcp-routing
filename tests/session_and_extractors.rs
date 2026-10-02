@@ -123,12 +123,14 @@ fn create_test_server() -> McpRouter {
         Meta(meta): Meta,
         params: PromptFormatParams,
     ) -> Result<GetPromptResult, String> {
-        let level = meta
-            .log_level
-            .map(|l| format!("{l:?}"))
-            .unwrap_or_else(|| "default".to_string());
+        let tone = meta
+            .extra
+            .get("com.example/tone")
+            .and_then(|v| v.as_str())
+            .unwrap_or("default")
+            .to_string();
         Ok(GetPromptResult::user(format!(
-            "[log:{level}] Tell me about: {}",
+            "[tone:{tone}] Tell me about: {}",
             params.topic
         )))
     }
@@ -246,7 +248,7 @@ async fn test_per_request_meta_propagation_in_prompts_get() {
             "_meta": {
                 "io.modelcontextprotocol/protocolVersion": "2026-07-28",
                 "io.modelcontextprotocol/clientCapabilities": {},
-                "io.modelcontextprotocol/logLevel": "debug"
+                "com.example/tone": "friendly"
             },
             "name": "format_prompt",
             "arguments": {
@@ -275,7 +277,7 @@ async fn test_per_request_meta_propagation_in_prompts_get() {
     let message_text = json_val["result"]["messages"][0]["content"]["text"]
         .as_str()
         .unwrap();
-    assert_eq!(message_text, "[log:Debug] Tell me about: Rust Concurrency");
+    assert_eq!(message_text, "[tone:friendly] Tell me about: Rust Concurrency");
 }
 
 /// Tests `RequestContext` extractor with client info, protocol version, and custom headers.

@@ -384,12 +384,10 @@ mod tests {
 
         let missing_cap = missing_required_client_capability_error(
             Some("req-cap".into()),
-            "Missing sampling capability",
+            "Missing elicitation capability",
             ClientCapabilities {
                 experimental: None,
-                sampling: Some(crate::types::mcp::SamplingCapability {}),
-                elicitation: None,
-                roots: None,
+                elicitation: Some(crate::types::mcp::ElicitationCapability {}),
                 extensions: None,
             },
         );
@@ -398,7 +396,7 @@ mod tests {
             MISSING_REQUIRED_CLIENT_CAPABILITY
         );
         let cap_data = missing_cap.error.data.unwrap();
-        assert!(cap_data["requiredCapabilities"]["sampling"].is_object());
+        assert!(cap_data["requiredCapabilities"]["elicitation"].is_object());
     }
 
     /// Tests typed error structures for unsupported protocol version and missing client capability.
@@ -428,9 +426,7 @@ mod tests {
             "Missing capability",
             ClientCapabilities {
                 experimental: None,
-                sampling: None,
                 elicitation: Some(crate::types::mcp::ElicitationCapability {}),
-                roots: None,
                 extensions: None,
             },
         );
@@ -479,16 +475,14 @@ mod tests {
     fn test_missing_required_client_capability_data_helpers() {
         let data = MissingRequiredClientCapabilityData::new(ClientCapabilities {
             experimental: None,
-            sampling: Some(crate::types::mcp::SamplingCapability {}),
-            elicitation: None,
-            roots: None,
+            elicitation: Some(crate::types::mcp::ElicitationCapability {}),
             extensions: None,
         });
 
         let err = data.clone().into_json_rpc_error("Missing capability");
         assert_eq!(err.code.code(), MISSING_REQUIRED_CLIENT_CAPABILITY);
         let val = err.data.unwrap();
-        assert!(val["requiredCapabilities"]["sampling"].is_object());
+        assert!(val["requiredCapabilities"]["elicitation"].is_object());
 
         let typed_err = data.clone().into_typed_json_rpc_error("Missing capability");
         assert_eq!(typed_err.code.code(), MISSING_REQUIRED_CLIENT_CAPABILITY);
@@ -497,7 +491,7 @@ mod tests {
                 .data
                 .unwrap()
                 .required_capabilities
-                .sampling
+                .elicitation
                 .is_some()
         );
 

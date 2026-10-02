@@ -11,7 +11,6 @@ pub mod auth;
 pub mod context;
 pub mod error;
 pub mod json;
-pub mod logging;
 pub mod meta;
 pub mod mrtr;
 pub mod registered;
@@ -23,7 +22,6 @@ pub use auth::{Authorization, BearerAuth};
 pub use context::RequestContext;
 pub use error::ExtractionError;
 pub use json::Json;
-pub use logging::CurrentLoggingLevel;
 pub use meta::Meta;
 pub use mrtr::{InputResponses, RequestState};
 pub use registered::{
@@ -40,7 +38,7 @@ mod tests {
     use http::HeaderMap;
 
     use super::*;
-    use crate::types::mcp::{Implementation, LoggingLevel, ProgressToken, RequestMetaObject};
+    use crate::types::mcp::{Implementation, ProgressToken, RequestMetaObject};
 
     /// Tests extracting various request-scoped extractors from `RequestContext`.
     #[test]
@@ -66,7 +64,6 @@ mod tests {
             client_info: Some(Implementation::new("client-a", "1.0.0")),
             client_capabilities: None,
             protocol_version: Some("2026-07-28".to_string()),
-            log_level: Some(LoggingLevel::Debug),
             subscription_id: None,
             extra: std::collections::HashMap::new(),
         };
@@ -84,7 +81,6 @@ mod tests {
         );
         assert_eq!(extracted_ctx.client_info().unwrap().name, "client-a");
         assert_eq!(extracted_ctx.protocol_version(), Some("2026-07-28"));
-        assert_eq!(extracted_ctx.log_level(), Some(&LoggingLevel::Debug));
         assert!(matches!(
             extracted_ctx.progress_token(),
             Some(ProgressToken::String(s)) if s == "prog-1"

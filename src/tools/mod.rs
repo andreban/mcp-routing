@@ -96,7 +96,6 @@ mod tests {
                 client_capabilities: None,
                 protocol_version: None,
                 progress_token: None,
-                log_level: None,
                 subscription_id: None,
                 extra: std::collections::HashMap::new(),
             }),

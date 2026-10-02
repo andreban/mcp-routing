@@ -39,7 +39,6 @@ impl ServerConfig {
                 resources: None,
                 prompts: None,
                 completions: None,
-                logging: None,
                 experimental: None,
                 extensions: None,
             },

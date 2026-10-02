@@ -4,7 +4,7 @@
 //! # Multi-Round-Trip (MRTR) Protocol Integration Tests
 //!
 //! Verifies stateless Multi-Round-Trip Request (MRTR) semantics across Model Context Protocol (MCP) endpoints:
-//! - Interactive elicitation and sampling requests (`inputRequests`, `requestState`, `inputResponses`)
+//! - Interactive elicitation requests (`inputRequests`, `requestState`, `inputResponses`)
 //! - Extractor-based access to `RequestState` and `InputResponses` in handlers
 //! - Load-shedding patterns via `InputRequiredResult::load_shed`
 //! - Result tagging (`resultType: complete` vs `resultType: input_required`)
@@ -181,18 +181,23 @@ async fn test_tool_call_mrtr_with_extractors() {
             if let Some(state) = state {
                 assert_eq!(state.as_str(), "step_token_abc");
                 let responses = responses.expect("responses should be extracted");
-                let val: Option<serde_json::Value> = responses.get_result("sample_step").unwrap();
-                assert_eq!(val.unwrap()["content"]["text"], "42");
+                let val: Option<serde_json::Value> = responses.get_result("ask_step").unwrap();
+                assert_eq!(val.unwrap()["content"]["answer"], 42);
                 Ok::<_, ToolError>(CallToolResult::text("Final answer computed: 42"))
             } else {
-                let sampling_req = InputRequest::sampling(&json!({
-                    "messages": [{"role": "user", "content": {"type": "text", "text": "Compute 6 * 7"}}]
+                let elicit_req = InputRequest::elicitation(&json!({
+                    "mode": "form",
+                    "message": "What is 6 * 7?",
+                    "requestedSchema": {
+                        "type": "object",
+                        "properties": { "answer": { "type": "integer" } }
+                    }
                 }))
                 .unwrap();
 
                 Ok(InputRequiredResult::new()
                     .with_request_state("step_token_abc")
-                    .with_input_request("sample_step", sampling_req)
+                    .with_input_request("ask_step", elicit_req)
                     .into_tool_result())
             }
         },
@@ -219,8 +224,8 @@ async fn test_tool_call_mrtr_with_extractors() {
     assert_eq!(json1["result"]["resultType"], "input_required");
     assert_eq!(json1["result"]["requestState"], "step_token_abc");
     assert_eq!(
-        json1["result"]["inputRequests"]["sample_step"]["method"],
-        "sampling/createMessage"
+        json1["result"]["inputRequests"]["ask_step"]["method"],
+        "elicitation/create"
     );
 
     // Resume call
@@ -237,11 +242,9 @@ async fn test_tool_call_mrtr_with_extractors() {
                 "arguments": {},
                 "requestState": "step_token_abc",
                 "inputResponses": {
-                    "sample_step": {
-                        "role": "assistant",
-                        "content": { "type": "text", "text": "42" },
-                        "model": "test-model",
-                        "stopReason": "endTurn"
+                    "ask_step": {
+                        "action": "accept",
+                        "content": { "answer": 42 }
                     }
                 }
             }
@@ -462,7 +465,7 @@ async fn test_prompts_get_mrtr() {
     );
 }
 
-/// Tests MRTR flow for reading secure resources with client roots elicitation.
+/// Tests MRTR flow for reading secure resources with an access-reason elicitation.
 #[tokio::test]
 async fn test_resources_read_mrtr() {
     let server_info = sample_server_info();
@@ -473,19 +476,27 @@ async fn test_resources_read_mrtr() {
             if let Some(state) = state {
                 assert_eq!(state.as_str(), "resource_auth_token_99");
                 let responses = responses.expect("responses required");
-                let roots: Option<serde_json::Value> =
-                    responses.get_result("roots_request").unwrap();
-                assert_eq!(roots.unwrap()["roots"][0]["uri"], "custom://workspace");
+                let reason: Option<serde_json::Value> =
+                    responses.get_result("reason_request").unwrap();
+                assert_eq!(reason.unwrap()["content"]["reason"], "audit");
                 Ok::<_, ResourceError>(ReadResourceResult::text(
                     "custom://secure-data",
                     "Confidential content unlocked",
                     None::<String>,
                 ))
             } else {
-                let roots_req = InputRequest::roots();
+                let reason_req = InputRequest::elicitation(&json!({
+                    "mode": "form",
+                    "message": "Why do you need access?",
+                    "requestedSchema": {
+                        "type": "object",
+                        "properties": { "reason": { "type": "string" } }
+                    }
+                }))
+                .unwrap();
                 InputRequiredResult::new()
                     .with_request_state("resource_auth_token_99")
-                    .with_input_request("roots_request", roots_req)
+                    .with_input_request("reason_request", reason_req)
                     .into_resource_result("custom://secure-data", None, None)
             }
         },
@@ -518,8 +529,8 @@ async fn test_resources_read_mrtr() {
     assert_eq!(json1["result"]["resultType"], "input_required");
     assert_eq!(json1["result"]["requestState"], "resource_auth_token_99");
     assert_eq!(
-        json1["result"]["inputRequests"]["roots_request"]["method"],
-        "roots/list"
+        json1["result"]["inputRequests"]["reason_request"]["method"],
+        "elicitation/create"
     );
     assert!(json1["result"].get("contents").is_none());
 
@@ -541,8 +552,9 @@ async fn test_resources_read_mrtr() {
                     "uri": "custom://secure-data",
                     "requestState": "resource_auth_token_99",
                     "inputResponses": {
-                        "roots_request": {
-                            "roots": [{"uri": "custom://workspace", "name": "Main"}]
+                        "reason_request": {
+                            "action": "accept",
+                            "content": { "reason": "audit" }
                         }
                     }
                 }
@@ -560,7 +572,7 @@ async fn test_resources_read_mrtr() {
     );
 }
 
-/// Builds a router with a resource cached for 60 seconds that requires a roots round trip.
+/// Builds a router with a resource cached for 60 seconds that requires an elicitation round trip.
 fn cached_mrtr_router() -> McpRouter {
     McpRouter::new(sample_server_info())
         .register_resource_with_cache(
@@ -574,7 +586,7 @@ fn cached_mrtr_router() -> McpRouter {
                 } else {
                     InputRequiredResult::new()
                         .with_request_state("cached_state")
-                        .with_input_request("roots", InputRequest::roots())
+                        .with_input_request("confirm", InputRequest::new("elicitation/create"))
                         .into_resource_result("custom://cached", None, None)
                 }
             },
@@ -632,7 +644,7 @@ async fn test_retry_result_is_not_cacheable() {
         "custom://cached",
         json!({
             "requestState": "cached_state",
-            "inputResponses": { "roots": { "roots": [] } }
+            "inputResponses": { "confirm": { "action": "accept" } }
         }),
     );
     let (status, headers, body) = execute_request(cached_mrtr_router(), req).await;

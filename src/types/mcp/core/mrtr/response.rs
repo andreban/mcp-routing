@@ -12,8 +12,8 @@ use crate::types::mcp::RequestMetaObject;
 
 /// A client response to a server-initiated [`InputRequest`](crate::types::mcp::core::mrtr::InputRequest).
 ///
-/// In MCP 2026-07-28 (SEP-2322), this is the client's result for the requested input itself:
-/// a `CreateMessageResult`, `ListRootsResult`, or `ElicitResult`. It is not wrapped in any envelope.
+/// In MCP 2026-07-28 (SEP-2322), this is the client's result for the requested input itself
+/// (an `ElicitResult` for an elicitation request). It is not wrapped in any envelope.
 ///
 /// See <https://modelcontextprotocol.io/specification/2026-07-28/schema#inputresponse>
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

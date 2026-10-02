@@ -83,7 +83,7 @@ pub use completion::{
     IntoCompletionResult,
 };
 pub use extract::{
-    Authorization, BearerAuth, CurrentLoggingLevel, Extension, ExtractionError, FromRequestContext,
+    Authorization, BearerAuth, Extension, ExtractionError, FromRequestContext,
     InputResponses, Json, Meta, RegisteredPrompts, RegisteredResourceTemplates,
     RegisteredResources, RegisteredTools, RequestContext, RequestState, State, Subscription,
 };

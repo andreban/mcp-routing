@@ -34,17 +34,24 @@ fn test_result_type_serde() {
 /// Tests InputRequiredResult serialization and helper methods.
 #[test]
 fn test_input_required_result_serde() {
-    let sampling_req = InputRequest::sampling(&json!({
-        "messages": [{"role": "user", "content": {"type": "text", "text": "Hello"}}]
+    let name_req = InputRequest::elicitation(&json!({
+        "mode": "form",
+        "message": "What is your name?",
+        "requestedSchema": {"type": "object", "properties": {"name": {"type": "string"}}}
     }))
     .unwrap();
 
-    let roots_req = InputRequest::roots();
+    let confirm_req = InputRequest::elicitation(&json!({
+        "mode": "form",
+        "message": "Proceed?",
+        "requestedSchema": {"type": "object", "properties": {"ok": {"type": "boolean"}}}
+    }))
+    .unwrap();
 
     let result = InputRequiredResult::new()
         .with_request_state("opaque_state_12345")
-        .with_input_request("sampling_1", sampling_req)
-        .with_input_request("roots_1", roots_req);
+        .with_input_request("name_1", name_req)
+        .with_input_request("confirm_1", confirm_req);
 
     assert!(result.is_valid());
     assert_eq!(result.request_state(), Some("opaque_state_12345"));
@@ -54,10 +61,13 @@ fn test_input_required_result_serde() {
     assert_eq!(json_val["resultType"], "input_required");
     assert_eq!(json_val["requestState"], "opaque_state_12345");
     assert_eq!(
-        json_val["inputRequests"]["sampling_1"]["method"],
-        "sampling/createMessage"
+        json_val["inputRequests"]["name_1"]["method"],
+        "elicitation/create"
     );
-    assert_eq!(json_val["inputRequests"]["roots_1"]["method"], "roots/list");
+    assert_eq!(
+        json_val["inputRequests"]["confirm_1"]["params"]["message"],
+        "Proceed?"
+    );
 
     let deserialized: InputRequiredResult = serde_json::from_value(json_val).unwrap();
     assert_eq!(deserialized.result_type, "input_required");
@@ -66,8 +76,11 @@ fn test_input_required_result_serde() {
         Some("opaque_state_12345")
     );
     assert_eq!(
-        deserialized.get_input_request("roots_1").unwrap().method(),
-        Some("roots/list")
+        deserialized
+            .get_input_request("confirm_1")
+            .unwrap()
+            .method(),
+        Some("elicitation/create")
     );
 }
 
@@ -95,21 +108,18 @@ fn test_input_required_load_shed_serde() {
 /// Tests InputResponseRequestParams serialization and result extraction.
 #[test]
 fn test_input_response_request_params_serde() {
-    let sampling_resp = InputResponse::result(&json!({
-        "model": "gemini-2.5-flash",
-        "content": {"type": "text", "text": "World"}
+    let name_resp = InputResponse::result(&json!({
+        "action": "accept",
+        "content": {"name": "Ada"}
     }))
     .unwrap();
 
-    let roots_resp = InputResponse::result(&json!({
-        "roots": [{"uri": "file:///workspace", "name": "Workspace"}]
-    }))
-    .unwrap();
+    let confirm_resp = InputResponse::result(&json!({ "action": "decline" })).unwrap();
 
     let params = InputResponseRequestParams::new()
         .with_request_state("opaque_state_12345")
-        .with_input_response("sampling_1", sampling_resp)
-        .with_input_response("roots_1", roots_resp);
+        .with_input_response("name_1", name_resp)
+        .with_input_response("confirm_1", confirm_resp);
 
     assert_eq!(params.request_state(), Some("opaque_state_12345"));
     assert_eq!(params.input_responses.len(), 2);
@@ -117,8 +127,8 @@ fn test_input_response_request_params_serde() {
     let json_val = serde_json::to_value(&params).unwrap();
     assert_eq!(json_val["requestState"], "opaque_state_12345");
     assert_eq!(
-        json_val["inputResponses"]["sampling_1"]["model"],
-        "gemini-2.5-flash"
+        json_val["inputResponses"]["name_1"]["content"]["name"],
+        "Ada"
     );
 
     let deserialized: InputResponseRequestParams = serde_json::from_value(json_val).unwrap();
@@ -127,9 +137,9 @@ fn test_input_response_request_params_serde() {
         Some("opaque_state_12345")
     );
 
-    let resp = deserialized.get_response("sampling_1").unwrap();
+    let resp = deserialized.get_response("confirm_1").unwrap();
     let res_json: Value = resp.get_result().unwrap();
-    assert_eq!(res_json["model"], "gemini-2.5-flash");
+    assert_eq!(res_json["action"], "decline");
 }
 
 /// Tests InputRequiredResult into_extras conversion.
@@ -141,7 +151,10 @@ fn test_input_required_into_extras() {
     let result = InputRequiredResult {
         meta: None,
         result_type: "input_required".to_string(),
-        input_requests: HashMap::from([("roots_1".to_string(), InputRequest::roots())]),
+        input_requests: HashMap::from([(
+            "confirm_1".to_string(),
+            InputRequest::new("elicitation/create"),
+        )]),
         request_state: Some("opaque_state_12345".to_string()),
         extras: custom_extras,
     };

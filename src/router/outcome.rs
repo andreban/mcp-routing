@@ -8,7 +8,11 @@ use http::StatusCode;
 
 use crate::body::ResponseBody;
 use crate::types::jsonrpc::{JsonRpcErrorResponse, JsonRpcRequestId};
-use crate::types::mcp::{CacheScope, mcp_error_code_to_http_status};
+use crate::types::mcp::{
+    CacheScope, ClientCapabilities, mcp_error_code_to_http_status,
+    missing_required_client_capability_error,
+};
+use crate::utils::missing_input_capabilities;
 
 /// Represents the internal outcome of dispatching a JSON-RPC method.
 #[derive(Debug)]
@@ -73,6 +77,29 @@ impl DispatchOutcome {
             has_cache_headers: false,
             no_store: false,
             status_code: StatusCode::OK,
+        }
+    }
+
+    /// Replaces an `input_required` result whose input requests need client capabilities the
+    /// client did not declare with a `MissingRequiredClientCapability` (`-32021`) error.
+    pub(crate) fn require_client_capabilities(
+        &mut self,
+        req_id: Option<JsonRpcRequestId>,
+        client_capabilities: Option<&ClientCapabilities>,
+    ) {
+        let Some(result) = self.response.as_ref().and_then(|r| r.get("result")) else {
+            return;
+        };
+        if result.get("resultType").and_then(|v| v.as_str()) != Some("input_required") {
+            return;
+        }
+        if let Some(required) = missing_input_capabilities(result, client_capabilities) {
+            tracing::debug!("Input request needs a client capability the client did not declare");
+            *self = Self::error(missing_required_client_capability_error(
+                req_id,
+                "Missing required client capability for the requested input",
+                required,
+            ));
         }
     }
 

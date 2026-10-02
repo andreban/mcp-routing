@@ -6,6 +6,7 @@
 //! Internal helper functions for HTTP header extraction, MIME type negotiation,
 //! URI template matching, and method / parameter resolution.
 
+pub(crate) mod capabilities;
 pub(crate) mod headers;
 pub(crate) mod meta;
 pub(crate) mod params;
@@ -14,6 +15,7 @@ pub(crate) mod sentinel;
 pub mod sse;
 pub(crate) mod uri_template;
 
+pub(crate) use capabilities::missing_input_capabilities;
 pub(crate) use headers::{
     extract_body_protocol_version, extract_header_method, extract_header_name,
     extract_protocol_version, is_json_content_type, is_origin_header_allowed,

@@ -26,10 +26,30 @@ pub struct ClientCapabilities {
 
 /// Capability configuration for server-driven elicitation.
 ///
+/// An empty object (neither `form` nor `url` present) is equivalent to declaring `form` mode only.
+///
 /// See <https://modelcontextprotocol.io/specification/2026-07-28/schema#clientcapabilities>
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ElicitationCapability {}
+pub struct ElicitationCapability {
+    /// Present if the client supports form mode elicitation.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub form: Option<serde_json::Map<String, Value>>,
+    /// Present if the client supports URL mode elicitation.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub url: Option<serde_json::Map<String, Value>>,
+}
+
+impl ElicitationCapability {
+    /// Returns `true` if the client supports the given elicitation `mode` (`"form"` or `"url"`).
+    pub fn supports_mode(&self, mode: &str) -> bool {
+        match mode {
+            "form" => self.form.is_some() || self.url.is_none(),
+            "url" => self.url.is_some(),
+            _ => false,
+        }
+    }
+}
 
 /// Capabilities a server may support. Known capabilities are defined here, in this schema,
 /// but this is not a closed set: any server can define its own, additional capabilities.

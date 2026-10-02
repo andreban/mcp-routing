@@ -5,7 +5,9 @@ use std::sync::Arc;
 
 use crate::router::{DispatchOutcome, McpRouterInner, MethodContext};
 use crate::types::jsonrpc::{JsonRpcErrorResponse, JsonRpcRequestId};
-use crate::types::mcp::{header_mismatch_error, unsupported_protocol_version_error};
+use crate::types::mcp::{
+    ClientCapabilities, header_mismatch_error, unsupported_protocol_version_error,
+};
 use crate::utils::{
     extract_body_protocol_version, extract_header_method, extract_header_name,
     extract_protocol_version, resolve_method, validate_required_request_meta,
@@ -137,6 +139,13 @@ impl McpRouterInner {
             return outcome;
         }
 
+        let client_capabilities: Option<ClientCapabilities> = params_val
+            .as_ref()
+            .and_then(|p| p.get("_meta"))
+            .and_then(|m| m.get("io.modelcontextprotocol/clientCapabilities"))
+            .and_then(|c| serde_json::from_value(c.clone()).ok());
+        let response_id = req_id.clone();
+
         let header_name = extract_header_name(headers);
 
         let mut extensions = extensions;
@@ -240,6 +249,7 @@ impl McpRouterInner {
                 ))
             }
         };
+        outcome.require_client_capabilities(response_id, client_capabilities.as_ref());
         outcome.apply_cache_policy(is_retry);
         outcome
     }
